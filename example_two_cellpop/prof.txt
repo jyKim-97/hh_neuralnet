@@ -1,0 +1,521 @@
+--------------------------------------------------------------------------------
+Profile data file 'callgrind.out.6180' (creator: callgrind-3.19.0.GIT-lbmacos)
+--------------------------------------------------------------------------------
+I1 cache: 
+D1 cache: 
+LL cache: 
+Timerange: Basic block 0 - 1753273386
+Trigger: Program termination
+Profiled target:  ./main.out (PID 6180, part 1)
+Events recorded:  Ir
+Events shown:     Ir
+Event sort order: Ir
+Thresholds:       99
+Include dirs:     
+User annotated:   
+Auto-annotation:  on
+
+--------------------------------------------------------------------------------
+Ir                      
+--------------------------------------------------------------------------------
+15,110,060,806 (100.0%)  PROGRAM TOTALS
+
+--------------------------------------------------------------------------------
+Ir                      file:function
+--------------------------------------------------------------------------------
+4,920,000,123 (32.56%)  ???:0x00007fff2a50ea50 [???]
+4,639,993,384 (30.71%)  ???:0x00007fff2a51e290 [???]
+1,269,779,655 ( 8.40%)  /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c:add_spike_deSyn [./main.out]
+1,043,150,000 ( 6.90%)  main.c:update_pop [./main.out]
+1,040,000,000 ( 6.88%)  /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c:solve_wb_v [./main.out]
+  620,000,000 ( 4.10%)  /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c:solve_wb_n [./main.out]
+  580,000,000 ( 3.84%)  /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c:solve_wb_h [./main.out]
+  440,000,000 ( 2.91%)  /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c:get_current_deSyn [./main.out]
+  260,000,000 ( 1.72%)  /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c:update_deSyn [./main.out]
+  160,106,293 ( 1.06%)  ???:save [./main.out]
+
+--------------------------------------------------------------------------------
+-- Auto-annotated source: main.c
+--------------------------------------------------------------------------------
+Ir                   
+
+-- line 34 ----------------------------------------
+          .           
+          .           // dsave
+          .           void save_network(void);
+          .           float *cast2float(int N, double *arr);
+          .           
+          .           // for testing
+          .           void test_synfire(void);
+          .           
+          2 ( 0.00%)  int main(){
+          2 ( 0.00%)      init_genrand64(1000);
+      2,964 ( 0.00%)  => /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/mt64.c:init_genrand64 (1x)
+          1 ( 0.00%)      run(500);
+15,107,325,121 (99.98%)  => main.c:run (1x)
+          3 ( 0.00%)      return 0;
+          .           }
+          .           
+          .           
+         10 ( 0.00%)  void run(double tmax){
+          .               init_pop();
+          .           
+          .               #ifdef _test
+          .               test_synfire(); // test
+          4 ( 0.00%)      FILE *fv = fopen("./v_out_synfire.dat", "wb");
+        344 ( 0.00%)  => ???:save (1x)
+          .               #else
+          .               FILE *fv = fopen("./v_out.dat", "wb");
+          .               #endif
+          .               // t_delay 넣어주기
+          .           
+          4 ( 0.00%)      double *iapp = (double*) calloc(N, sizeof(double));
+        397 ( 0.00%)  => ???:save (1x)
+          2 ( 0.00%)      iapp[0] = 1;
+          .               // for (int n=0; n<N; n++) iapp[n] = 0.5;
+          .               
+          2 ( 0.00%)      int nmax = tmax/_dt;
+          .               progbar_t bar;
+          2 ( 0.00%)      init_progressbar(&bar, nmax);
+     59,666 ( 0.00%)  => /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/utils.c:init_progressbar (1x)
+          .           
+    150,002 ( 0.00%)      for (int n=0; n<nmax; n++){
+    150,000 ( 0.00%)          update_pop(n, iapp);
+15,099,368,139 (99.93%)  => main.c:update_pop (50,000x)
+          .                   // save parameters
+          .                   // fwrite(neuron.v, sizeof(double), N, fv);
+    300,000 ( 0.00%)          save(N, n, neuron.v, fv);
+  1,378,649 ( 0.01%)  => /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/storage.c:save (50,000x)
+          .           
+    150,000 ( 0.00%)          progressbar(&bar, n);
+  2,440,755 ( 0.02%)  => /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/utils.c:progressbar (50,000x)
+          .               }
+          4 ( 0.00%)      fprintf(stderr, "\n");
+        416 ( 0.00%)  => ???:save (1x)
+          .               
+          2 ( 0.00%)      fclose(fv);
+        818 ( 0.00%)  => ???:save (1x)
+          2 ( 0.00%)      free(iapp);
+        503 ( 0.00%)  => ???:save (1x)
+          .               destroy_pop();
+          8 ( 0.00%)  }
+          .           
+          .           
+          .           buildInfo init_info(void){
+          3 ( 0.00%)      buildInfo info = {0,};
+     43,593 ( 0.00%)  => ???:save (1x)
+          2 ( 0.00%)      info.N = N;
+          2 ( 0.00%)      info.buf_size = n_lag;
+          1 ( 0.00%)      info.ode_method = RK4;
+          .           
+          6 ( 0.00%)      info.num_types[0] = info.N * 0.8;
+          5 ( 0.00%)      info.num_types[1] = info.N * 0.2;
+          .           
+          .               for (int i=0; i<2; i++){
+          .                   for (int j=0; j<2; j++){
+          2 ( 0.00%)              info.mean_outdeg[i][j] = 10;
+          4 ( 0.00%)              info.w[i][j] = w;
+          .                   }
+          .               }
+          .           
+          .               return info;
+          .           }
+          .           
+          .           void init_pop(void){
+          .               buildInfo info = init_info();
+          2 ( 0.00%)      build_eipop(&info);
+    866,416 ( 0.01%)  => /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/build.c:build_eipop (1x)
+          .           
+          .               #ifdef _print_params
+          .               save_network();
+          .               #endif    
+          .           }
+          .           
+          .           
+          .           void save_network(void){
+          4 ( 0.00%)      print_network(fname_param("net_syn_e.txt"), &(syn[0].ntk));
+  1,804,471 ( 0.01%)  => /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/build.c:print_network (1x)
+          3 ( 0.00%)      print_network(fname_param("net_syn_i.txt"), &(syn[1].ntk));
+    529,544 ( 0.00%)  => /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/build.c:print_network (1x)
+          .           }
+          .           
+          .           
+          .           void destroy_pop(void){
+          2 ( 0.00%)      destroy_wbNeuron(&neuron);
+     76,192 ( 0.00%)  => /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c:destroy_wbNeuron (1x)
+          2 ( 0.00%)      destroy_deSyn(syn);
+      1,469 ( 0.00%)  => /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c:destroy_deSyn (1x)
+          3 ( 0.00%)      destroy_deSyn(syn+1);
+      1,246 ( 0.00%)  => /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c:destroy_deSyn (1x)
+          .               // destroy_deSyn(&syn_i);
+          .               // destroy_deSyn(&syn_e);
+          .           }
+          .           
+          .           
+    500,000 ( 0.00%)  void update_pop(int nstep, double *iapp){
+          .               // save vpop
+          .               double *v_prev = get_vcopy();
+          .           
+          .               // add spike to syn_t    
+    300,000 ( 0.00%)      add_spike_deSyn(&(syn[0]), nstep, &(neuron.buf));
+994,132,595 ( 6.58%)  => /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c:add_spike_deSyn (50,000x)
+    300,000 ( 0.00%)      add_spike_deSyn(&(syn[1]), nstep, &(neuron.buf));
+275,647,060 ( 1.82%)  => /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c:add_spike_deSyn (50,000x)
+          .           
+          .               // update 
+     50,000 ( 0.00%)      double *ptr_v = neuron.v;
+     50,000 ( 0.00%)      double *ptr_h = neuron.h_ion;
+     50,000 ( 0.00%)      double *ptr_n = neuron.n_ion;
+          .           
+ 20,100,000 ( 0.13%)      for (int n=0; n<N; n++){
+          .                   // RK4 method
+          .                   // 1st step
+          .                   // double isyn = get_current_deSyn(syn, n, *ptr_v);
+ 10,000,000 ( 0.07%)          double isyn = get_syn_current(n, *ptr_v);
+ 50,000,000 ( 0.33%)          double dv1 = solve_wb_v(*ptr_v, iapp[n]-isyn, *ptr_h, *ptr_n);
+1,850,024,490 (12.24%)  => /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c:solve_wb_v (5,000,000x)
+ 15,000,000 ( 0.10%)          double dh1 = solve_wb_h(*ptr_h, *ptr_v);
+565,000,000 ( 3.74%)  => /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c:solve_wb_h (5,000,000x)
+ 15,000,000 ( 0.10%)          double dn1 = solve_wb_n(*ptr_n, *ptr_v);
+575,000,000 ( 3.81%)  => /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c:solve_wb_n (5,000,000x)
+          .                   
+          .                   // 2nd step
+ 15,000,000 ( 0.10%)          update_deSyn(syn, n);
+ 65,000,000 ( 0.43%)  => /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c:update_deSyn (5,000,000x)
+ 15,000,000 ( 0.10%)          update_deSyn(syn+1, n);
+ 65,000,000 ( 0.43%)  => /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c:update_deSyn (5,000,000x)
+ 10,000,000 ( 0.07%)          isyn = get_syn_current(n, *ptr_v);
+          .           
+100,000,000 ( 0.66%)          double dv2 = solve_wb_v(*ptr_v+dv1*0.5, iapp[n]-isyn, *ptr_h+dh1*0.5, *ptr_n+dn1*0.5);
+1,850,000,000 (12.24%)  => /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c:solve_wb_v (5,000,000x)
+ 20,000,000 ( 0.13%)          double dh2 = solve_wb_h(*ptr_h+dh1*0.5, *ptr_v+dv1*0.5);
+565,000,000 ( 3.74%)  => /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c:solve_wb_h (5,000,000x)
+ 20,000,000 ( 0.13%)          double dn2 = solve_wb_n(*ptr_n+dn1*0.5, *ptr_v+dv1*0.5);
+575,000,000 ( 3.81%)  => /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c:solve_wb_n (5,000,000x)
+          .           
+          .                   // 3rd step
+ 10,000,000 ( 0.07%)          isyn = get_syn_current(n, *ptr_v);
+ 90,000,000 ( 0.60%)          double dv3 = solve_wb_v(*ptr_v+dv2*0.5, iapp[n]-isyn, *ptr_h+dh2*0.5, *ptr_n+dn2*0.5);
+1,850,000,000 (12.24%)  => /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c:solve_wb_v (5,000,000x)
+ 20,000,000 ( 0.13%)          double dh3 = solve_wb_h(*ptr_h+dh2*0.5, *ptr_v+dv2*0.5);
+565,000,000 ( 3.74%)  => /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c:solve_wb_h (5,000,000x)
+ 20,000,000 ( 0.13%)          double dn3 = solve_wb_n(*ptr_n+dn2*0.5, *ptr_v+dv2*0.5);
+575,000,000 ( 3.81%)  => /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c:solve_wb_n (5,000,000x)
+          .           
+          .                   // 4th step
+ 15,000,000 ( 0.10%)          update_deSyn(syn, n);
+ 65,000,000 ( 0.43%)  => /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c:update_deSyn (5,000,000x)
+ 15,000,000 ( 0.10%)          update_deSyn(syn+1, n);
+ 65,000,000 ( 0.43%)  => /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c:update_deSyn (5,000,000x)
+ 10,000,000 ( 0.07%)          isyn = get_syn_current(n, *ptr_v);
+ 55,000,000 ( 0.36%)          double dv4 = solve_wb_v(*ptr_v+dv3, iapp[n]-isyn, *ptr_h+dh3, *ptr_n+dn3);
+1,850,000,000 (12.24%)  => /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c:solve_wb_v (5,000,000x)
+ 20,000,000 ( 0.13%)          double dh4 = solve_wb_h(*ptr_h+dh3, *ptr_v+dv3);
+565,000,000 ( 3.74%)  => /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c:solve_wb_h (5,000,000x)
+ 20,000,000 ( 0.13%)          double dn4 = solve_wb_n(*ptr_n+dn3, *ptr_v+dv3);
+575,000,000 ( 3.81%)  => /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c:solve_wb_n (5,000,000x)
+          .                   
+          .           
+ 55,000,000 ( 0.36%)          *ptr_v += (dv1 + 2*dv2 + 2*dv3 + dv4)/6.;
+ 50,000,000 ( 0.33%)          *ptr_h += (dh1 + 2*dh2 + 2*dh3 + dh4)/6.;
+ 50,000,000 ( 0.33%)          *ptr_n += (dn1 + 2*dn2 + 2*dn3 + dn4)/6.;
+          .           
+          .                   ptr_v++; ptr_h++; ptr_n++;
+          .               }
+          .                
+    400,000 ( 0.00%)      update_spkBuf(nstep, &(neuron.buf), v_prev, neuron.v);
+ 65,259,176 ( 0.43%)  => /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c:update_spkBuf (50,000x)
+    450,000 ( 0.00%)      free(v_prev);
+          .           }
+          .           
+          .           
+          .           double get_syn_current(int nid, double v){
+ 55,000,000 ( 0.36%)      double isyn = get_current_deSyn(syn, nid, v);
+220,000,000 ( 1.46%)  => /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c:get_current_deSyn (20,000,000x)
+ 90,000,000 ( 0.60%)      isyn += get_current_deSyn(syn+1, nid, v);
+220,000,000 ( 1.46%)  => /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c:get_current_deSyn (20,000,000x)
+          .               return isyn;
+          .           }
+          .           
+          .           
+          .           double *get_vcopy(void){
+    250,000 ( 0.00%)      double *v_prev = (double*) malloc(sizeof(double) * N);
+ 22,982,110 ( 0.15%)  => ???:save (50,000x)
+    250,000 ( 0.00%)      memcpy(v_prev, neuron.v, sizeof(double) * N);
+  6,285,977 ( 0.04%)  => ???:save (50,000x)
+          .               return v_prev;
+          .           }
+          .           
+          .           
+          .           float *cast2float(int N, double *arr){
+          .               float *float_arr = (float*) malloc(sizeof(float) * N);
+          .               for (int n=0; n<N; n++){
+          .                   float_arr[n] = (float) arr[n];
+          .               }
+          .               return float_arr;
+          .           }
+          .           
+          .           
+          .           void test_synfire(void){
+        403 ( 0.00%)      for (int npre=0; npre<N; npre++){
+        100 ( 0.00%)          int npost_e = npre < N? npre+1: 0;
+        300 ( 0.00%)          int npost_i = npre > 0? npre-1: N-1;
+          .           
+        200 ( 0.00%)          syn[0].ntk.adj_list[npre][0] = npost_e;
+        200 ( 0.00%)          syn[1].ntk.adj_list[npre][0] = npost_i;
+          .           
+          .                   for (int i=0; i<2; i++){
+        204 ( 0.00%)              syn[i].ntk.num_edges[i] = 1;
+        602 ( 0.00%)              syn[i].ntk.weight_list[npre][0] = w;
+        405 ( 0.00%)              syn[i].ntk.n_delay[npre][0] = 1/_dt;
+          .                   }
+          .               }
+          .           }
+175,450,007 ( 1.16%)  <counts for unidentified lines in main.c>
+
+--------------------------------------------------------------------------------
+-- Auto-annotated source: /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c
+--------------------------------------------------------------------------------
+Ir                   
+
+-- line 17 ----------------------------------------
+          .               - solve_<name>_v(double v, double I, double ...)
+          .           */
+          .           
+          .           
+          .           /* 
+          .               Definition about Wang-Buzsaki Neuron model
+          .           */
+          .           
+         11 ( 0.00%)  void init_wbNeuron(int N, int buf_size, neuron_t *neuron){
+          .           
+          1 ( 0.00%)      neuron->N = N;
+          7 ( 0.00%)      neuron->v = (double*) malloc(sizeof(double) * N);
+     32,726 ( 0.00%)  => ???:save (1x)
+          5 ( 0.00%)      neuron->h_ion = (double*) malloc(sizeof(double) * N);
+        296 ( 0.00%)  => ???:save (1x)
+          4 ( 0.00%)      neuron->n_ion = (double*) malloc(sizeof(double) * N);
+        297 ( 0.00%)  => ???:save (1x)
+          .           
+         60 ( 0.00%)      for (int n=0; n<N; n++){
+         51 ( 0.00%)          neuron->v[n] = -70; // initializing with constant value
+         51 ( 0.00%)          neuron->h_ion[n] = 0;
+         50 ( 0.00%)          neuron->n_ion[n] = 0;
+          .               }
+          .           
+          .               init_spkBuf(N, buf_size, &(neuron->buf));
+          8 ( 0.00%)  }
+          .           
+          .           
+          5 ( 0.00%)  void destroy_wbNeuron(neuron_t *neuron){
+          2 ( 0.00%)      free(neuron->v);
+        518 ( 0.00%)  => ???:save (1x)
+          2 ( 0.00%)      free(neuron->h_ion);
+        693 ( 0.00%)  => ???:save (1x)
+          2 ( 0.00%)      free(neuron->n_ion);
+        731 ( 0.00%)  => ???:save (1x)
+          .               destroy_spkBuf(&(neuron->buf));
+          .           }
+          .           
+          .           
+160,000,000 ( 1.06%)  double solve_wb_v(double v, double I, double h_ion, double n_ion){
+          .           
+          .               // get ion current
+          .               double m_ion = get_minf(v);
+ 60,000,000 ( 0.40%)      double ina = wb_gna * pow(m_ion, 3) * h_ion * (v - wb_ena);
+2,340,030,990 (15.49%)  => ???:save (20,000,000x)
+100,000,000 ( 0.66%)      double ik  = wb_gk * pow(n_ion, 4) * (v - wb_ek);
+2,339,993,500 (15.49%)  => ???:save (20,000,000x)
+          .               double il  = wb_gl * (v - wb_el);
+          .           
+160,000,000 ( 1.06%)      double dv = (-ina - ik - il + I) / wb_cm;
+100,000,000 ( 0.66%)      return _dt * dv;
+          .           }
+          .           
+          .           
+          .           static inline double get_minf(double v){
+160,000,000 ( 1.06%)      double am = -0.1 * (v+35) / (exp(-0.1 * (v + 35)) - 1);
+840,000,000 ( 5.56%)  => ???:save (20,000,000x)
+ 80,000,000 ( 0.53%)      double bm = 4 * exp(-(v + 60)/18);
+840,000,000 ( 5.56%)  => ???:save (20,000,000x)
+ 40,000,000 ( 0.26%)      return am / (am + bm);
+          .           }
+          .           
+          .           
+120,000,000 ( 0.79%)  double solve_wb_h(double h_ion, double v){
+ 80,000,000 ( 0.53%)      double ah = 0.07 * exp(-(v + 58)/20);
+840,000,000 ( 5.56%)  => ???:save (20,000,000x)
+120,000,000 ( 0.79%)      double bh = 1 / (exp(-0.1 * (v + 28)) + 1);
+840,000,000 ( 5.56%)  => ???:save (20,000,000x)
+180,000,000 ( 1.19%)      return _dt * wb_phi * (ah * (1-h_ion) - bh * h_ion);
+          .           }
+          .           
+          .           
+120,000,000 ( 0.79%)  double solve_wb_n(double n_ion, double v){
+160,000,000 ( 1.06%)      double an = -0.01 * (v + 34) / (exp(-0.1 * (v + 34)) - 1);
+840,000,000 ( 5.56%)  => ???:save (20,000,000x)
+100,000,000 ( 0.66%)      double bn = 0.125 * exp(-(v + 44)/80);
+840,000,000 ( 5.56%)  => ???:save (20,000,000x)
+160,000,000 ( 1.06%)      return _dt * wb_phi * (an * (1-n_ion) - bn * n_ion);
+          .           }
+          .           
+          .           /*
+          .               Definition about Spike buffer 
+          .           */
+          .           
+          .           void init_spkBuf(int N, double nd_max, spkbuf_t *buf){
+          2 ( 0.00%)      buf->N = N;
+          3 ( 0.00%)      buf->buf_size = nd_max; // TODO: nd_max = 0 일때는? (no-delay)
+          2 ( 0.00%)      buf->spk_buf = (int**) malloc(sizeof(int*) * N);
+        296 ( 0.00%)  => ???:save (1x)
+        301 ( 0.00%)      for (int n=0; n<N; n++){
+        500 ( 0.00%)          buf->spk_buf[n] = (int*) calloc(nd_max, sizeof(int));
+     66,970 ( 0.00%)  => ???:save (100x)
+          .               }
+          .           }
+          .           
+          .           
+          .           void destroy_spkBuf(spkbuf_t *buf){
+        402 ( 0.00%)      for (int n=0; n<buf->N; n++){
+        300 ( 0.00%)          free(buf->spk_buf[n]);
+     72,770 ( 0.00%)  => ???:save (100x)
+          .               }
+          5 ( 0.00%)      free(buf->spk_buf);
+          .           }
+          .           
+          .           
+          .           #define THRESHOLD 0
+          .           #define FIRE(vold, vnew) ((vold-THRESHOLD < 0) && (vnew-THRESHOLD > 0))
+          .           
+    100,000 ( 0.00%)  void update_spkBuf(int nstep, spkbuf_t *buf, double *v_old, double *v_new){
+    150,000 ( 0.00%)      int n_buf = nstep % buf->buf_size;
+ 20,100,000 ( 0.13%)      for (int n=0; n<buf->N; n++){
+ 29,513,069 ( 0.20%)          if FIRE(v_old[n], v_new[n]){
+          .                       // printf("spike updated, n_buf=%d\n", n_buf);
+          .                       buf->spk_buf[n][n_buf] = 1;
+          .                   } else {
+          .                       buf->spk_buf[n][n_buf] = 0;
+          .                   }
+          .               }
+    100,000 ( 0.00%)  }
+          .           
+          .           
+         16 ( 0.00%)  void init_deSyn(int N, double ev, double dt, syn_t *syn){
+          .           
+          2 ( 0.00%)      syn->N = N;
+         10 ( 0.00%)      syn->expr = (double*) calloc(N, sizeof(double));
+        789 ( 0.00%)  => ???:save (2x)
+         10 ( 0.00%)      syn->expd = (double*) calloc(N, sizeof(double));
+        791 ( 0.00%)  => ???:save (2x)
+          .           
+          8 ( 0.00%)      syn->mul_expr = exp(-dt / taur);
+     29,830 ( 0.00%)  => ???:save (2x)
+          8 ( 0.00%)      syn->mul_expd = exp(-dt / taud);
+         84 ( 0.00%)  => ???:save (2x)
+          4 ( 0.00%)      syn->ev = ev;
+          .           
+          .               double tp = taur * taud / (taud - taur) * log(taud/taur);
+          2 ( 0.00%)      syn->A = 1 / (exp(-tp/taur) - exp(-tp/taud));
+          .           
+          .               // printf("tp=%.2f, A=%10.3f\n", tp, syn->A);
+          .           
+         16 ( 0.00%)      init_netSyn(N, &(syn->ntk));
+    226,613 ( 0.00%)  => /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c:init_netSyn (2x)
+          .           }
+          .           
+          .           
+         10 ( 0.00%)  void destroy_deSyn(syn_t *syn){
+          4 ( 0.00%)      free(syn->expr);
+      1,260 ( 0.00%)  => ???:save (2x)
+         10 ( 0.00%)      free(syn->expd);
+          .           }
+          .           
+          .           
+    500,000 ( 0.00%)  void add_spike_deSyn(syn_t *syn, int nstep, spkbuf_t *buf){
+    100,000 ( 0.00%)      int N = syn->N;
+          .           
+ 30,200,000 ( 0.20%)      for (int npre=0; npre<N; npre++){
+ 10,000,000 ( 0.07%)          int num_post = syn->ntk.num_edges[npre];
+          .           
+316,700,000 ( 2.10%)          for (int id=0; id<num_post; id++){
+          .                       int nd = syn->ntk.n_delay[npre][id];
+296,700,000 ( 1.96%)              if (nstep - nd < 0) continue;
+197,779,800 ( 1.31%)              int n_buf = (nstep - nd) % buf->buf_size;
+          .           
+395,559,600 ( 2.62%)              if (buf->spk_buf[npre][n_buf] == 1){
+          .                           // fprintf(stderr, "num_post = %4d\n", num_post);
+          .                           // fprintf(stderr, "npre=%3d, num_post=%4d, id=%d\n", npre, num_post, id);
+          .           
+          .                           // printf("add exp, npre=%d, nstep=%d, n_buf=%d, buf_size=%d\n", npre, nstep, n_buf, buf->buf_size);
+    228,051 ( 0.00%)                  int npost = syn->ntk.adj_list[npre][id];
+    228,051 ( 0.00%)                  double w  = syn->ntk.weight_list[npre][id];
+          .                           double A = syn->A;
+          .           
+          .                           // fprintf(stderr, "allocating to %4d...", npost);
+    304,068 ( 0.00%)                  syn->expr[npost] += w * A;
+    304,068 ( 0.00%)                  syn->expd[npost] += w * A;
+          .                           // fprintf(stderr, "done\n");
+          .                       }
+          .                   }
+          .               }
+    500,000 ( 0.00%)  }
+          .           
+          .           
+ 40,000,000 ( 0.26%)  void update_deSyn(syn_t *syn, int id){
+100,000,000 ( 0.66%)      syn->expr[id] *= syn->mul_expr;
+ 80,000,000 ( 0.53%)      syn->expd[id] *= syn->mul_expd;
+ 40,000,000 ( 0.26%)  }
+          .           
+          .           
+ 80,000,000 ( 0.53%)  double get_current_deSyn(syn_t *syn, int id, double vpost){
+120,000,000 ( 0.79%)      double expr = syn->expr[id];
+ 40,000,000 ( 0.26%)      double expd = syn->expd[id];
+200,000,000 ( 1.32%)      return (expr - expd) * (vpost - syn->ev);
+          .               // return 
+          .           }
+          .           
+          .           // todo: synapse에 normalization constant 넣어주기
+         18 ( 0.00%)  void init_netSyn(int N, netsyn_t *ntk){
+          4 ( 0.00%)      ntk->N = N;
+         10 ( 0.00%)      ntk->num_edges = (int*) calloc(N, sizeof(int));
+        726 ( 0.00%)  => ???:save (2x)
+          8 ( 0.00%)      ntk->adj_list = (int**) malloc(N * sizeof(int*));
+        592 ( 0.00%)  => ???:save (2x)
+          8 ( 0.00%)      ntk->n_delay = (int**) malloc(N * sizeof(int*));
+        594 ( 0.00%)  => ???:save (2x)
+          6 ( 0.00%)      ntk->weight_list = (double**) malloc(N * sizeof(double*));
+        592 ( 0.00%)  => ???:save (2x)
+          .           
+        646 ( 0.00%)      for (int n=0; n<N; n++){
+        600 ( 0.00%)          ntk->adj_list[n] = (int*) malloc(N * sizeof(int));
+     59,200 ( 0.00%)  => ???:save (200x)
+      1,000 ( 0.00%)          ntk->n_delay[n] = (int*) malloc(N * sizeof(int));
+     59,487 ( 0.00%)  => ???:save (200x)
+      2,200 ( 0.00%)          ntk->weight_list[n] = (double*) malloc(N * sizeof(double));
+     59,298 ( 0.00%)  => ???:save (200x)
+          .           
+          .                   // give NULL
+      9,400 ( 0.00%)          for (int i=0; i<N; i++){
+     10,000 ( 0.00%)              ntk->adj_list[n][i] = -1;
+     10,000 ( 0.00%)              ntk->n_delay[n][i] = -100;
+     10,000 ( 0.00%)              ntk->weight_list[n][i] = -100;
+          .                   }
+          .               }
+         16 ( 0.00%)  }
+          .           
+          .           
+          .           void destroy_netSyn(netsyn_t *ntk){
+          .               int N = ntk->N;
+          .               for (int npre=0; npre<N; npre++){
+          .                   free(ntk->adj_list[npre]);
+          .                   free(ntk->n_delay[npre]);
+          .                   free(ntk->weight_list[npre]);
+-- line 217 ----------------------------------------
+
+375,974,342 ( 2.49%)  <counts for unidentified lines in /Users/jungyoung/Desktop/codes/Project/HHnetwork/include/model.c>
+
+--------------------------------------------------------------------------------
+Ir                     
+--------------------------------------------------------------------------------
+4,767,565,002 (31.55%)  events annotated
+
