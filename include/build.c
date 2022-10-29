@@ -4,6 +4,10 @@
 // extern neuron_t neuron;
 // extern syn_t syn[MAX_TYPE];
 
+neuron_t neuron;
+syn_t syn[MAX_TYPE];
+
+
 void build_wb_ipop(int N, neuron_t *neuron, syn_t *syn_i, double w, double t_lag, enum odeType type){
 
     double del_t = 0;
