@@ -1,11 +1,14 @@
 #include "storage.h"
 
 #define save_as_float
-#define _fs_storage 2000
-// #define CASTTING()
+// #define _fs_storage 2000
 
+const double _fs_storage = 2000;
+int _nstep_save = 1000/_fs_storage/_dt;
+
+#include <stdio.h>
 void save(int N, int nstep, double* arr, FILE *fp){
-    if ((int) (nstep*_dt) % _fs_storage != 0) return;
+    if (nstep % _nstep_save != 0) return;
 
     #ifdef save_as_float
     float *arr_f = (float*) malloc(sizeof(float) * N);
@@ -16,4 +19,3 @@ void save(int N, int nstep, double* arr, FILE *fp){
     fwrite(arr, sizeof(double), N, fp);
     #endif    
 }
-
