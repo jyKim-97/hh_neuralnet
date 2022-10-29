@@ -8,8 +8,8 @@
 
 #define MAX_TYPE 4
 
-neuron_t neuron;
-syn_t syn[MAX_TYPE];
+extern neuron_t neuron;
+extern syn_t syn[MAX_TYPE];
 
 
 enum odeType {
