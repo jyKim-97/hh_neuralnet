@@ -69,7 +69,7 @@ void run(double tmax){
         update_pop(n, iapp);
         // save parameters
         // fwrite(neuron.v, sizeof(double), N, fv);
-        // save(N, n, neuron.v, fv);
+        save(N, n, neuron.v, fv);
 
         progressbar(&bar, n);
     }
