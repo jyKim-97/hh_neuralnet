@@ -97,4 +97,35 @@ void print_variable(double *x, int n_print_node)
 }
 
 
-// utility functions for HH net
+/* vector function */
+double *copy_array(int N, double *arr){
+    double *arr_cp = (double*) malloc(sizeof(double) * N);
+    memcpy(arr_cp, arr, sizeof(double) * N);
+    return arr_cp;
+}
+
+
+void *realloc_check(int target_size, void *arr){
+    void *ptr = realloc(arr, target_size);
+    if (ptr == NULL){
+        fprintf(stderr, "Re-allocating error! target size: %d\n", target_size);
+        return NULL;
+    }
+    return ptr;
+}
+
+
+void append_double(double **arr, int id, double value){
+    if (id % _block_size == 0){
+        *arr = realloc_check(sizeof(double) * (id + _block_size), *arr);
+    }
+    (*arr)[id] = value;
+}
+
+
+void append_int(double **arr, int id, int value){
+    if (id % _block_size == 0){
+        *arr = realloc_check(sizeof(int) * (id + _block_size), *arr);
+    }
+    (*arr)[id] = value;
+}
