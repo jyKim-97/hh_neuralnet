@@ -3,8 +3,10 @@
 #define save_as_float
 // #define _fs_storage 2000
 
-const double _fs_storage = 2000;
-int _nstep_save = 1000/_fs_storage/_dt;
+// const double _fs_storage = 2000;
+#define _fs_save 2000
+// int _nstep_save = 1000./_fs_storage/_dt;
+int _nstep_save = 1000./_fs_save/_dt;
 
 #include <stdio.h>
 void save(int N, int nstep, double* arr, FILE *fp){
@@ -19,3 +21,19 @@ void save(int N, int nstep, double* arr, FILE *fp){
     fwrite(arr, sizeof(double), N, fp);
     #endif    
 }
+
+// NOTE: file open할 때 기존에 있는 파일 체크하는 코드 필요
+FILE *open_file(const char *fname, const char *option){
+    // check file exists
+    FILE *fp = fopen(fname, "r");
+    if (fp == NULL){
+        fprintf(stderr, "File %s exists\n", fname);
+        return NULL;
+    }
+    fclose(fp);
+
+    fp = fopen(fname, option);
+    return fp;
+}
+
+
