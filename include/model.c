@@ -111,12 +111,16 @@ void update_spkBuf(int nstep, spkbuf_t *buf, double *v_old, double *v_new){
     int n_buf = nstep % buf->buf_size;
     for (int n=0; n<buf->N; n++){
         if FIRE(v_old[n], v_new[n]){
-            // printf("spike updated, n_buf=%d\n", n_buf);
             buf->spk_buf[n][n_buf] = 1;
         } else {
             buf->spk_buf[n][n_buf] = 0;
         }
     }
+}
+
+
+void init_ext_syn(int N, double dt, syn_t *syn){
+    init_deSyn(N, 0, dt, syn);
 }
 
 
