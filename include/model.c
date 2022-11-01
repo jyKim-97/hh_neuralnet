@@ -57,6 +57,9 @@ double solve_wb_v(double v, double I, double h_ion, double n_ion){
     double ik = wb_gk * n_ion * n_ion * n_ion * n_ion * (v - wb_ek);
     double il  = wb_gl * (v - wb_el);
 
+    // printf("ina: %5.2f, ik: %5.2f, il: %5.2f, I: %5.2f\n", ina, ik, il, I);
+    // printf("n_ion4: %10.2f\n", n_ion * n_ion * n_ion * n_ion);
+
     double dv = (-ina - ik - il + I) / wb_cm;
     return _dt * dv;
 }
@@ -112,6 +115,7 @@ void update_spkBuf(int nstep, spkbuf_t *buf, double *v_old, double *v_new){
     for (int n=0; n<buf->N; n++){
         if FIRE(v_old[n], v_new[n]){
             buf->spk_buf[n][n_buf] = 1;
+            // printf("Neuron %d fired in step %d\n", n, nstep);
         } else {
             buf->spk_buf[n][n_buf] = 0;
         }
