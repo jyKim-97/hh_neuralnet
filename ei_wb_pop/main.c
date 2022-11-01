@@ -12,7 +12,7 @@
 
 extern neuron_t neuron;
 extern syn_t syn[MAX_TYPE];
-syn_t ext_syn;
+extern syn_t ext_syn;
 
 int N = 100;
 double w = 0.1;
@@ -46,7 +46,7 @@ FILE *fp_syn_ext;
 
 int main(){
     set_seed(1000);
-    // run(50);
+    run(50);
 }
 
 
@@ -98,7 +98,6 @@ void init_simulation(void){
         }
     }
 
-    /*
     build_eipop(&info);
 
     // set external input info
@@ -108,7 +107,6 @@ void init_simulation(void){
     }
 
     init_deSyn(N, 0, _dt/2., &ext_syn);
-    */
 }
 
 
@@ -191,11 +189,11 @@ double get_syn_current(int nid, double v){
 
 void end_pop(){
     free(lambda_ext);
-    free_measure();
     destroy_wbNeuron(&neuron);
     destroy_deSyn(syn);
     destroy_deSyn(syn+1);
-    end_check();
+    // free_measure();
+    // end_check();
 }
 
 

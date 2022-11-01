@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include "mt64.h"
 
-#define _MKL
+// #define _MKL
 
 #ifdef _MKL
 #include "mkl_vsl.h"
