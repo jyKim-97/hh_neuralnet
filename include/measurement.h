@@ -45,3 +45,5 @@ static void free_fluct();
 static void free_lfp(void);
 void free_measure();
 void free_reading(reading_t *obj_r);
+
+void export_spike(const char *tag);

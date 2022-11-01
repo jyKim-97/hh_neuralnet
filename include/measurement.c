@@ -16,7 +16,7 @@ int *num_pops = NULL;
 // SPIKE recording
 int **step_spk = NULL; // (N, ?)
 int *num_spk = NULL; // (N, )
-double *cum_spk = NULL; // measure the firing rate
+int *cum_spk = NULL; // measure the firing rate
 
 double **v_lfp; // (num_times, num_pop_types)
 double *v_m1, *v_m2; // (num_popos)
@@ -213,3 +213,32 @@ static void free_lfp(void){
 }
 
 
+/* Save part */
+void export_spike(const char *tag){
+
+    char fname[200];
+    sprintf(fname, "%s_info.txt", tag);
+    FILE *fp_spk_info = fopen(fname, "w");
+    sprintf(fname, "%s.dat", tag);
+    FILE *fp_spk_time = fopen(fname, "wb");
+
+    int num_tot_spk = 0;
+    for (int n=0; n<size_pops; n++){
+        fprintf(fp_spk_info, "%d,", num_spk[n]);
+        num_tot_spk += num_spk[n];
+    }
+    fclose(fp_spk_info);
+
+    int *tot_spk = (int*) malloc(sizeof(int) * num_tot_spk);
+    int cum = 0;
+    for (int n=0; n<size_pops; n++){
+        for (int i=0; i<num_spk[n]; i++){
+            tot_spk[i+cum] = step_spk[n][i];
+        }
+        cum += num_spk[n];
+    }
+
+    fwrite(tot_spk, sizeof(int), num_tot_spk, fp_spk_time);
+    fclose(fp_spk_time);
+
+}
