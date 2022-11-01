@@ -3,19 +3,25 @@
 #FLAGS=-g -Wall -pg
 #FLAGS=-g
 CC = gcc
-CFLAGS = -g -s -Wall -O3
+CFLAGS = -g -Wall -O3
 LDFLAGS = -lm
 
-SRCS = model.c build.c mt64.c utils.c storage.c
+SRCS = model.c build.c mt64.c utils.c storage.c measurement.c
 OBJS = $(SRCS:.c=.o)
 TARGET = ../lib/libhhnet.a
 
-main: $(OBJS)
+main: $(OBJS) rng.o
 	ar -rc $(TARGET) $(OBJS)
 
 $(OBJS): $(SRCS)
 	$(CC) $(CFLAGS) -o $@ -c $*$..c $(LDFLAGS)
 
+rng.o: rng.c
+	$(CC) $(CFLAGS) -o rng.o -c rng.c $(LDFLAGS) -I${MKLROOT}/include 
+# -L${MKLROOT}/lib -lmkl_intel_lp64 -lmkl_core -lmkl_squential
+
+clean:
+	rm -f *.o *.out
 
 
 

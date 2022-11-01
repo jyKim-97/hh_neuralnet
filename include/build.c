@@ -4,30 +4,30 @@
 // extern neuron_t neuron;
 // extern syn_t syn[MAX_TYPE];
 
-neuron_t neuron;
-syn_t syn[MAX_TYPE];
+neuron_t neuron = {0,}; // -> model로 빼기
+syn_t syn[MAX_TYPE] = {0,};
+syn_t ext_syn;
 
+// void build_wb_ipop(int N, neuron_t *neuron, syn_t *syn_i, double w, double t_lag, enum odeType type){
 
-void build_wb_ipop(int N, neuron_t *neuron, syn_t *syn_i, double w, double t_lag, enum odeType type){
+//     double del_t = 0;
+//     switch (type) {
+//         case Euler:
+//             del_t = _dt;
+//             break;
+//         case RK4:
+//             del_t = _dt * 0.5;
+//             break;
+//     }
 
-    double del_t = 0;
-    switch (type) {
-        case Euler:
-            del_t = _dt;
-            break;
-        case RK4:
-            del_t = _dt * 0.5;
-            break;
-    }
+//     // initializing objects
+//     int n_lag = t_lag / _dt;
+//     init_wbNeuron(N, n_lag, neuron);
+//     init_deSyn(N, -80, del_t, syn_i);
 
-    // initializing objects
-    int n_lag = t_lag / _dt;
-    init_wbNeuron(N, n_lag, neuron);
-    init_deSyn(N, -80, del_t, syn_i);
-
-    // set network
-    build_homogen_net(&(syn_i->ntk), w, n_lag);
-}
+//     // set network
+//     build_homogen_net(&(syn_i->ntk), w, n_lag);
+// }
 
 
 void build_homogen_net(netsyn_t *ntk, double w, int n_lag){
@@ -55,13 +55,16 @@ void build_eipop(buildInfo *info){
         case Euler: // Euler
             del_t = _dt;
             break;
-    case RK4:
-            del_t = _dt/2;
+        case RK4:
+            del_t = _dt/2.;
             break;
     }
 
     int N = info->N;
     init_wbNeuron(N, info->buf_size, &neuron);
+
+    // printf("del_t = %f\n", del_t);
+    
     init_deSyn(N,   0, del_t, &(syn[0])); // type E
     init_deSyn(N, -80, del_t, &(syn[1])); // type I
 
@@ -98,6 +101,10 @@ void build_eipop(buildInfo *info){
     }
 }
 
+
+/* 
+    NOTE: network building을 따로 network 파일로 빼주기
+*/
 
 #define MAX(a, b) (a>b? a:b)
 #define LEN(arr) (arr[1] - arr[0])

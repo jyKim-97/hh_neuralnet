@@ -7,7 +7,6 @@
 #include "model.h"
  
 void save(int N, int nstep, double* arr, FILE *fp);
-
-// spike 저장
+FILE *open_file(const char *fname, const char *option);
 
 #endif

@@ -4,7 +4,6 @@
 #include "stdlib.h"
 #include "math.h"
 
-
 #define _dt 0.01
 
 

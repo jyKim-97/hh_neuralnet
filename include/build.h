@@ -10,6 +10,7 @@
 
 extern neuron_t neuron;
 extern syn_t syn[MAX_TYPE];
+extern syn_t ext_syn;
 
 
 enum odeType {
