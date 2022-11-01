@@ -27,6 +27,6 @@ void print_variable(double *x, int n_print_node);
 double *copy_array(int N, double *arr);
 void *realloc_check(int target_size, void *arr);
 void append_double(double **arr, int id, double value);
-void append_int(double **arr, int id, int value);
+void append_int(int **arr, int id, int value);
 
 #endif

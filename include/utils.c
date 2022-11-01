@@ -123,7 +123,7 @@ void append_double(double **arr, int id, double value){
 }
 
 
-void append_int(double **arr, int id, int value){
+void append_int(int **arr, int id, int value){
     if (id % _block_size == 0){
         *arr = realloc_check(sizeof(int) * (id + _block_size), *arr);
     }
