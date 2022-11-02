@@ -15,11 +15,11 @@ extern syn_t syn[MAX_TYPE];
 
 #define PRINT_ALL_VAR
 
-int N = 100;
+int N = 1000;
 double w = 0.002;
 const double iapp = 0;
 
-double w_ext = 0.00;
+double w_ext = 0.001;
 double nu_ext = 2000; // 2000 Hz
 double *lambda_ext = NULL;
 
@@ -51,7 +51,7 @@ const int target_id = 0;
 
 int main(){
     set_seed(1000);
-    run(1000);
+    run(60000);
 }
 
 

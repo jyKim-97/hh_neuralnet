@@ -127,11 +127,13 @@ void calculate_firing_rate(reading_t *obj_r){
     double *fr1 = (double*) calloc(num_pop_types, sizeof(double));
     double *fr2 = (double*) calloc(num_pop_types, sizeof(double));
 
-    double div = cum_steps / 1000.;
+    double div = cum_steps * _dt / 1000.;
+    // double div = cum_steps / 1000.;
     for (int n=0; n<size_pops; n++){
         int id = id_pops[n];
-        fr1[id] += cum_spk[n]/div/num_pops[id];
-        fr2[id] += cum_spk[n]*cum_spk[n]/div/num_pops[id];
+        double x = cum_spk[n]/div;
+        fr1[id] += x/num_pops[id];
+        fr2[id] += x*x/num_pops[id];
     }
 
     for (int id=0; id<num_pop_types; id++){
