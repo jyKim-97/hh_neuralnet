@@ -48,6 +48,8 @@ void measure(int nstep, neuron_t *neuron){
         int id = id_pops[n];
         double v1 = ptr_v[n];
 
+        // printf("v1: %5.2f\n", v1);
+
         v_lfp[id][nstep]  += v1;
         v_fluct_m1[n] += v1;
         v_fluct_m2[n] += v1 * v1;
@@ -96,7 +98,8 @@ void calculate_fluct(reading_t *obj_r){
     for (int id=0; id<num_pop_types; id++){
         double vm = v_m1[id]/(double) cum_steps;
         double var = v_m2[id]/(double) cum_steps - vm*vm;
-        obj_r->chi[id] = sqrt(var * num_pop_types / var_indiv[id]);
+        // printf("var_tot: %f, var_indiv: %f, num_pops: %d\n", var, var_indiv[id], num_pop_types);
+        obj_r->chi[id] = sqrt(var * num_pops[id] / var_indiv[id]);
     }
     free(var_indiv);
 }
@@ -124,11 +127,13 @@ void calculate_firing_rate(reading_t *obj_r){
     double *fr1 = (double*) calloc(num_pop_types, sizeof(double));
     double *fr2 = (double*) calloc(num_pop_types, sizeof(double));
 
-    double div = cum_steps / 1000.;
+    double div = cum_steps * _dt / 1000.;
+    // double div = cum_steps / 1000.;
     for (int n=0; n<size_pops; n++){
         int id = id_pops[n];
-        fr1[id] += cum_spk[n]/div/num_pops[id];
-        fr2[id] += cum_spk[n]*cum_spk[n]/div/num_pops[id];
+        double x = cum_spk[n]/div;
+        fr1[id] += x/num_pops[id];
+        fr2[id] += x*x/num_pops[id];
     }
 
     for (int id=0; id<num_pop_types; id++){
