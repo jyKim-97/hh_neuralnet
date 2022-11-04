@@ -15,12 +15,19 @@ extern syn_t syn[MAX_TYPE];
 
 #define PRINT_ALL_VAR
 
-int N = 1000;
-double w = 0.002;
+#define FDIR "./case2_inhibit_only"
+// #define OPEN(fname, opt) fopen(strcat(FDIR, fname), opt);
+
+int N = 2000;
+// double w = 0.001;
 const double iapp = 0;
 
-double w_ext = 0.001;
+// double w_ext = 0.005;
+// double nu_ext = 200; // 2000 Hz
+
+double w_ext = 0.0003;
 double nu_ext = 2000; // 2000 Hz
+
 double *lambda_ext = NULL;
 
 void run(double tmax);
@@ -35,6 +42,27 @@ void write_reading(reading_t obj_r);
 void init_check();
 void write_data_for_check(int nstep);
 void end_check();
+void write_info(buildInfo *info);
+
+
+char *join(const char *fname){
+    char buf[100] = FDIR;
+    // check FDIR format
+    int l = (int) strlen(FDIR);
+    char last = FDIR[l-1];
+    if (last != '/') strcat(buf, "/");
+
+    strcat(buf, fname);
+    char *buf_tmp = buf;
+    return buf_tmp;
+}
+
+
+FILE *open_test(const char *fname, const char *opt){
+    char *f = join(fname);
+    FILE *fp = open_file(f, opt);
+    return fp;
+}
 
 // module간 dependency 없애기
 
@@ -49,9 +77,11 @@ FILE *fp_v0, *fp_n0, *fp_h0, *fp_i0;
 const int target_id = 0;
 #endif
 
+
 int main(){
     set_seed(1000);
-    run(60000);
+    printf("Print to %s\n", FDIR);
+    run(2000);
 }
 
 
@@ -64,12 +94,22 @@ void run(double tmax){
     init_simulation();
     init_check();
 
+    // print network
+    char *fe = join("./ntk_e.txt");
+    print_syn(fe, &(syn[0].ntk));
+
+    char *fi = join("./ntk_i.txt");
+    print_syn(fi, &(syn[1].ntk));
+
+
     progbar_t bar;
     init_progressbar(&bar, nmax);
     for (int n=0; n<nmax; n++){
         update_pop(n);
         measure(n, &neuron);
         write_data_for_check(n);
+
+        
 
         #ifdef PRINT_ALL_VAR
         fprintf(fp_v0, "%f,", neuron.v[target_id]);
@@ -88,7 +128,9 @@ void run(double tmax){
 
     // extern int **step_spk;
     // printf("first t: %d\n", step_spk[0][0]);
-    export_spike("./spike");
+    char *fspk = join("./spike");
+    export_spike(fspk);
+    // export_spike("./spike");
 
     free(types);
     end_pop();
@@ -97,7 +139,7 @@ void run(double tmax){
 
 void write_reading(reading_t obj_r){
     char fname[] = "./result.txt";
-    FILE *fp = fopen(fname, "w");
+    FILE *fp = open_test(fname, "w");
     fprintf(fp, "chi,frs_m,frs_s\n");
     for (int n=0; n<2; n++){
         fprintf(fp, "%f,%f,%f,\n", obj_r.chi[n], obj_r.frs_m[n], obj_r.frs_s[n]);
@@ -115,12 +157,21 @@ void init_simulation(void){
     info.num_types[0] = info.N * 0.8;
     info.num_types[1] = info.N * 0.2;
 
-    for (int i=0; i<2; i++){
-        for (int j=0; j<2; j++){
-            info.mean_outdeg[i][j] = 10;
-            info.w[i][j] = w;
-        }
-    }
+    info.mdeg_out[0][0] = 0; //40/5*4;
+    info.mdeg_out[0][1] = 0; //40/5;
+    info.mdeg_out[1][0] = 600/5*4;
+    info.mdeg_out[1][1] = 600/5; //400/5;
+    
+    info.w[0][0] = 0.;
+    info.w[0][1] = 0.;
+    info.w[1][0] = 0.005;
+    info.w[1][1] = 0.005;
+
+    // for (int i=0; i<2; i++){
+    //     for (int j=0; j<2; j++){
+    //         info.w[i][j] = w;
+    //     }
+    // }
 
     build_eipop(&info);
 
@@ -131,6 +182,26 @@ void init_simulation(void){
     }
 
     init_deSyn(N, 0, _dt/2., &ext_syn);
+
+    write_info(&info);
+}
+
+
+void write_info(buildInfo *info){
+    FILE *fp = open_test("info.txt", "w");
+    fprintf(fp, "N:%d\n", info->N);
+    fprintf(fp, "dt:%5f\n", _dt);
+    fprintf(fp, "n_lag:%d\n", info->buf_size);
+    fprintf(fp, "mean_deg_e2e:%.2f\n", info->mdeg_out[0][0]);
+    fprintf(fp, "mean_deg_e2i:%.2f\n", info->mdeg_out[0][1]);
+    fprintf(fp, "mean_deg_i2e:%.2f\n", info->mdeg_out[1][0]);
+    fprintf(fp, "mean_deg_i2i:%.2f\n", info->mdeg_out[1][1]);
+    fprintf(fp, "g_e2e:%.5f\n", info->w[0][0]);
+    fprintf(fp, "g_e2i:%.5f\n", info->w[0][1]);
+    fprintf(fp, "g_i2e:%.5f\n", info->w[1][0]);
+    fprintf(fp, "g_i2i:%.5f\n", info->w[1][1]);
+    fprintf(fp, "nu_ext:%.5f\n", nu_ext);
+    fprintf(fp, "g_ext:%.5f\n", w_ext);
 }
 
 
@@ -150,6 +221,7 @@ void update_pop(int nstep){
     // get poisson input
     int *num_ext = get_poisson_array(N, lambda_ext);
 
+    // 이부분 parallelize 가능할듯?
     for (int n=0; n<N; n++){
 
         // if (*ptr_v == nan){
@@ -234,16 +306,16 @@ void end_pop(){
 
 
 void init_check(){
-    fp_v = fopen("./check_v.dat", "wb");
-    fp_syn_e = fopen("./check_syn_e.dat", "wb");
-    fp_syn_i = fopen("./check_syn_i.dat", "wb");
-    fp_syn_ext = fopen("./check_syn_ext.dat", "wb");
+    fp_v       = open_test("./check_v.dat", "wb");
+    fp_syn_e   = open_test("./check_syn_e.dat", "wb");
+    fp_syn_i   = open_test("./check_syn_i.dat", "wb");
+    fp_syn_ext = open_test("./check_syn_ext.dat", "wb");
 
     #ifdef PRINT_ALL_VAR
-    fp_v0 = fopen("./single_v.txt", "w");
-    fp_i0 = fopen("./single_i.txt", "w");
-    fp_n0 = fopen("./single_n.txt", "w");
-    fp_h0 = fopen("./single_h.txt", "w");
+    fp_v0 = open_test("./single_v.txt", "w");
+    fp_i0 = open_test("./single_i.txt", "w");
+    fp_n0 = open_test("./single_n.txt", "w");
+    fp_h0 = open_test("./single_h.txt", "w");
     #endif
 }
 
