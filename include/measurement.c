@@ -22,6 +22,14 @@ double **v_lfp; // (num_times, num_pop_types)
 double *v_m1, *v_m2; // (num_popos)
 double *v_fluct_m1, *v_fluct_m2; // (N,)
 
+static void init_spk(void);
+static void free_spk(void);
+static void init_fluct(void);
+
+static void free_fluct();
+static void init_lfp(int total_step);
+static void free_lfp(void);
+
 
 void init_measure(int N, int total_step, int n_class, int *id_class){
     size_pops = N;
