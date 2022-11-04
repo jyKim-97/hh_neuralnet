@@ -69,25 +69,22 @@ void build_eipop(buildInfo *info){
     init_deSyn(N, -80, del_t, &(syn[1])); // type I
 
     int id_pre = 0;
-    for (int i=0; i<2; i++){ // E / I
+    for (int i=0; i<2; i++){
         int id_post = 0;
-        for (int j=0; j<2; j++){ // E / I
-            
-            int mean_outdeg = info->mean_outdeg[i][j];
+        for (int j=0; j<2; j++){
+            // double p_out = info->p_out[i][j];
             double w = info->w[i][j];
             int n_lag = info->n_lag[i][j];
 
             int pre_range[2] = {id_pre, id_pre+info->num_types[i]};
             int post_range[2] = {id_post, id_post+info->num_types[j]};
 
-            // printf("pre: %d-%d, post: %d-%d, mean_outdeg: %d\n", pre_range[0], pre_range[1], post_range[0], post_range[1], mean_outdeg);
-            // printf("%d, %d: ", i, j);
-            build_randomnet(&(syn[i].ntk), mean_outdeg, w, n_lag, pre_range, post_range);
+            // double mean_outdeg = p_out * (pre_range[1] - pre_range[0]);
+            build_randomnet(&(syn[i].ntk), info->mdeg_out[i][j], w, n_lag, pre_range, post_range);
+            // ntk_t = get_empty_net()
+
             id_post += info->num_types[j];
-
-            // printf("(%d, %d) - n_deg = %d\n", i, j, syn[0].ntk.adj_list[2][10]);
         }
-
         id_pre += info->num_types[i];
     }
 
@@ -109,7 +106,8 @@ void build_eipop(buildInfo *info){
 #define MAX(a, b) (a>b? a:b)
 #define LEN(arr) (arr[1] - arr[0])
 
-void build_randomnet(netsyn_t *ntk, int mean_outdeg, double w, int n_lag, int pre_range[2], int post_range[2]){
+
+void build_randomnet(netsyn_t *ntk, double mean_outdeg, double w, int n_lag, int pre_range[2], int post_range[2]){
     // for (int npre=0; npre)
     // int len = MAX(pre_range[1], post_range[1]);
     int len = ntk->N;
@@ -145,7 +143,7 @@ void build_randomnet(netsyn_t *ntk, int mean_outdeg, double w, int n_lag, int pr
 }
 
 
-void print_network(char fname[], netsyn_t *ntk){
+void print_syn(char fname[], netsyn_t *ntk){
     FILE *fp = fopen(fname, "w");
     fprintf(fp, "pre,%d,%d,", ntk->pre_range[0], ntk->pre_range[1]);
     fprintf(fp, "post,%d,%d,\n", ntk->post_range[0], ntk->post_range[1]);
