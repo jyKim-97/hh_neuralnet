@@ -71,7 +71,6 @@ typedef struct _deSyn{
 void init_wbNeuron(int N, int buf_size, neuron_t *neuron);
 void destroy_wbNeuron(neuron_t *neuron);
 double solve_wb_v(double v, double h_ion, double n_ion, double I);
-static inline double get_minf(double v);
 double solve_wb_h(double h_ion, double v);
 double solve_wb_n(double n_ion, double v);
 

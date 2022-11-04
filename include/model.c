@@ -4,6 +4,7 @@
 
 
 const double taur=1, taud=3;
+static inline double get_minf(double v);
 
 /*
     Rule for defining the neuron model
