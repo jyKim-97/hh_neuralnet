@@ -6,7 +6,7 @@ CC = gcc
 CFLAGS = -g -Wall -O3
 LDFLAGS = -lm
 
-SRCS = model.c build.c mt64.c utils.c storage.c measurement.c
+SRCS = model.c build.c mt64.c utils.c ntk.c storage.c measurement.c
 OBJS = $(SRCS:.c=.o)
 TARGET = ../lib/libhhnet.a
 
