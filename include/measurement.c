@@ -50,7 +50,9 @@ void init_measure(int N, int total_step, int n_class, int *id_class){
 
 void measure(int nstep, neuron_t *neuron){
 
-    int n_buf = nstep % (neuron->buf.buf_size);
+    int buf_size = neuron->buf.buf_size;
+    int n_buf = (buf_size == 0)? 0: nstep % buf_size;
+
     double *ptr_v = neuron->v;
     for (int n=0; n<size_pops; n++){
         int id = id_pops[n];

@@ -112,7 +112,9 @@ void destroy_spkBuf(spkbuf_t *buf){
 #define FIRE(vold, vnew) ((vold-THRESHOLD < 0) && (vnew-THRESHOLD > 0))
 
 void update_spkBuf(int nstep, spkbuf_t *buf, double *v_old, double *v_new){
-    int n_buf = nstep % buf->buf_size;
+    int buf_size = buf->buf_size;
+    int n_buf = (buf_size == 0)? 0: nstep % buf_size;
+
     for (int n=0; n<buf->N; n++){
         if FIRE(v_old[n], v_new[n]){
             buf->spk_buf[n][n_buf] = 1;
@@ -156,6 +158,9 @@ void destroy_deSyn(syn_t *syn){
 
 void add_spike_deSyn(syn_t *syn, int nstep, spkbuf_t *buf){
     int N = syn->N;
+    int buf_size = buf->buf_size;
+
+    // NOTE: indegree 저장 방식으로 바꾸면 더 빠르게 가능할 것 같은데?
 
     for (int npre=0; npre<N; npre++){
         int num_post = syn->ntk.num_edges[npre];
@@ -163,7 +168,7 @@ void add_spike_deSyn(syn_t *syn, int nstep, spkbuf_t *buf){
         for (int id=0; id<num_post; id++){
             int nd = syn->ntk.n_delay[npre][id];
             if (nstep - nd < 0) continue;
-            int n_buf = (nstep - nd) % buf->buf_size;
+            int n_buf = (buf_size == 0)? 0: (nstep - nd) % buf_size;
 
             if (buf->spk_buf[npre][n_buf] == 1){
                 // fprintf(stderr, "num_post = %4d\n", num_post);
