@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+// #include <omp.h>
 
 #include "model.h"
 #include "build.h"
@@ -15,18 +16,20 @@ extern syn_t syn[MAX_TYPE];
 
 #define PRINT_ALL_VAR
 
-#define FDIR "./case2_inhibit_only"
+// #define FDIR "./case10_inc_from6_2"
+#define FDIR "./test"
 // #define OPEN(fname, opt) fopen(strcat(FDIR, fname), opt);
 
-int N = 2000;
+int N = 100;
+// int N = 1000;
 // double w = 0.001;
 const double iapp = 0;
 
 // double w_ext = 0.005;
 // double nu_ext = 200; // 2000 Hz
 
-double w_ext = 0.0003;
-double nu_ext = 2000; // 2000 Hz
+double w_ext = 0.0005;
+double nu_ext = 4000; // 2000 Hz
 
 double *lambda_ext = NULL;
 
@@ -46,7 +49,9 @@ void write_info(buildInfo *info);
 
 
 char *join(const char *fname){
-    char buf[100] = FDIR;
+    char buf[200];
+    strcpy(buf, FDIR);
+    // char buf[100] = FDIR;
     // check FDIR format
     int l = (int) strlen(FDIR);
     char last = FDIR[l-1];
@@ -54,6 +59,9 @@ char *join(const char *fname){
 
     strcat(buf, fname);
     char *buf_tmp = buf;
+    // char *buf_tmp;
+    // strcpy(buf_tmp, buf);
+    // char *buf_tmp = buf;
     return buf_tmp;
 }
 
@@ -81,7 +89,7 @@ const int target_id = 0;
 int main(){
     set_seed(1000);
     printf("Print to %s\n", FDIR);
-    run(2000);
+    run(10000);
 }
 
 
@@ -108,8 +116,6 @@ void run(double tmax){
         update_pop(n);
         measure(n, &neuron);
         write_data_for_check(n);
-
-        
 
         #ifdef PRINT_ALL_VAR
         fprintf(fp_v0, "%f,", neuron.v[target_id]);
@@ -140,10 +146,19 @@ void run(double tmax){
 void write_reading(reading_t obj_r){
     char fname[] = "./result.txt";
     FILE *fp = open_test(fname, "w");
-    fprintf(fp, "chi,frs_m,frs_s\n");
+    fprintf(fp, "chi,frs_m,frs_s,cv_isi\n");
     for (int n=0; n<2; n++){
-        fprintf(fp, "%f,%f,%f,\n", obj_r.chi[n], obj_r.frs_m[n], obj_r.frs_s[n]);
+        fprintf(fp, "%f,%f,%f,%f,\n", obj_r.chi[n], obj_r.frs_m[n], obj_r.frs_s[n], obj_r.cv_isi[n]);
     }
+
+    fprintf(fp, "cij\n");
+    for (int i=0; i<2; i++){
+        for (int j=0; j<2; j++){
+            fprintf(fp, "%f,", obj_r.spk_sync[i][j]);
+        }
+        fprintf(fp, "\n");
+    }
+
     fclose(fp);
 }
 
@@ -151,21 +166,26 @@ void write_reading(reading_t obj_r){
 void init_simulation(void){
     buildInfo info = {0,};
     info.N = N;
-    info.buf_size = 1/_dt; // 1 ms
+    info.buf_size = 1./_dt; // 1 ms
     info.ode_method = RK4;
 
     info.num_types[0] = info.N * 0.8;
     info.num_types[1] = info.N * 0.2;
 
-    info.mdeg_out[0][0] = 0; //40/5*4;
-    info.mdeg_out[0][1] = 0; //40/5;
-    info.mdeg_out[1][0] = 600/5*4;
-    info.mdeg_out[1][1] = 600/5; //400/5;
+    // info.mdeg_out[0][0] = 400/5*4; //40/5*4;
+    // info.mdeg_out[0][1] = 400/5; //40/5;
+    // info.mdeg_out[1][0] = 800/5*4;
+    // info.mdeg_out[1][1] = 800/5; //400/5;
+
+    info.mdeg_out[0][0] = 20/5*4; //40/5*4;
+    info.mdeg_out[0][1] = 20/5; //40/5;
+    info.mdeg_out[1][0] = 40/5*4;
+    info.mdeg_out[1][1] = 40/5; //400/5;
     
-    info.w[0][0] = 0.;
-    info.w[0][1] = 0.;
-    info.w[1][0] = 0.005;
-    info.w[1][1] = 0.005;
+    info.w[0][0] = 0.1;
+    info.w[0][1] = 0.1;
+    info.w[1][0] = 0.1;
+    info.w[1][1] = 0.1;
 
     // for (int i=0; i<2; i++){
     //     for (int j=0; j<2; j++){
@@ -210,8 +230,8 @@ void update_pop(int nstep){
     double *v_prev = copy_array(N, neuron.v);
 
     // add spike to syn_t    
-    add_spike_deSyn(&(syn[0]), nstep, &(neuron.buf));
-    add_spike_deSyn(&(syn[1]), nstep, &(neuron.buf));
+    // add_spike_deSyn(&(syn[0]), nstep, &(neuron.buf));
+    // add_spike_deSyn(&(syn[1]), nstep, &(neuron.buf));
 
     // update 
     double *ptr_v = neuron.v;
@@ -222,6 +242,7 @@ void update_pop(int nstep){
     int *num_ext = get_poisson_array(N, lambda_ext);
 
     // 이부분 parallelize 가능할듯?
+    // #pragma omp parallel
     for (int n=0; n<N; n++){
 
         // if (*ptr_v == nan){
@@ -230,9 +251,11 @@ void update_pop(int nstep){
             end_check();
             exit(1);
         }
-
         ext_syn.expr[n] += w_ext * ext_syn.A * num_ext[n];
         ext_syn.expd[n] += w_ext * ext_syn.A * num_ext[n];
+
+        add_spike_syn(&(syn[0]), n, nstep, &(neuron.buf));
+        add_spike_syn(&(syn[1]), n, nstep, &(neuron.buf));
 
         // RK4 method
         // 1st step
