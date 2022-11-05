@@ -117,11 +117,14 @@ void calculate_spike_sync(reading_t *obj){
     // calculate spike vector sync (calculate only upper triangle part)
     double *cij = (double*) calloc(size_pops*size_pops, sizeof(double));
     for (int i=0; i<size_pops; i++){
-        for (int j=i+1; j<size_pops; j++){
+        for (int j=i; j<size_pops; j++){
             for (int n=0; n<len; n++){
                 cij[size_pops*i+j] += t_vec[i][n] * t_vec[j][n];
             }
-            cij[size_pops*i+j] /= sqrt((double) sum_vec[i] * sum_vec[j]);
+            double mul = sum_vec[i] * sum_vec[j];
+            if (mul == 0) continue;
+
+            cij[size_pops*i+j] /= sqrt(mul);
         }
     }
 
@@ -129,15 +132,15 @@ void calculate_spike_sync(reading_t *obj){
     int *cum = (int*) calloc(num_pop_types*num_pop_types, sizeof(int));
     for (int i=0; i<size_pops; i++){
         int id1 = id_pops[i];
-        for (int j=i+1; j<size_pops; j++){
+        for (int j=i; j<size_pops; j++){
             int id2 = id_pops[j];
             obj->spk_sync[id1][id2] += cij[size_pops*i+j];
             cum[id1*num_pop_types+id2] += 1;
         }
     }
 
-    for (int i=0; i<size_pops; i++){
-        for (int j=i+1; j<num_pop_types; j++){
+    for (int i=0; i<num_pop_types; i++){
+        for (int j=i; j<num_pop_types; j++){
             obj->spk_sync[i][j] /= cum[i*num_pop_types+j];
         }
     }
@@ -157,7 +160,7 @@ void calculate_cv_isi(reading_t *obj){
     double *cv = (double*) calloc(size_pops, sizeof(double));
     for (int n=0; n<size_pops; n++){
         int n_prev = -1;
-        int dn1=0, dn2=0, cum=0;
+        unsigned long long dn1=0, dn2=0, cum=0;
         for (int i=0; i<num_spk[n]; i++){
             int nstep = step_spk[n][i];
             if ((nstep < flushed_steps) || (n_prev == -1)){
@@ -173,17 +176,34 @@ void calculate_cv_isi(reading_t *obj){
             n_prev = nstep;
         }
 
-        double mu = (double) dn1 / (double) cum;
-        double s = (double)dn2 / (double)cum - mu * mu;
-        cv[n] = s/mu;
+        if (cum == 0){
+            cv[n] = -1;
+        } else {
+            double mu = (double) dn1 / (double) cum;
+            double s = sqrt((double) dn2 / (double) cum - mu * mu);
+            cv[n] = s/mu;
+        }
     }
 
     // average
+    int *cum = (int*) calloc(num_pop_types, sizeof(int));
     for (int n=0; n<size_pops; n++){
+        if (cv[n] == -1) continue;
+
         int id = id_pops[n];
-        obj->cv_isi[id] += cv[n] / num_pops[n];
+        obj->cv_isi[id] += cv[n];
+        cum[id]++;
     }
 
+    for (int id=0; id<num_pop_types; id++){
+        if (cum[id] == 0){
+            obj->cv_isi[id] = -1;
+        } else {
+            obj->cv_isi[id] = obj->cv_isi[id]/cum[id];
+        }
+    }
+
+    free(cum);
     free(cv);
 }
 
