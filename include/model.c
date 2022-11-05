@@ -157,7 +157,7 @@ void destroy_deSyn(syn_t *syn){
 
 
 void add_spike_syn(syn_t *syn, int post_id, int nstep, spkbuf_t *buf){
-    int N = syn->N;
+    // int N = syn->N;
     double A = syn->A;
     int buf_size = buf->buf_size;
     int num_pre = syn->ntk.num_edges[post_id];
