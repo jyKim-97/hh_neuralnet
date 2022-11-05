@@ -19,6 +19,8 @@ typedef struct _reading_t {
     double *chi; // the coherence of fluctuation (num_types, )
     double *frs_m; // the firing rate
     double *frs_s; // the firing rate -> firing irregularity
+    double *cv_isi;
+    double **spk_sync;
 } reading_t;
 
 #define SPK

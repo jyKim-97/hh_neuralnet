@@ -6,12 +6,14 @@ Source code for measurement
 
 
 int cum_steps = 0;
+int flushed_steps = 0;
+// calculate spike sync after flushed steps
 
 // population id
-int size_pops = 0;
-int num_pop_types = 1;
+int size_pops = 0; // the number of the neurons
+int num_pop_types = 1; // the number of the populations
 int *id_pops = NULL;
-int *num_pops = NULL;
+int *num_pops = NULL; // The number of the cells belongs to the class
 
 // SPIKE recording
 int **step_spk = NULL; // (N, ?)
@@ -21,6 +23,8 @@ int *cum_spk = NULL; // measure the firing rate
 double **v_lfp; // (num_times, num_pop_types)
 double *v_m1, *v_m2; // (num_popos)
 double *v_fluct_m1, *v_fluct_m2; // (N,)
+
+const double t_spike_bin = 5.; // 5 ms
 
 static void init_spk(void);
 static void free_spk(void);
@@ -81,14 +85,120 @@ void measure(int nstep, neuron_t *neuron){
     cum_steps++;
 }
 
+// spike synchrony measure하는 코드도 필요
+void calculate_spike_sync(reading_t *obj){
+    // for (int n=0; n<)
+    int nbin = t_spike_bin / _dt;
+    int len = cum_steps / nbin + 1;
+
+    int **t_vec = (int**) malloc(sizeof(int) * size_pops);
+    for (int n=0; n< size_pops; n++){
+        t_vec[n] = (int*) calloc(len, sizeof(int));
+    }
+
+    // calculate spike vector
+    for (int n=0; n<size_pops; n++){
+        for (int i=0; i<num_spk[n]; i++){
+            int nstep = step_spk[n][i];
+            if (nstep < flushed_steps) continue;
+
+            int id = (nstep-flushed_steps) / nbin;
+            t_vec[n][id] = 1;
+        }
+    }
+
+    int *sum_vec = (int*) calloc(size_pops, sizeof(int));
+    for (int n=0; n<size_pops; n++){
+        for (int i=0; i<len; i++){
+            sum_vec[n] += t_vec[n][i];
+        }
+    }
+
+    // calculate spike vector sync (calculate only upper triangle part)
+    double *cij = (double*) calloc(size_pops*size_pops, sizeof(double));
+    for (int i=0; i<size_pops; i++){
+        for (int j=i+1; j<size_pops; j++){
+            for (int n=0; n<len; n++){
+                cij[size_pops*i+j] += t_vec[i][n] * t_vec[j][n];
+            }
+            cij[size_pops*i+j] /= sqrt((double) sum_vec[i] * sum_vec[j]);
+        }
+    }
+
+    // average for each type
+    int *cum = (int*) calloc(num_pop_types*num_pop_types, sizeof(int));
+    for (int i=0; i<size_pops; i++){
+        int id1 = id_pops[i];
+        for (int j=i+1; j<size_pops; j++){
+            int id2 = id_pops[j];
+            obj->spk_sync[id1][id2] += cij[size_pops*i+j];
+            cum[id1*num_pop_types+id2] += 1;
+        }
+    }
+
+    for (int i=0; i<size_pops; i++){
+        for (int j=i+1; j<num_pop_types; j++){
+            obj->spk_sync[i][j] /= cum[i*num_pop_types+j];
+        }
+    }
+
+    // free(t_vec);
+    free(sum_vec);
+    free(cij);
+    free(cum);
+    for (int n=0; n<size_pops; n++){
+        free(t_vec[n]);
+    }
+    free(t_vec);
+}
+
+
+void calculate_cv_isi(reading_t *obj){
+    double *cv = (double*) calloc(size_pops, sizeof(double));
+    for (int n=0; n<size_pops; n++){
+        int n_prev = -1;
+        int dn1=0, dn2=0, cum=0;
+        for (int i=0; i<num_spk[n]; i++){
+            int nstep = step_spk[n][i];
+            if ((nstep < flushed_steps) || (n_prev == -1)){
+                n_prev = nstep;
+                continue;
+            }
+
+            int dn = nstep - n_prev;
+            dn1 += dn;
+            dn2 += dn * dn;
+            cum ++;
+
+            n_prev = nstep;
+        }
+
+        double mu = (double) dn1 / (double) cum;
+        double s = (double)dn2 / (double)cum - mu * mu;
+        cv[n] = s/mu;
+    }
+
+    // average
+    for (int n=0; n<size_pops; n++){
+        int id = id_pops[n];
+        obj->cv_isi[id] += cv[n] / num_pops[n];
+    }
+
+    free(cv);
+}
+
+
 
 reading_t flush_measure(){
     reading_t obj_r = init_reading();
     calculate_fluct(&obj_r);
     calculate_firing_rate(&obj_r);
+    calculate_cv_isi(&obj_r);
+    calculate_spike_sync(&obj_r);
     // reset values
     reset_fluct();
     reset_firing_rate();
+    flushed_steps += cum_steps;
     cum_steps = 0;
 
     return obj_r;
@@ -161,6 +271,12 @@ reading_t init_reading(){
     obj_r.chi = (double*) calloc(num_pop_types, sizeof(double));
     obj_r.frs_m = (double*) calloc(num_pop_types, sizeof(double));
     obj_r.frs_s = (double*) calloc(num_pop_types, sizeof(double));
+    obj_r.cv_isi = (double*) calloc(num_pop_types, sizeof(double));
+    obj_r.spk_sync = (double**) malloc(sizeof(double*) * num_pop_types);
+    for (int n=0; n<num_pop_types; n++){
+        obj_r.spk_sync[n] = (double*) calloc(num_pop_types, sizeof(double));
+    }
+
     return obj_r;
 }
 
@@ -169,6 +285,11 @@ void free_reading(reading_t *obj_r){
     free(obj_r->chi);
     free(obj_r->frs_m);
     free(obj_r->frs_s);
+    free(obj_r->cv_isi);
+    for (int n=0; n<num_pop_types; n++){
+        free(obj_r->spk_sync[n]);
+    }
+    free(obj_r->spk_sync);
 }
 
 
