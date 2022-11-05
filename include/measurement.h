@@ -19,6 +19,8 @@ typedef struct _reading_t {
     double *chi; // the coherence of fluctuation (num_types, )
     double *frs_m; // the firing rate
     double *frs_s; // the firing rate -> firing irregularity
+    double *cv_isi;
+    double **spk_sync;
 } reading_t;
 
 #define SPK
@@ -26,9 +28,9 @@ typedef struct _reading_t {
 #define LFP
 #define V_FLUCT
 
-static void init_spk(void);
-static void init_fluct(void);
-static void init_lfp(int total_step);
+// static void init_spk(void);
+// static void init_fluct(void);
+// static void init_lfp(int total_step);
 void init_measure(int N, int total_step, int n_class, int *id_class);
 void measure(int nstep, neuron_t *neuron);
 
@@ -40,9 +42,9 @@ void calculate_firing_rate(reading_t *obj_r);
 void reset_fluct();
 void reset_firing_rate();
 
-static void free_spk(void);
-static void free_fluct();
-static void free_lfp(void);
+// static void free_spk(void);
+// static void free_fluct();
+// static void free_lfp(void);
 void free_measure();
 void free_reading(reading_t *obj_r);
 

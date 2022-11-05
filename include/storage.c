@@ -26,7 +26,7 @@ void save(int N, int nstep, double* arr, FILE *fp){
 FILE *open_file(const char *fname, const char *option){
     // check file exists
     FILE *fp = fopen(fname, "r");
-    if (fp == NULL){
+    if (fp != NULL){
         fprintf(stderr, "File %s exists\n", fname);
         return NULL;
     }
