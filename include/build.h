@@ -28,6 +28,7 @@ typedef struct _buildInfo{
     int n_lag[MAX_TYPE][MAX_TYPE];
     // double prob[MAX_TYPE][MAX_TYPE]; // pre -> post
     double w[MAX_TYPE][MAX_TYPE]; // pre -> post
+    double nu_ext, w_ext;
     enum odeType ode_method;
 
 } buildInfo;
