@@ -123,11 +123,18 @@ void build_randomnet(netsyn_t *ntk, double mean_outdeg, double w, int n_lag, int
         int npost = genrand64_real2() * num_post + post_range[0];
         if (used[npre*len + npost] == 1) continue;
 
-        int id = ntk->num_edges[npre];
-        ntk->adj_list[npre][id] = npost;
-        ntk->weight_list[npre][id] = w;
-        ntk->n_delay[npre][id] = n_lag;
-        ntk->num_edges[npre]++;
+        // indegree
+        int id = ntk->num_edges[npost];
+        ntk->adj_list[npost][id] = npre;
+        ntk->weight_list[npost][id] = w; // save with normalized value
+        ntk->n_delay[npost][id] = n_lag;
+        ntk->num_edges[npost]++;
+
+        // int id = ntk->num_edges[npre];
+        // ntk->adj_list[npre][id] = npost;
+        // ntk->weight_list[npre][id] = w;
+        // ntk->n_delay[npre][id] = n_lag;
+        // ntk->num_edges[npre]++;
         used[npre*len + npost] = 1;
         total_deg++;
     }

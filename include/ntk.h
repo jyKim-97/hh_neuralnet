@@ -15,8 +15,8 @@ enum binet_type {
 
 typedef struct _ntk_t{
     int N;
-    int *num_edges;
-    int **adj_list;
+    int *num_edges; // number of the out-degree
+    int **adj_list; // out-degree adjacent list
     enum binet_type edge_dir;
 } ntk_t;
 

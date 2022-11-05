@@ -82,7 +82,8 @@ void update_spkBuf(int nstep, spkbuf_t *buf, double *v_old, double *v_new);
 // Synapse
 void init_deSyn(int N, double ev, double dt, syn_t *syn);
 void destroy_deSyn(syn_t *syn);
-void add_spike_deSyn(syn_t *syn, int nstep, spkbuf_t *buf);
+void add_spike_syn(syn_t *syn, int post_id, int nstep, spkbuf_t *buf);
+// void add_spike_deSyn(syn_t *syn, int nstep, spkbuf_t *buf);
 void update_deSyn(syn_t *syn, int id);
 double get_current_deSyn(syn_t *syn, int id, double vpost);
 

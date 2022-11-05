@@ -156,6 +156,27 @@ void destroy_deSyn(syn_t *syn){
 }
 
 
+void add_spike_syn(syn_t *syn, int post_id, int nstep, spkbuf_t *buf){
+    int N = syn->N;
+    double A = syn->A;
+    int buf_size = buf->buf_size;
+    int num_pre = syn->ntk.num_edges[post_id];
+
+    for (int n=0; n<num_pre; n++){
+        int nd = syn->ntk.n_delay[post_id][n];
+        int n_buf = (buf_size == 0)? 0: (nstep - nd) % buf_size;
+
+        if (buf->spk_buf[post_id][n_buf] == 1){
+            double wA = syn->ntk.weight_list[post_id][n] * A;
+            syn->expr[post_id] += wA;
+            syn->expd[post_id] += wA;
+        }
+    }
+}
+
+
+// Legacy code
+/*
 void add_spike_deSyn(syn_t *syn, int nstep, spkbuf_t *buf){
     int N = syn->N;
     int buf_size = buf->buf_size;
@@ -187,6 +208,7 @@ void add_spike_deSyn(syn_t *syn, int nstep, spkbuf_t *buf){
         }
     }
 }
+*/
 
 
 void update_deSyn(syn_t *syn, int id){
