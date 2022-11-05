@@ -164,9 +164,11 @@ void add_spike_syn(syn_t *syn, int post_id, int nstep, spkbuf_t *buf){
 
     for (int n=0; n<num_pre; n++){
         int nd = syn->ntk.n_delay[post_id][n];
+        if (nstep - nd < 0) continue;
         int n_buf = (buf_size == 0)? 0: (nstep - nd) % buf_size;
 
-        if (buf->spk_buf[post_id][n_buf] == 1){
+        int npre = syn->ntk.adj_list[post_id][n];
+        if (buf->spk_buf[npre][n_buf] == 1){
             double wA = syn->ntk.weight_list[post_id][n] * A;
             syn->expr[post_id] += wA;
             syn->expd[post_id] += wA;
