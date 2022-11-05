@@ -129,3 +129,49 @@ void append_int(int **arr, int id, int value){
     }
     (*arr)[id] = value;
 }
+
+
+void set_index_obj(index_t *idxer, int num_index, int max_ind[]){
+    idxer->nstep = 0;
+    idxer->num_id = num_index;
+    idxer->len = 1;
+    for (int n=0; n<num_index; n++){
+        idxer->id[n] = 0;
+        idxer->id_max[n] = max_ind[n];
+        idxer->len *= max_ind[n];
+    }
+}
+
+
+void next_index(index_t *idxer){
+
+    if (idxer->nstep+1 == idxer->len){
+        printf("Index out of range\n");
+        return;
+    }
+
+    int nid = idxer->num_id-1;
+    idxer->nstep++;
+    idxer->id[nid]++;
+    while (idxer->id[nid] >= idxer->id_max[nid]){
+        idxer->id[nid] -= idxer->id_max[nid];
+        idxer->id[nid-1]++;
+        nid--;
+    }
+}
+
+
+void update_index(index_t *idxer, int nstep){
+    if (nstep >= idxer->len){
+        printf("Out of range\n");
+        return;
+    }
+
+    idxer->nstep = nstep;
+    int div = idxer->len;
+    for (int n=0; n<idxer->num_id; n++){
+        div /= idxer->id_max[n];
+        idxer->id[n] = nstep / div;
+        nstep -= idxer->id[n] * div;
+    }
+}
