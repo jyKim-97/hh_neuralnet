@@ -24,7 +24,7 @@ double **v_lfp; // (num_times, num_pop_types)
 double *v_m1, *v_m2; // (num_popos)
 double *v_fluct_m1, *v_fluct_m2; // (N,)
 
-const double t_spike_bin = 5.; // 5 ms
+const double t_spike_bin = 2.; // 5 ms
 
 static void init_spk(void);
 static void free_spk(void);

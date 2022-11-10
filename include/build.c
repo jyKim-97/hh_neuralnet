@@ -81,6 +81,7 @@ void build_eipop(buildInfo *info){
 
             // double mean_outdeg = p_out * (pre_range[1] - pre_range[0]);
             build_randomnet(&(syn[i].ntk), info->mdeg_out[i][j], w, n_lag, pre_range, post_range);
+            // printf("n_lag: %d\n", n_lag);
             // ntk_t = get_empty_net()
 
             id_post += info->num_types[j];
