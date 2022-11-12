@@ -91,8 +91,8 @@ void calculate_spike_sync(reading_t *obj){
     int nbin = t_spike_bin / _dt;
     int len = cum_steps / nbin + 1;
 
-    int **t_vec = (int**) malloc(sizeof(int) * size_pops);
-    for (int n=0; n< size_pops; n++){
+    int **t_vec = (int**) malloc(sizeof(int*) * size_pops);
+    for (int n=0; n<size_pops; n++){
         t_vec[n] = (int*) calloc(len, sizeof(int));
     }
 
@@ -159,54 +159,71 @@ void calculate_spike_sync(reading_t *obj){
 void calculate_cv_isi(reading_t *obj){
     double *cv = (double*) calloc(size_pops, sizeof(double));
     for (int n=0; n<size_pops; n++){
-        int n_prev = -1;
-        unsigned long long dn1=0, dn2=0, cum=0;
-        for (int i=0; i<num_spk[n]; i++){
-            int nstep = step_spk[n][i];
-            if ((nstep < flushed_steps) || (n_prev == -1)){
-                n_prev = nstep;
-                continue;
+
+        int nstep = -1, stack=0;
+        while (nstep > flushed_steps){
+            if (stack == num_spk[n]){
+                break;
             }
+            nstep = step_spk[n][stack];
+            stack++;
+        }
+        int num = num_spk[n] - stack;
 
-            int dn = nstep - n_prev;
-            dn1 += dn;
-            dn2 += dn * dn;
-            cum ++;
+        if (num < 3){
+            cv[n] = -1;
+            continue;
+        }
 
+        int n_prev = nstep;
+        double dn1=0, dn2=0;
+        for (int i=stack; i<num_spk[n]; i++){
+            nstep = step_spk[n][stack];
+
+            double dn = nstep - n_prev;
+            dn1 += dn/num;
+            dn2 += dn*dn/num;
             n_prev = nstep;
         }
 
-        if (cum == 0){
-            cv[n] = -1;
-        } else {
-            double mu = (double) dn1 / (double) cum;
-            double s = sqrt((double) dn2 / (double) cum - mu * mu);
-            cv[n] = s/mu;
+        double mu = (double) dn1 / (double) num;
+        double s = sqrt((double) dn2 / (double) num - mu * mu);
+        if (isnan(s)){
+            printf("nan detected: mu: %5.2f, s: %5.2f\n", mu, s);
         }
+
+        cv[n] = s/mu;
     }
 
     // average
-    int *cum = (int*) calloc(num_pop_types, sizeof(int));
+    int *nums = (int*) calloc(num_pop_types, sizeof(int));
     for (int n=0; n<size_pops; n++){
         if (cv[n] == -1) continue;
 
         int id = id_pops[n];
         obj->cv_isi[id] += cv[n];
-        cum[id]++;
+        nums[id]++;
     }
 
     for (int id=0; id<num_pop_types; id++){
-        if (cum[id] == 0){
+        if (nums[id] == 0){
             obj->cv_isi[id] = -1;
         } else {
-            obj->cv_isi[id] = obj->cv_isi[id]/cum[id];
+            obj->cv_isi[id] = obj->cv_isi[id]/nums[id];
         }
     }
 
-    free(cum);
+    free(nums);
     free(cv);
 }
 
+#define DEBUG
+
+#ifdef DEBUG
+#define PRINT_DEBUG(x) fprintf(stderr, x);
+#else
+#define PRINT_DEBUG(x) fprintf(stderr, "");
+#endif
 
 
 reading_t flush_measure(){
