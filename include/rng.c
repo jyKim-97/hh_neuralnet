@@ -17,7 +17,7 @@ int *get_poisson_array_single(int N, const double *lambda){
     for (int n=0; n<N; n++){
         double p = 1.00;
         int step = 0;
-        double exp_l = exp(lambda[n]);
+        double exp_l = exp(-lambda[n]);
         while (p > exp_l){
             p *= genrand64_real2();
             step++;
