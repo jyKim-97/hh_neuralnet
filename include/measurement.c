@@ -178,16 +178,17 @@ void calculate_cv_isi(reading_t *obj){
         int n_prev = nstep;
         double dn1=0, dn2=0;
         for (int i=stack; i<num_spk[n]; i++){
-            nstep = step_spk[n][stack];
+            nstep = step_spk[n][i];
 
             double dn = nstep - n_prev;
-            dn1 += dn/num;
-            dn2 += dn*dn/num;
+            dn1 += dn/(double)num;
+            dn2 += dn*dn/(double)num;
             n_prev = nstep;
         }
 
-        double mu = (double) dn1 / (double) num;
-        double s = sqrt((double) dn2 / (double) num - mu * mu);
+        // double mu = (double) dn1 / (double) num;
+        double mu = dn1;
+        double s = sqrt(dn2 - dn1*dn1);
         if (isnan(s)){
             printf("nan detected: mu: %5.2f, s: %5.2f\n", mu, s);
         }

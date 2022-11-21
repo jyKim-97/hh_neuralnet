@@ -117,6 +117,7 @@ void update_spkBuf(int nstep, spkbuf_t *buf, double *v_old, double *v_new){
 
     for (int n=0; n<buf->N; n++){
         if FIRE(v_old[n], v_new[n]){
+            // printf("update spk: nstep=%d, pre=%d\n", nstep, n);
             // printf("Pre synaptic neuron fired at %d\n", nstep);
             buf->spk_buf[n][n_buf] = 1;
             // printf("Neuron %d fired in step %d\n", n, nstep);
@@ -172,8 +173,11 @@ void add_spike_syn(syn_t *syn, int post_id, int nstep, spkbuf_t *buf){
 
         int npre = syn->ntk.adj_list[post_id][n];
         if (buf->spk_buf[npre][n_buf] == 1){
+            // printf("update syn: nstep=%d, pre=%d, post=%d, nd=%d, n_buf=%d\n", nstep, npre, post_id, nd, buf_size);
             // printf("n_buf: %d, nd: %d, buf_size: %d, npre: %d\n", n_buf, nd, buf_size, npre);
             double wA = syn->ntk.weight_list[post_id][n] * A;
+
+            // printf("update syn: step: %d, with lag: %d, bufsize: %d\n", nstep, nd, buf_size);
 
             // printf("Spike detedted in step %d, with lag = %d\n", nstep, nd);
 

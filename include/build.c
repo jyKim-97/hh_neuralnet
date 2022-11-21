@@ -131,6 +131,8 @@ void build_randomnet(netsyn_t *ntk, double mean_outdeg, double w, int n_lag, int
         ntk->n_delay[npost][id] = n_lag;
         ntk->num_edges[npost]++;
 
+        // printf("n_lag: %d\n", n_lag);
+
         // int id = ntk->num_edges[npre];
         // ntk->adj_list[npre][id] = npost;
         // ntk->weight_list[npre][id] = w;
