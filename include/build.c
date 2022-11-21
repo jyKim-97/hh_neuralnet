@@ -81,6 +81,7 @@ void build_eipop(buildInfo *info){
 
             // double mean_outdeg = p_out * (pre_range[1] - pre_range[0]);
             build_randomnet(&(syn[i].ntk), info->mdeg_out[i][j], w, n_lag, pre_range, post_range);
+            // printf("n_lag: %d\n", n_lag);
             // ntk_t = get_empty_net()
 
             id_post += info->num_types[j];
@@ -129,6 +130,8 @@ void build_randomnet(netsyn_t *ntk, double mean_outdeg, double w, int n_lag, int
         ntk->weight_list[npost][id] = w; // save with normalized value
         ntk->n_delay[npost][id] = n_lag;
         ntk->num_edges[npost]++;
+
+        // printf("n_lag: %d\n", n_lag);
 
         // int id = ntk->num_edges[npre];
         // ntk->adj_list[npre][id] = npost;

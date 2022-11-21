@@ -17,10 +17,11 @@ extern syn_t syn[MAX_TYPE];
 #define PRINT_ALL_VAR
 
 // #define FDIR "./case10_inc_from6_2"
-#define FDIR "./test"
+#define FDIR "./case16/"
 // #define OPEN(fname, opt) fopen(strcat(FDIR, fname), opt);
 
-int N = 100;
+// int N = 2000;
+int N = 2000;
 // int N = 1000;
 // double w = 0.001;
 const double iapp = 0;
@@ -28,8 +29,8 @@ const double iapp = 0;
 // double w_ext = 0.005;
 // double nu_ext = 200; // 2000 Hz
 
-double w_ext = 0.0005;
-double nu_ext = 4000; // 2000 Hz
+double w_ext = 0.0003;
+double nu_ext = 2000; // 2000 Hz
 
 double *lambda_ext = NULL;
 
@@ -89,7 +90,7 @@ const int target_id = 0;
 int main(){
     set_seed(1000);
     printf("Print to %s\n", FDIR);
-    run(10000);
+    run(2000);
 }
 
 
@@ -146,9 +147,10 @@ void run(double tmax){
 void write_reading(reading_t obj_r){
     char fname[] = "./result.txt";
     FILE *fp = open_test(fname, "w");
-    fprintf(fp, "chi,frs_m,frs_s,cv_isi\n");
+    fprintf(fp, "chi/frs_m/frs_s/cv_isi\n");
     for (int n=0; n<2; n++){
-        fprintf(fp, "%f,%f,%f,%f,\n", obj_r.chi[n], obj_r.frs_m[n], obj_r.frs_s[n], obj_r.cv_isi[n]);
+        fprintf(fp, "%f,%f,%f,%f,\n",
+                obj_r.chi[n], obj_r.frs_m[n], obj_r.frs_s[n], obj_r.cv_isi[n]);
     }
 
     fprintf(fp, "cij\n");
@@ -163,29 +165,41 @@ void write_reading(reading_t obj_r){
 }
 
 
+double delay = 0;
 void init_simulation(void){
     buildInfo info = {0,};
     info.N = N;
-    info.buf_size = 1./_dt; // 1 ms
+    info.buf_size = 0; //delay/_dt+1; // 1 ms
     info.ode_method = RK4;
 
     info.num_types[0] = info.N * 0.8;
     info.num_types[1] = info.N * 0.2;
 
-    // info.mdeg_out[0][0] = 400/5*4; //40/5*4;
+    // info.mdeg_out[0][0] = 404./5*4; //40/5*4;
     // info.mdeg_out[0][1] = 400/5; //40/5;
     // info.mdeg_out[1][0] = 800/5*4;
     // info.mdeg_out[1][1] = 800/5; //400/5;
 
-    info.mdeg_out[0][0] = 20/5*4; //40/5*4;
-    info.mdeg_out[0][1] = 20/5; //40/5;
-    info.mdeg_out[1][0] = 40/5*4;
-    info.mdeg_out[1][1] = 40/5; //400/5;
+    info.mdeg_out[0][0] = 200/5.*4; //100/5.*4; //40/5*4;
+    info.mdeg_out[0][1] = 200/5.; //100/5.; //40/5;
+    info.mdeg_out[1][0] = 800/5.*4; //200/5.*4;
+    info.mdeg_out[1][1] = 800/5.; //200/5.; //400/5;
+
+    // info.mdeg_out[0][0] = 5/5.*4; //40/5*4;
+    // info.mdeg_out[0][1] = 5/5.; //40/5;
+    // info.mdeg_out[1][0] = 5/5.*4;
+    // info.mdeg_out[1][1] = 5/5.; //400/5;
     
-    info.w[0][0] = 0.1;
-    info.w[0][1] = 0.1;
+    info.w[0][0] = 0.01;
+    info.w[0][1] = 0.01;
     info.w[1][0] = 0.1;
     info.w[1][1] = 0.1;
+
+    info.n_lag[0][0] = delay/_dt;
+    info.n_lag[0][1] = delay/_dt;
+    info.n_lag[1][0] = delay/_dt;
+    info.n_lag[1][1] = delay/_dt;
+    // printf("buf_size: %d, n_lag: %d\n", info.buf_size, info.n_lag[0][0]);
 
     // for (int i=0; i<2; i++){
     //     for (int j=0; j<2; j++){
@@ -216,6 +230,10 @@ void write_info(buildInfo *info){
     fprintf(fp, "mean_deg_e2i:%.2f\n", info->mdeg_out[0][1]);
     fprintf(fp, "mean_deg_i2e:%.2f\n", info->mdeg_out[1][0]);
     fprintf(fp, "mean_deg_i2i:%.2f\n", info->mdeg_out[1][1]);
+    fprintf(fp, "delay_e2e:%d\n", info->n_lag[0][0]);
+    fprintf(fp, "delay_e2i:%d\n", info->n_lag[0][1]);
+    fprintf(fp, "delay_i2e:%d\n", info->n_lag[1][0]);
+    fprintf(fp, "delay_i2i:%d\n", info->n_lag[1][1]);
     fprintf(fp, "g_e2e:%.5f\n", info->w[0][0]);
     fprintf(fp, "g_e2i:%.5f\n", info->w[0][1]);
     fprintf(fp, "g_i2e:%.5f\n", info->w[1][0]);
@@ -253,7 +271,6 @@ void update_pop(int nstep){
         }
         ext_syn.expr[n] += w_ext * ext_syn.A * num_ext[n];
         ext_syn.expd[n] += w_ext * ext_syn.A * num_ext[n];
-
         add_spike_syn(&(syn[0]), n, nstep, &(neuron.buf));
         add_spike_syn(&(syn[1]), n, nstep, &(neuron.buf));
 
@@ -306,7 +323,7 @@ void update_pop(int nstep){
 
     update_spkBuf(nstep, &(neuron.buf), v_prev, neuron.v);
     free(v_prev);
-    free(num_ext);
+    // free(num_ext);
 }
 
 
@@ -323,6 +340,7 @@ void end_pop(){
     destroy_wbNeuron(&neuron);
     destroy_deSyn(syn);
     destroy_deSyn(syn+1);
+    destroy_deSyn(&ext_syn);
     free_measure();
     end_check();
 }

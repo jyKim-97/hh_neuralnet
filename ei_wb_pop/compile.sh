@@ -1,7 +1,7 @@
-cd ../include
-make clean
-make main
-cd ../ei_wb_pop
+# cd ../include
+# make clean
+# make main
+# cd ../ei_wb_pop
 
 INCDIR="../include/"
 
