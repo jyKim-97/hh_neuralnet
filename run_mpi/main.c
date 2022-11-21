@@ -282,6 +282,6 @@ void end_pop(){
     destroy_wbNeuron(&neuron);
     destroy_deSyn(syn);
     destroy_deSyn(syn+1);
-    destroy_deSyn(ext_syn);
+    destroy_deSyn(&ext_syn);
     free_measure();
 }
