@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <mpi.h>
+#include <time.h>
+#include <sys/time.h>
+#include <unistd.h>
 
 #include "model.h"
 #include "build.h"
@@ -13,6 +16,8 @@
 #include "measurement.h"
 
 #define NCTRL 4
+
+// #define DEBUG_MOD
 
 extern neuron_t neuron;
 extern syn_t syn[MAX_TYPE];
@@ -27,7 +32,10 @@ double t_eq = 1000; // measure after 1s
 double t_flush = 2000;
 int n_eq=-1, n_flush=-1;
 int world_rank, world_size;
-
+double delay=0;
+double iapp=0;
+double *lambda_ext=NULL;
+double w_ext=0;
 
 void run(int run_id, buildInfo *info);
 buildInfo set_default(void);
@@ -36,6 +44,7 @@ void write_reading(const char *fname, reading_t obj_r);
 double *linspace(double x0, double x1, int len_x);
 void end_pop();
 double get_syn_current(int nid, double v);
+void debug_file_open(int run_id, int flush_id);
 
 
 int main(int argc, char **argv){
@@ -49,13 +58,13 @@ int main(int argc, char **argv){
 
     // set parameters
     int nitr = 1;
-    int max_len[NCTRL] = {8, 5, 3, nitr};
+    int max_len[NCTRL] = {8, 5, 4, nitr};
 
     /*** #################################### ***/
     index_t idxer;
     set_index_obj(&idxer, NCTRL, max_len);
 
-    double *mdeg_out_inh = linspace(300, 1000, max_len[0]);
+    double *mdeg_out_inh = linspace(300, 1200, max_len[0]);
     double *g_inh = linspace(0.01, 0.1, max_len[1]);
     double *nu_ext = linspace(2000, 8000, max_len[2]);
     
@@ -77,8 +86,16 @@ int main(int argc, char **argv){
     MPI_Finalize();
 }
 
-
+FILE *fv=NULL;
 void run(int run_id, buildInfo *info){
+
+    // report information
+    struct timeval tic, toc;
+    gettimeofday(&tic, NULL);
+    time_t t_tmp = time(NULL);
+    struct tm t = *localtime(&t_tmp);
+    printf("[%d-%02d-%02d %02d:%02d:%02d] ", t.tm_year+1900, t.tm_mon+1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec);
+    printf("Node%3d Start job%5d in pid %d\n", world_rank, run_id, getpid()); 
 
     int nmax = tmax / _dt;
     int *types = (int*) calloc(N, sizeof(int));
@@ -86,12 +103,17 @@ void run(int run_id, buildInfo *info){
     for (int n=(int) N*0.8; n<N; n++) types[n] = 1;
     init_measure(N, nmax, 2, types);
 
+    #ifdef DEBUG_MOD
+    debug_file_open(run_id, 0);
+    #endif
+
     /* Build information */
-    build_eipop(&info);
+    build_eipop(info);
     lambda_ext = (double*) malloc(sizeof(double) * N);
     for (int n=0; n<N; n++){
         lambda_ext[n] = _dt/1000.*info->nu_ext;
     }
+    w_ext = info->w_ext;
     init_deSyn(N, 0, _dt/2., &ext_syn);
 
     int stack = 0;
@@ -101,6 +123,10 @@ void run(int run_id, buildInfo *info){
         update_pop(n);
         measure(n, &neuron);
 
+        #ifdef DEBUG_MOD
+        save(N, n, neuron.v, fv);
+        #endif
+
         /* Flush 파트 추가 */
         if (n == n_eq){
             reading_t obj_read = flush_measure();
@@ -109,18 +135,38 @@ void run(int run_id, buildInfo *info){
         } else if (stack == n_flush){
             reading_t obj_read = flush_measure();
             // save 
-            char fname[100]='./data/';
-            sprintf(fname, "./data/id%06d_%02d_result.txt", run_id, flush_id)
+            char fname[100]="./data/";
+            sprintf(fname, "./data/id%06d_%02d_result.txt", run_id, flush_id);
             write_reading(fname, obj_read);
             free_reading(&obj_read);
             flush_id++;
             stack = 0;
+
+            #ifdef DEBUG_MOD
+            char fspk[100];
+            sprintf(fspk, "./debug/id%06d_%02d", run_id, flush_id);
+            export_spike(fspk);
+            fclose(fv);
+            debug_file_open(run_id, flush_id);
+            printf("flush!\n");
+            #endif
         }
         stack ++;
     }
 
     free(lambda_ext);
     end_pop();
+
+    gettimeofday(&toc, NULL);
+    double dt = get_dt(tic, toc);
+    printf("#%03d-%05d job Done, elapsed=%4.2fm\n", world_rank, run_id, dt/60.);
+}
+
+
+void debug_file_open(int run_id, int flush_id){
+    char fname[100];
+    sprintf(fname, "./debug/id%06d_%02d_v.txt", run_id, flush_id);
+    fv = fopen(fname, "wb");
 }
 
 
@@ -128,14 +174,14 @@ buildInfo set_default(void){
     buildInfo info = {0,};
 
     info.N = N;
-    info.buf_size = 1./_dt; // 1 ms
+    info.buf_size = delay/_dt+5; // 1 ms
     info.ode_method = RK4;
 
     info.num_types[0] = info.N * 0.8;
     info.num_types[1] = info.N * 0.2;
 
-    info.mdeg_out[0][0] = 300/5*4; //40/5*4;
-    info.mdeg_out[0][1] = 300/5; //40/5;
+    info.mdeg_out[0][0] = 200/5*4; //40/5*4;
+    info.mdeg_out[0][1] = 200/5; //40/5;
     info.mdeg_out[1][0] = 600/5*4;
     info.mdeg_out[1][1] = 600/5; //400/5;
     
@@ -144,20 +190,20 @@ buildInfo set_default(void){
     info.w[1][0] = 0.1;
     info.w[1][1] = 0.1;
 
-    info.n_lag[0][0] = 1/_dt;
-    info.n_lag[0][1] = 1/_dt;
-    info.n_lag[1][0] = 1/_dt;
-    info.n_lag[1][1] = 1/_dt;
+    info.n_lag[0][0] = delay/_dt;
+    info.n_lag[0][1] = delay/_dt;
+    info.n_lag[1][0] = delay/_dt;
+    info.n_lag[1][1] = delay/_dt;
 
     info.nu_ext = 2000;
-    info.w_ext  = 0.005;
+    info.w_ext  = 0.0003;
 
     return info;
 }
 
 
 void write_reading(const char *fname, reading_t obj_r){
-    FILE *fp = open_test(fname, "w");
+    FILE *fp = fopen(fname, "w");
     fprintf(fp, "chi,frs_m,frs_s,cv_isi\n");
     for (int n=0; n<2; n++){
         fprintf(fp, "%f,%f,%f,%f,\n", obj_r.chi[n], obj_r.frs_m[n], obj_r.frs_s[n], obj_r.cv_isi[n]);
@@ -200,6 +246,7 @@ void update_pop(int nstep){
 
     // get poisson input
     int *num_ext = get_poisson_array(N, lambda_ext);
+    // printf("lambda ext: %f\n", lambda_ext[0]);
 
     // 이부분 parallelize 가능할듯?
     // #pragma omp parallel
@@ -208,11 +255,11 @@ void update_pop(int nstep){
         // if (*ptr_v == nan){
         if (isnan(*ptr_v)){
             printf("\nERROR: nan detected in Neuron %d in step %d\n", n, nstep);
-            end_check();
             exit(1);
         }
         ext_syn.expr[n] += w_ext * ext_syn.A * num_ext[n];
         ext_syn.expd[n] += w_ext * ext_syn.A * num_ext[n];
+        // printf("num: %d, r: %f\n", num_ext[n], ext_syn.expr[n]);
 
         add_spike_syn(&(syn[0]), n, nstep, &(neuron.buf));
         add_spike_syn(&(syn[1]), n, nstep, &(neuron.buf));
@@ -252,10 +299,6 @@ void update_pop(int nstep){
         double dv4 = solve_wb_v(*ptr_v+dv3, iapp-isyn, *ptr_h+dh3, *ptr_n+dn3);
         double dh4 = solve_wb_h(*ptr_h+dh3, *ptr_v+dv3);
         double dn4 = solve_wb_n(*ptr_n+dn3, *ptr_v+dv3);
-
-        #ifdef PRINT_ALL_VAR
-        if (n == target_id) fprintf(fp_i0, "%f,", iapp-isyn);
-        #endif
         
         *ptr_v += (dv1 + 2*dv2 + 2*dv3 + dv4)/6.;
         *ptr_h += (dh1 + 2*dh2 + 2*dh3 + dh4)/6.;
