@@ -64,7 +64,7 @@ void measure(int nstep, neuron_t *neuron){
 
         // printf("v1: %5.2f\n", v1);
 
-        v_lfp[id][nstep]  += v1;
+        v_lfp[id][nstep] += v1;
         v_fluct_m1[n] += v1;
         v_fluct_m2[n] += v1 * v1;
 
@@ -251,7 +251,13 @@ void calculate_fluct(reading_t *obj_r){
         double var = v_fluct_m2[n]/(double) cum_steps - vm*vm;
         int id = id_pops[n];
         var_indiv[id] += var;
+
+        if ((n == 0) || (n==size_pops-1)){
+        printf("cum_steps: %d, v_fluct_m1: %.2f, v_fluct_m2: %.2f, var: %.2f\n", cum_steps, v_fluct_m1[n], v_fluct_m2[n], var);
+        printf("vm: %.2f, v2: %.2f\n", vm, v_fluct_m2[n]/(double)cum_steps);
+        }
     }
+    printf("fluct1\n");
 
     for (int id=0; id<num_pop_types; id++){
         double vm = v_m1[id]/(double) cum_steps;
@@ -264,11 +270,14 @@ void calculate_fluct(reading_t *obj_r){
 
 
 void reset_fluct(){
+    for (int n=0; n<size_pops; n++){
+        v_fluct_m1[n] = 0;
+        v_fluct_m2[n] = 0;
+    }
+
     for (int id=0; id<num_pop_types; id++){
         v_m1[id] = 0;
         v_m2[id] = 0;
-        v_fluct_m1[id] = 0;
-        v_fluct_m2[id] = 0;
     }
 }
 

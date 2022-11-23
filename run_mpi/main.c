@@ -254,7 +254,7 @@ void update_pop(int nstep){
 
         // if (*ptr_v == nan){
         if (isnan(*ptr_v)){
-            printf("\nERROR: nan detected in Neuron %d in step %d\n", n, nstep);
+            fprintf(stderr, "\nERROR: nan detected in Neuron %d in step %d\n", n, nstep);
             exit(1);
         }
         ext_syn.expr[n] += w_ext * ext_syn.A * num_ext[n];
