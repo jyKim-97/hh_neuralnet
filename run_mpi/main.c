@@ -25,7 +25,7 @@ extern syn_t ext_syn;
 
 
 int N = 2000;
-double tmax = 22000;
+double tmax = 12000;
 
 double t_eq = 1000; // measure after 1s
 // double t_flush = 10000;
@@ -36,6 +36,7 @@ double delay=0;
 double iapp=0;
 double *lambda_ext=NULL;
 double w_ext=0;
+char fdir[] = "./data";
 
 void run(int run_id, buildInfo *info);
 buildInfo set_default(void);
@@ -45,6 +46,7 @@ double *linspace(double x0, double x1, int len_x);
 void end_pop();
 double get_syn_current(int nid, double v);
 void debug_file_open(int run_id, int flush_id);
+void print_arr(FILE *fp, char *arr_name, int arr_size, double *arr);
 
 
 int main(int argc, char **argv){
@@ -58,15 +60,25 @@ int main(int argc, char **argv){
 
     // set parameters
     int nitr = 1;
-    int max_len[NCTRL] = {8, 5, 4, nitr};
+    int max_len[NCTRL] = {8, 5, 3, nitr};
 
     /*** #################################### ***/
     index_t idxer;
     set_index_obj(&idxer, NCTRL, max_len);
 
+    /*** Set control parameter & write ***/
+
     double *mdeg_out_inh = linspace(300, 1200, max_len[0]);
     double *g_inh = linspace(0.01, 0.1, max_len[1]);
     double *nu_ext = linspace(2000, 8000, max_len[2]);
+
+    char fname[200];
+    sprintf(fname, "%s/control_params.txt", fdir);
+    FILE *fp = fopen(fname, "w");
+    print_arr(fp, "mdeg_out_inh", max_len[0], mdeg_out_inh);
+    print_arr(fp, "g_inh", max_len[1], g_inh);
+    print_arr(fp, "nu_ext", max_len[2], nu_ext);
+    fclose(fp);
     
     for (int n=world_rank; n<idxer.len; n+=world_size){
         update_index(&idxer, n);
@@ -85,6 +97,16 @@ int main(int argc, char **argv){
 
     MPI_Finalize();
 }
+
+
+void print_arr(FILE *fp, char *arr_name, int arr_size, double *arr){
+    fprintf(fp, "%s:", arr_name);
+    for (int n=0; n<arr_size; n++){
+        fprintf(fp, "%f,", arr[n]);
+    }
+    fprintf(fp, "\n");
+}
+
 
 FILE *fv=NULL;
 void run(int run_id, buildInfo *info){
@@ -135,8 +157,8 @@ void run(int run_id, buildInfo *info){
         } else if (stack == n_flush){
             reading_t obj_read = flush_measure();
             // save 
-            char fname[100]="./data/";
-            sprintf(fname, "./data/id%06d_%02d_result.txt", run_id, flush_id);
+            char fname[100];
+            sprintf(fname, "%s/id%06d_%02d_result.txt", fdir, run_id, flush_id);
             write_reading(fname, obj_read);
             free_reading(&obj_read);
             flush_id++;
