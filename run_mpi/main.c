@@ -73,8 +73,8 @@ int main(int argc, char **argv){
 
         /* Set parameter */
         buildInfo info = set_default();
-        info.mdeg_out[1][0] = mdeg_out_inh[idxer.id[0]];
-        info.mdeg_out[1][1] = mdeg_out_inh[idxer.id[0]];
+        info.mdeg_out[1][0] = mdeg_out_inh[idxer.id[0]]/5.*4;
+        info.mdeg_out[1][1] = mdeg_out_inh[idxer.id[0]]/5.;
         info.w[1][0] = g_inh[idxer.id[1]];
         info.w[1][1] = g_inh[idxer.id[1]];
         info.nu_ext  = nu_ext[idxer.id[2]];
