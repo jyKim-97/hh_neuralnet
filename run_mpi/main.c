@@ -79,8 +79,12 @@ int main(int argc, char **argv){
     print_arr(fp, "g_inh", max_len[1], g_inh);
     print_arr(fp, "nu_ext", max_len[2], nu_ext);
     fclose(fp);
+
     
     for (int n=world_rank; n<idxer.len; n+=world_size){
+
+        set_seed(n * 100);
+
         update_index(&idxer, n);
 
         /* Set parameter */
@@ -93,6 +97,8 @@ int main(int argc, char **argv){
 
         // run
         run(n, &info);
+
+        free_poisson();
     }
 
     MPI_Finalize();
