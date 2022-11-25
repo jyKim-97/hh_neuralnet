@@ -20,7 +20,8 @@ void end_stream();
 
 void set_seed(long seed);
 int *get_poisson_array_single(int N, const double *exp_l);
-
+void init_exp_lambda(int N, const double *lambda);
+void free_poisson(void);
 
 #endif
 

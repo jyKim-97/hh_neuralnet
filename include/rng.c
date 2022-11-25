@@ -12,12 +12,26 @@ void set_seed(long seed){
 }
 
 
+double *exp_lambda = NULL;
+void init_exp_lambda(int N, const double *lambda){
+    exp_lambda = (double*) malloc(sizeof(double) * N);
+    for (int n=0; n<N; n++){
+        exp_lambda[n] = exp(-lambda[n]);
+    }
+}
+
+
 int *get_poisson_array_single(int N, const double *lambda){
+    if (exp_lambda == NULL){
+        init_exp_lambda(lambda);
+    }
+
     int *poisson_arr = (int*) malloc(sizeof(int) * N);
     for (int n=0; n<N; n++){
         double p = 1.00;
         int step = 0;
-        double exp_l = exp(-lambda[n]);
+        double exp_l = exp_lambda[n];
+        // double exp_l = exp(-lambda[n]);
         while (p > exp_l){
             p *= genrand64_real2();
             step++;
@@ -25,6 +39,12 @@ int *get_poisson_array_single(int N, const double *lambda){
         poisson_arr[n] = step==0? 0: step-1;
     }
     return poisson_arr;
+}
+
+
+void free_poisson(void){
+    free(exp_lambda);
+    exp_lambda = NULL;
 }
 
 
