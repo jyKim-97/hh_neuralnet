@@ -4,7 +4,10 @@
 #include "stdlib.h"
 #include "math.h"
 
-#define _dt 0.01
+// #define _dt 0.01
+
+// double _dt = 0.01;
+extern double _dt;
 
 
 typedef struct _netSyn{

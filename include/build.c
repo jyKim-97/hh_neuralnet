@@ -62,8 +62,6 @@ void build_eipop(buildInfo *info){
 
     int N = info->N;
     init_wbNeuron(N, info->buf_size, &neuron);
-
-    // printf("del_t = %f\n", del_t);
     
     init_deSyn(N,   0, del_t, &(syn[0])); // type E
     init_deSyn(N, -80, del_t, &(syn[1])); // type I
