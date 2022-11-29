@@ -20,6 +20,7 @@ int **step_spk = NULL; // (N, ?)
 int *num_spk = NULL; // (N, )
 int *cum_spk = NULL; // measure the firing rate
 
+int len_vlfp = 0;
 double **v_lfp; // (num_times, num_pop_types)
 double *v_m1, *v_m2; // (num_popos)
 double *v_fluct_m1, *v_fluct_m2; // (N,)
@@ -252,12 +253,12 @@ void calculate_fluct(reading_t *obj_r){
         int id = id_pops[n];
         var_indiv[id] += var;
 
-        if ((n == 0) || (n==size_pops-1)){
-        printf("cum_steps: %d, v_fluct_m1: %.2f, v_fluct_m2: %.2f, var: %.2f\n", cum_steps, v_fluct_m1[n], v_fluct_m2[n], var);
-        printf("vm: %.2f, v2: %.2f\n", vm, v_fluct_m2[n]/(double)cum_steps);
-        }
+        // if ((n == 0) || (n==size_pops-1)){
+        // printf("cum_steps: %d, v_fluct_m1: %.2f, v_fluct_m2: %.2f, var: %.2f\n", cum_steps, v_fluct_m1[n], v_fluct_m2[n], var);
+        // printf("vm: %.2f, v2: %.2f\n", vm, v_fluct_m2[n]/(double)cum_steps);
+        // }
     }
-    printf("fluct1\n");
+    // printf("fluct1\n");
 
     for (int id=0; id<num_pop_types; id++){
         double vm = v_m1[id]/(double) cum_steps;
@@ -385,6 +386,7 @@ static void init_lfp(int total_step){
     for (int n=0; n<num_pop_types; n++){
         v_lfp[n] = (double*) calloc(total_step, sizeof(double));
     }
+    len_vlfp = total_step;
 }
 
 
@@ -423,5 +425,17 @@ void export_spike(const char *tag){
 
     fwrite(tot_spk, sizeof(int), num_tot_spk, fp_spk_time);
     fclose(fp_spk_time);
-
 }
+
+
+// void export_lfp(const char *tag){
+//     char fname[200];
+//     sprintf(fname, "%s_vlfp.txt", tag);
+//     FILE *fp = fopen(fname, "wb");
+//     for (int id=0; id<num_pop_types; id++){
+//         //
+
+
+//         // fwrite(v_lfp[id], sizeof(double), len_vlfp)
+//     }
+// }

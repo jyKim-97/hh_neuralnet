@@ -15,7 +15,7 @@
 #include "mt64.h"
 #include "measurement.h"
 
-#define NCTRL 4
+#define NCTRL 3
 
 // #define DEBUG_MOD
 
@@ -47,6 +47,7 @@ void end_pop();
 double get_syn_current(int nid, double v);
 void debug_file_open(int run_id, int flush_id);
 void print_arr(FILE *fp, char *arr_name, int arr_size, double *arr);
+void export_lfp(char *fname);
 
 
 int main(int argc, char **argv){
@@ -60,7 +61,8 @@ int main(int argc, char **argv){
 
     // set parameters
     int nitr = 1;
-    int max_len[NCTRL] = {8, 5, 3, nitr};
+    // int max_len[NCTRL] = {8, 5, 3, nitr};
+    int max_len[NCTRL] = {10, 20, nitr};
 
     /*** #################################### ***/
     index_t idxer;
@@ -68,17 +70,19 @@ int main(int argc, char **argv){
 
     /*** Set control parameter & write ***/
 
-    double *mdeg_out_inh = linspace(300, 1200, max_len[0]);
-    double *g_inh = linspace(0.01, 0.1, max_len[1]);
-    double *nu_ext = linspace(2000, 8000, max_len[2]);
+    double *g_exc = linspace(0.001, 0.01, max_len[0]);
+    double *g_inh = linspace(0.001, 0.5, max_len[1]);
 
     char fname[200];
     sprintf(fname, "%s/control_params.txt", fdir);
     FILE *fp = fopen(fname, "w");
     print_arr(fp, "mdeg_out_inh", max_len[0], mdeg_out_inh);
     print_arr(fp, "g_inh", max_len[1], g_inh);
-    print_arr(fp, "nu_ext", max_len[2], nu_ext);
+    // print_arr(fp, "nu_ext", max_len[2], nu_ext);
     fclose(fp);
+
+    buildInfo info = set_default();
+    write_info(fdir, info);
 
     
     for (int n=world_rank; n<idxer.len; n+=world_size){
@@ -88,7 +92,7 @@ int main(int argc, char **argv){
         update_index(&idxer, n);
 
         /* Set parameter */
-        buildInfo info = set_default();
+        info = set_default();
         info.mdeg_out[1][0] = mdeg_out_inh[idxer.id[0]]/5.*4;
         info.mdeg_out[1][1] = mdeg_out_inh[idxer.id[0]]/5.;
         info.w[1][0] = g_inh[idxer.id[1]];
@@ -111,6 +115,26 @@ void print_arr(FILE *fp, char *arr_name, int arr_size, double *arr){
         fprintf(fp, "%f,", arr[n]);
     }
     fprintf(fp, "\n");
+}
+
+
+void export_lfp(char *fname){
+    extern double **v_lfp;
+    extern int len_vlfp;
+    FILE *fp = fopen(fname, "wb");
+
+    int nskip = 1000. / 2000. / _dt;
+    int len = len_vlfp / nskip;
+
+    float *v_tmp = (float*) malloc(sizeof(float) * len);
+    for (int id=0; id<2; id++){
+        for (int n=0; n<len; n++){
+            v_tmp[n] = (float) v_lfp[id][n*nskip];
+        }
+        fwrite(v_tmp, sizeof(float), len, fp);
+    }
+
+    free(v_tmp);
 }
 
 
@@ -183,6 +207,11 @@ void run(int run_id, buildInfo *info){
     }
 
     free(lambda_ext);
+
+    char fname_lfp[100];
+    sprintf(fname_lfp, "%s/id%06d_vlfp.dat", fdir, run_id);
+    export_lfp(fname_lfp);
+
     end_pop();
 
     gettimeofday(&toc, NULL);
@@ -210,11 +239,11 @@ buildInfo set_default(void){
 
     info.mdeg_out[0][0] = 200/5*4; //40/5*4;
     info.mdeg_out[0][1] = 200/5; //40/5;
-    info.mdeg_out[1][0] = 600/5*4;
-    info.mdeg_out[1][1] = 600/5; //400/5;
+    info.mdeg_out[1][0] = 800/5*4;
+    info.mdeg_out[1][1] = 800/5; //400/5;
     
-    info.w[0][0] = 0.01;
-    info.w[0][1] = 0.01;
+    info.w[0][0] = 0.001;
+    info.w[0][1] = 0.001;
     info.w[1][0] = 0.1;
     info.w[1][1] = 0.1;
 
@@ -224,7 +253,7 @@ buildInfo set_default(void){
     info.n_lag[1][1] = delay/_dt;
 
     info.nu_ext = 2000;
-    info.w_ext  = 0.0003;
+    info.w_ext  = 0.0005;
 
     return info;
 }
@@ -305,28 +334,28 @@ void update_pop(int nstep){
         update_deSyn(syn, n);
         update_deSyn(syn+1, n);
         update_deSyn(&ext_syn, n);
-        isyn = get_syn_current(n, *ptr_v);
-
-        double dv2 = solve_wb_v(*ptr_v+dv1*0.5, iapp-isyn, *ptr_h+dh1*0.5, *ptr_n+dn1*0.5);
-        double dh2 = solve_wb_h(*ptr_h+dh1*0.5, *ptr_v+dv1*0.5);
-        double dn2 = solve_wb_n(*ptr_n+dn1*0.5, *ptr_v+dv1*0.5);
+        double v1 = *ptr_v+dv1*0.5;
+        isyn = get_syn_current(n, v1);
+        double dv2 = solve_wb_v(v1, iapp-isyn, *ptr_h+dh1*0.5, *ptr_n+dn1*0.5);
+        double dh2 = solve_wb_h(*ptr_h+dh1*0.5, v1);
+        double dn2 = solve_wb_n(*ptr_n+dn1*0.5, v1);
 
         // 3rd step
+        double v2 = *ptr_v+dv2*0.5;
         isyn = get_syn_current(n, *ptr_v);
-        // isyn = 0;
-        double dv3 = solve_wb_v(*ptr_v+dv2*0.5, iapp-isyn, *ptr_h+dh2*0.5, *ptr_n+dn2*0.5);
-        double dh3 = solve_wb_h(*ptr_h+dh2*0.5, *ptr_v+dv2*0.5);
-        double dn3 = solve_wb_n(*ptr_n+dn2*0.5, *ptr_v+dv2*0.5);
+        double dv3 = solve_wb_v(v2, iapp-isyn, *ptr_h+dh2*0.5, *ptr_n+dn2*0.5);
+        double dh3 = solve_wb_h(*ptr_h+dh2*0.5, v2);
+        double dn3 = solve_wb_n(*ptr_n+dn2*0.5, v2);
 
         // 4th step
         update_deSyn(syn, n);
         update_deSyn(syn+1, n);
         update_deSyn(&ext_syn, n);
+        double v3 = *ptr_v+dv3;
         isyn = get_syn_current(n, *ptr_v);
-        // isyn = 0;
-        double dv4 = solve_wb_v(*ptr_v+dv3, iapp-isyn, *ptr_h+dh3, *ptr_n+dn3);
-        double dh4 = solve_wb_h(*ptr_h+dh3, *ptr_v+dv3);
-        double dn4 = solve_wb_n(*ptr_n+dn3, *ptr_v+dv3);
+        double dv4 = solve_wb_v(v3, iapp-isyn, *ptr_h+dh3, *ptr_n+dn3);
+        double dh4 = solve_wb_h(*ptr_h+dh3, v3);
+        double dn4 = solve_wb_n(*ptr_n+dn3, v3);
         
         *ptr_v += (dv1 + 2*dv2 + 2*dv3 + dv4)/6.;
         *ptr_h += (dh1 + 2*dh2 + 2*dh3 + dh4)/6.;
@@ -355,4 +384,29 @@ void end_pop(){
     destroy_deSyn(syn+1);
     destroy_deSyn(&ext_syn);
     free_measure();
+}
+
+
+void write_info(const char *tag, buildInfo *info){
+    char fname[200];
+    sprintf(fname, "%s/info.txt", "w");
+    FILE *fp = open_test(fname, "w");
+    fprintf(fp, "N:%d\n", info->N);
+    fprintf(fp, "dt:%5f\n", _dt);
+    fprintf(fp, "n_lag:%d\n", info->buf_size);
+    fprintf(fp, "mean_deg_e2e:%.2f\n", info->mdeg_out[0][0]);
+    fprintf(fp, "mean_deg_e2i:%.2f\n", info->mdeg_out[0][1]);
+    fprintf(fp, "mean_deg_i2e:%.2f\n", info->mdeg_out[1][0]);
+    fprintf(fp, "mean_deg_i2i:%.2f\n", info->mdeg_out[1][1]);
+    fprintf(fp, "delay_e2e:%d\n", info->n_lag[0][0]);
+    fprintf(fp, "delay_e2i:%d\n", info->n_lag[0][1]);
+    fprintf(fp, "delay_i2e:%d\n", info->n_lag[1][0]);
+    fprintf(fp, "delay_i2i:%d\n", info->n_lag[1][1]);
+    fprintf(fp, "g_e2e:%.5f\n", info->w[0][0]);
+    fprintf(fp, "g_e2i:%.5f\n", info->w[0][1]);
+    fprintf(fp, "g_i2e:%.5f\n", info->w[1][0]);
+    fprintf(fp, "g_i2i:%.5f\n", info->w[1][1]);
+    fprintf(fp, "nu_ext:%.5f\n", nu_ext);
+    fprintf(fp, "g_ext:%.5f\n", w_ext);
+    fclose(fp);
 }

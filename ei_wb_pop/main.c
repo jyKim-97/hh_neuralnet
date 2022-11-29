@@ -17,19 +17,20 @@ extern syn_t syn[MAX_TYPE];
 #define PRINT_ALL_VAR
 
 // #define FDIR "./case10_inc_from6_2"
-#define FDIR "./case16/"
+#define FDIR "./case24/"
+// #define FDIR "../test/test_numerical_error/correction/dt=0.001"
 // #define OPEN(fname, opt) fopen(strcat(FDIR, fname), opt);
 
 // int N = 2000;
-int N = 2000;
+int N = 500;
 // int N = 1000;
 // double w = 0.001;
-const double iapp = 0;
+const double iapp = 0.;
 
 // double w_ext = 0.005;
 // double nu_ext = 200; // 2000 Hz
 
-double w_ext = 0.0003;
+double w_ext = 0.0005;
 double nu_ext = 2000; // 2000 Hz
 
 double *lambda_ext = NULL;
@@ -47,6 +48,10 @@ void init_check();
 void write_data_for_check(int nstep);
 void end_check();
 void write_info(buildInfo *info);
+void export_lfp(void);
+
+
+extern double _dt;
 
 
 char *join(const char *fname){
@@ -88,6 +93,7 @@ const int target_id = 0;
 
 
 int main(){
+    _dt = 0.005;
     set_seed(1000);
     printf("Print to %s\n", FDIR);
     run(2000);
@@ -131,16 +137,41 @@ void run(double tmax){
     reading_t obj_read = flush_measure();
     write_reading(obj_read);
     free_reading(&obj_read);
+
     // printf("%f\n", obj_read.frs_m[1]);
 
     // extern int **step_spk;
     // printf("first t: %d\n", step_spk[0][0]);
     char *fspk = join("./spike");
     export_spike(fspk);
+    export_lfp();
+
     // export_spike("./spike");
 
     free(types);
     end_pop();
+}
+
+
+void export_lfp(void){
+    extern double **v_lfp;
+    extern int len_vlfp;
+
+    char *fname = join("./vlfp.dat");
+    FILE *fp = fopen(fname, "wb");
+
+    int nskip = 1000. / 2000. / _dt;
+    int len = len_vlfp / nskip;
+
+    float *v_tmp = (float*) malloc(sizeof(float) * len);
+    for (int id=0; id<2; id++){
+        for (int n=0; n<len; n++){
+            v_tmp[n] = (float) v_lfp[id][n*nskip];
+        }
+        fwrite(v_tmp, sizeof(float), len, fp);
+    }
+
+    free(v_tmp);
 }
 
 
@@ -175,37 +206,25 @@ void init_simulation(void){
     info.num_types[0] = info.N * 0.8;
     info.num_types[1] = info.N * 0.2;
 
-    // info.mdeg_out[0][0] = 404./5*4; //40/5*4;
-    // info.mdeg_out[0][1] = 400/5; //40/5;
-    // info.mdeg_out[1][0] = 800/5*4;
-    // info.mdeg_out[1][1] = 800/5; //400/5;
-
-    info.mdeg_out[0][0] = 200/5.*4; //100/5.*4; //40/5*4;
-    info.mdeg_out[0][1] = 200/5.; //100/5.; //40/5;
-    info.mdeg_out[1][0] = 800/5.*4; //200/5.*4;
-    info.mdeg_out[1][1] = 800/5.; //200/5.; //400/5;
-
-    // info.mdeg_out[0][0] = 5/5.*4; //40/5*4;
-    // info.mdeg_out[0][1] = 5/5.; //40/5;
-    // info.mdeg_out[1][0] = 5/5.*4;
-    // info.mdeg_out[1][1] = 5/5.; //400/5;
+    info.mdeg_out[0][0] = 200/5.*4; //40/5*4;
+    info.mdeg_out[0][1] = 200/5.; //40/5;
+    info.mdeg_out[1][0] = 400/5.*4;
+    info.mdeg_out[1][1] = 400/5.; //400/5;
     
+    // info.w[0][0] = 0.01;
+    // info.w[0][1] = 0.01;
+    // info.w[1][0] = 0.1;
+    // info.w[1][1] = 0.1;
+
     info.w[0][0] = 0.01;
     info.w[0][1] = 0.01;
-    info.w[1][0] = 0.1;
-    info.w[1][1] = 0.1;
+    info.w[1][0] = 0.4;
+    info.w[1][1] = 0.4;
 
     info.n_lag[0][0] = delay/_dt;
     info.n_lag[0][1] = delay/_dt;
     info.n_lag[1][0] = delay/_dt;
     info.n_lag[1][1] = delay/_dt;
-    // printf("buf_size: %d, n_lag: %d\n", info.buf_size, info.n_lag[0][0]);
-
-    // for (int i=0; i<2; i++){
-    //     for (int j=0; j<2; j++){
-    //         info.w[i][j] = w;
-    //     }
-    // }
 
     build_eipop(&info);
 
@@ -240,6 +259,7 @@ void write_info(buildInfo *info){
     fprintf(fp, "g_i2i:%.5f\n", info->w[1][1]);
     fprintf(fp, "nu_ext:%.5f\n", nu_ext);
     fprintf(fp, "g_ext:%.5f\n", w_ext);
+    fclose(fp);
 }
 
 
@@ -274,6 +294,8 @@ void update_pop(int nstep){
         add_spike_syn(&(syn[0]), n, nstep, &(neuron.buf));
         add_spike_syn(&(syn[1]), n, nstep, &(neuron.buf));
 
+        // printf("num: %d, r: %f\n", num_ext[n], ext_syn.expr[n]);
+
         // RK4 method
         // 1st step
         // double isyn = get_current_deSyn(syn, n, *ptr_v);
@@ -287,28 +309,28 @@ void update_pop(int nstep){
         update_deSyn(syn, n);
         update_deSyn(syn+1, n);
         update_deSyn(&ext_syn, n);
-        isyn = get_syn_current(n, *ptr_v);
-
-        double dv2 = solve_wb_v(*ptr_v+dv1*0.5, iapp-isyn, *ptr_h+dh1*0.5, *ptr_n+dn1*0.5);
-        double dh2 = solve_wb_h(*ptr_h+dh1*0.5, *ptr_v+dv1*0.5);
-        double dn2 = solve_wb_n(*ptr_n+dn1*0.5, *ptr_v+dv1*0.5);
+        double v1 = *ptr_v+dv1*0.5;
+        isyn = get_syn_current(n, v1);
+        double dv2 = solve_wb_v(v1, iapp-isyn, *ptr_h+dh1*0.5, *ptr_n+dn1*0.5);
+        double dh2 = solve_wb_h(*ptr_h+dh1*0.5, v1);
+        double dn2 = solve_wb_n(*ptr_n+dn1*0.5, v1);
 
         // 3rd step
-        isyn = get_syn_current(n, *ptr_v);
-        // isyn = 0;
-        double dv3 = solve_wb_v(*ptr_v+dv2*0.5, iapp-isyn, *ptr_h+dh2*0.5, *ptr_n+dn2*0.5);
-        double dh3 = solve_wb_h(*ptr_h+dh2*0.5, *ptr_v+dv2*0.5);
-        double dn3 = solve_wb_n(*ptr_n+dn2*0.5, *ptr_v+dv2*0.5);
+        double v2 = *ptr_v + dv2*0.5;
+        isyn = get_syn_current(n, v2);
+        double dv3 = solve_wb_v(v2, iapp-isyn, *ptr_h+dh2*0.5, *ptr_n+dn2*0.5);
+        double dh3 = solve_wb_h(*ptr_h+dh2*0.5, v2);
+        double dn3 = solve_wb_n(*ptr_n+dn2*0.5, v2);
 
         // 4th step
         update_deSyn(syn, n);
         update_deSyn(syn+1, n);
         update_deSyn(&ext_syn, n);
-        isyn = get_syn_current(n, *ptr_v);
-        // isyn = 0;
-        double dv4 = solve_wb_v(*ptr_v+dv3, iapp-isyn, *ptr_h+dh3, *ptr_n+dn3);
-        double dh4 = solve_wb_h(*ptr_h+dh3, *ptr_v+dv3);
-        double dn4 = solve_wb_n(*ptr_n+dn3, *ptr_v+dv3);
+        double v3 = *ptr_v+dv3;
+        isyn = get_syn_current(n, v3);
+        double dv4 = solve_wb_v(v3, iapp-isyn, *ptr_h+dh3, *ptr_n+dn3);
+        double dh4 = solve_wb_h(*ptr_h+dh3, v3);
+        double dn4 = solve_wb_n(*ptr_n+dn3, v3);
 
         #ifdef PRINT_ALL_VAR
         if (n == target_id) fprintf(fp_i0, "%f,", iapp-isyn);

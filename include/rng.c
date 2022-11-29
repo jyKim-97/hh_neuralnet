@@ -23,7 +23,7 @@ void init_exp_lambda(int N, const double *lambda){
 
 int *get_poisson_array_single(int N, const double *lambda){
     if (exp_lambda == NULL){
-        init_exp_lambda(lambda);
+        init_exp_lambda(N, lambda);
     }
 
     int *poisson_arr = (int*) malloc(sizeof(int) * N);
