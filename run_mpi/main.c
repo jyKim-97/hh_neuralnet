@@ -32,14 +32,14 @@ double t_eq = 1000; // measure after 1s
 // double t_flush = 10000;
 double t_flush = 2000;
 int n_eq=-1, n_flush=-1;
-int world_rank, world_size;
 double delay=0;
 double iapp=0;
 double *lambda_ext=NULL;
 double w_ext=0;
 char fdir[] = "./data";
+extern int world_rank, world_size;
 
-void run(int run_id, buildInfo *info);
+void run(int run_id, void *idxer_void);
 buildInfo set_default(void);
 void update_pop(int nstep);
 void write_reading(const char *fname, reading_t obj_r);
@@ -88,7 +88,7 @@ int main(int argc, char **argv){
     write_info(fdir, &info);
 
     set_seed(world_rank * 100);
-    for_mpi(idxer.len, run, NULL);
+    for_mpi(idxer.len, run, &idxer);
 
     
     // for (int n=world_rank; n<idxer.len; n+=world_size){
@@ -150,9 +150,9 @@ FILE *fv=NULL;
 void run(int run_id, void *idxer_void){
 
     /*** Set parameter ***/
-    idxer = (index_t*) idxer_void;
+    index_t *idxer = (index_t*) idxer_void;
 
-    info = set_default();
+    buildInfo info = set_default();
     info.w[0][0] = g_exc[idxer->id[0]];
     info.w[0][1] = g_exc[idxer->id[0]];
     info.w[1][0] = g_inh[idxer->id[1]];
@@ -180,9 +180,9 @@ void run(int run_id, void *idxer_void){
     build_eipop(&info);
     lambda_ext = (double*) malloc(sizeof(double) * N);
     for (int n=0; n<N; n++){
-        lambda_ext[n] = _dt/1000.*info->nu_ext;
+        lambda_ext[n] = _dt/1000.*info.nu_ext;
     }
-    w_ext = info->w_ext;
+    w_ext = info.w_ext;
     init_deSyn(N, 0, _dt/2., &ext_syn);
 
     int stack = 0;

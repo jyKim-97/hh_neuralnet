@@ -32,9 +32,9 @@ FILE *open_file(const char *fname, const char *option){
     FILE *fp = fopen(fname, "r");
     if (fp != NULL){
         fprintf(stderr, "File %s exists\n", fname);
+        fclose(fp);
         return NULL;
     }
-    fclose(fp);
 
     fp = fopen(fname, option);
     return fp;
