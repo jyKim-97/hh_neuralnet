@@ -14,6 +14,7 @@
 #include "storage.h"
 #include "mt64.h"
 #include "measurement.h"
+#include "mpifor.h"
 
 #define NCTRL 3
 
@@ -48,13 +49,15 @@ double get_syn_current(int nid, double v);
 void debug_file_open(int run_id, int flush_id);
 void print_arr(FILE *fp, char *arr_name, int arr_size, double *arr);
 void export_lfp(char *fname);
+void write_info(const char *tag, buildInfo *info);
+
+
+double *g_exc, *g_inh;
 
 
 int main(int argc, char **argv){
     
-    MPI_Init(&argc, &argv);
-    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
-    MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+    init_mpi(&argc, &argv);
 
     n_eq = t_eq / _dt;
     n_flush = t_flush / _dt;
@@ -70,40 +73,45 @@ int main(int argc, char **argv){
 
     /*** Set control parameter & write ***/
 
-    double *g_exc = linspace(0.001, 0.01, max_len[0]);
-    double *g_inh = linspace(0.001, 0.5, max_len[1]);
+    g_exc = linspace(0.001, 0.01, max_len[0]);
+    g_inh = linspace(0.001, 0.5, max_len[1]);
 
     char fname[200];
     sprintf(fname, "%s/control_params.txt", fdir);
     FILE *fp = fopen(fname, "w");
-    print_arr(fp, "mdeg_out_inh", max_len[0], mdeg_out_inh);
+    print_arr(fp, "g_exc", max_len[0], g_exc);
     print_arr(fp, "g_inh", max_len[1], g_inh);
     // print_arr(fp, "nu_ext", max_len[2], nu_ext);
     fclose(fp);
 
     buildInfo info = set_default();
-    write_info(fdir, info);
+    write_info(fdir, &info);
+
+    set_seed(world_rank * 100);
+    for_mpi(idxer.len, run, NULL);
 
     
-    for (int n=world_rank; n<idxer.len; n+=world_size){
+    // for (int n=world_rank; n<idxer.len; n+=world_size){
 
-        set_seed(n * 100);
+    //     set_seed(n * 100);
 
-        update_index(&idxer, n);
+    //     update_index(&idxer, n);
 
-        /* Set parameter */
-        info = set_default();
-        info.mdeg_out[1][0] = mdeg_out_inh[idxer.id[0]]/5.*4;
-        info.mdeg_out[1][1] = mdeg_out_inh[idxer.id[0]]/5.;
-        info.w[1][0] = g_inh[idxer.id[1]];
-        info.w[1][1] = g_inh[idxer.id[1]];
-        info.nu_ext  = nu_ext[idxer.id[2]];
+    //     /* Set parameter */
+    //     info = set_default();
+    //     info.w[0][0] = g_exc[idxer.id[0]];
+    //     info.w[0][1] = g_exc[idxer.id[0]];
+    //     info.w[1][0] = g_inh[idxer.id[1]];
+    //     info.w[1][1] = g_inh[idxer.id[1]];
 
-        // run
-        run(n, &info);
+    //     // run
+    //     run(n, &info);
 
-        free_poisson();
-    }
+        
+    // }
+
+    free(g_exc);
+    free(g_inh);
 
     MPI_Finalize();
 }
@@ -139,7 +147,16 @@ void export_lfp(char *fname){
 
 
 FILE *fv=NULL;
-void run(int run_id, buildInfo *info){
+void run(int run_id, void *idxer_void){
+
+    /*** Set parameter ***/
+    idxer = (index_t*) idxer_void;
+
+    info = set_default();
+    info.w[0][0] = g_exc[idxer->id[0]];
+    info.w[0][1] = g_exc[idxer->id[0]];
+    info.w[1][0] = g_inh[idxer->id[1]];
+    info.w[1][1] = g_inh[idxer->id[1]];
 
     // report information
     struct timeval tic, toc;
@@ -160,7 +177,7 @@ void run(int run_id, buildInfo *info){
     #endif
 
     /* Build information */
-    build_eipop(info);
+    build_eipop(&info);
     lambda_ext = (double*) malloc(sizeof(double) * N);
     for (int n=0; n<N; n++){
         lambda_ext[n] = _dt/1000.*info->nu_ext;
@@ -213,6 +230,7 @@ void run(int run_id, buildInfo *info){
     export_lfp(fname_lfp);
 
     end_pop();
+    free_poisson();
 
     gettimeofday(&toc, NULL);
     double dt = get_dt(tic, toc);
@@ -389,8 +407,9 @@ void end_pop(){
 
 void write_info(const char *tag, buildInfo *info){
     char fname[200];
-    sprintf(fname, "%s/info.txt", "w");
-    FILE *fp = open_test(fname, "w");
+    sprintf(fname, "%s/info.txt", tag);
+    // FILE *fp = open_test(fname, "w");
+    FILE *fp = fopen(fname, "w");
     fprintf(fp, "N:%d\n", info->N);
     fprintf(fp, "dt:%5f\n", _dt);
     fprintf(fp, "n_lag:%d\n", info->buf_size);
@@ -406,7 +425,7 @@ void write_info(const char *tag, buildInfo *info){
     fprintf(fp, "g_e2i:%.5f\n", info->w[0][1]);
     fprintf(fp, "g_i2e:%.5f\n", info->w[1][0]);
     fprintf(fp, "g_i2i:%.5f\n", info->w[1][1]);
-    fprintf(fp, "nu_ext:%.5f\n", nu_ext);
-    fprintf(fp, "g_ext:%.5f\n", w_ext);
+    fprintf(fp, "nu_ext:%.5f\n", info->nu_ext);
+    fprintf(fp, "g_ext:%.5f\n", info->w_ext);
     fclose(fp);
 }
