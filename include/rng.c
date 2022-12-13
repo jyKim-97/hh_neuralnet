@@ -28,17 +28,20 @@ int *get_poisson_array_single(int N, const double *lambda){
 
     int *poisson_arr = (int*) malloc(sizeof(int) * N);
     for (int n=0; n<N; n++){
-        double p = 1.00;
-        int step = 0;
-        double exp_l = exp_lambda[n];
-        // double exp_l = exp(-lambda[n]);
-        while (p > exp_l){
-            p *= genrand64_real2();
-            step++;
-        }
-        poisson_arr[n] = step==0? 0: step-1;
+        poisson_arr[n] = pick_random_poisson(exp_lambda[n]);
     }
     return poisson_arr;
+}
+
+
+int pick_random_poisson(double exp_l){
+    double p = 1.0;
+    int step = 0;
+    while (p > exp_l){
+        p *= genrand64_real2();
+        step++;
+    }
+    return step==0? 0: step-1;
 }
 
 

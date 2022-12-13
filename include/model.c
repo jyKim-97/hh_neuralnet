@@ -32,9 +32,9 @@ void init_wbNeuron(int N, int buf_size, neuron_t *neuron){
     neuron->n_ion = (double*) malloc(sizeof(double) * N);
 
     for (int n=0; n<N; n++){
-        neuron->v[n] = -70; // initializing with constant value
-        neuron->h_ion[n] = 0;
-        neuron->n_ion[n] = 0;
+        neuron->v[n] = genrand64_real2() * 100 - 80; // initializing with constant value
+        neuron->h_ion[n] = genrand64_real2();
+        neuron->n_ion[n] = 1 - neuron->h_ion[n];
     }
 
     init_spkBuf(N, buf_size, &(neuron->buf));
