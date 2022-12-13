@@ -31,6 +31,7 @@ class wbNeuron {
 };
 
 double *linspace(double x0, double x1, int len_x);
+void print_arr(FILE *fp, int N, const double *arr);
 
 
 #ifdef DEBUG
@@ -50,14 +51,23 @@ int main(int argc, char **argv){
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
     // set parameter range
-    int n0=20, n1=20, n2=20;
+    int n0=21, n1=21, n2=20;
     int len = n0*n1*n2;
 
-    double *cm_set = linspace(0.5, 1.5, n0);
-    double *gk_set = linspace(  4,  14, n1);
-    double *ic_set = linspace(  0,   2, n2);
+    double *cm_set = linspace( 0.5, 1.5, n0);
+    double *gl_set = linspace(0.01, 0.5, n1);
+    double *ic_set = linspace(   0,   2, n2);
+
+    // save parameter
+    if (world_rank == 0){
+        FILE *fp = fopen("./params.txt", "w");
+        fprintf(fp, "cm:"); print_arr(fp, n0, cm_set);
+        fprintf(fp, "gl:"); print_arr(fp, n1, gl_set);
+        fprintf(fp, "ic:"); print_arr(fp, n2, ic_set);
+        fclose(fp);
+    }
+
     double *fr_save = new double[len];
-    // double *fr_save = (double*) calloc(len, sizeof(double));
 
     double tmax = 5000;
     for (int n=world_rank; n<len; n+=world_size){
@@ -65,10 +75,13 @@ int main(int argc, char **argv){
         int i = n / (n1 * n2);
         int j = (n - i*n1*n2) / n2;
         int k = n - i*n1*n2 - j*n2;
+        // int i = 0;
+        // int j = 0;
+        // int k = n;
 
         wbNeuron cell;
         cell.cm   = cm_set[i];
-        cell.gk   = gk_set[j];
+        cell.gl   = gl_set[j];
         cell.iapp = ic_set[k];
 
         double fr = cell.measure_fr(tmax);
@@ -90,7 +103,7 @@ int main(int argc, char **argv){
                 fr_save[i] = fr_tmp[i];
             }
             delete[] fr_tmp;
-            
+
             printf("Recv from Node %4d\n", rank);
         }
 
@@ -102,8 +115,11 @@ int main(int argc, char **argv){
             int i = n / (n1 * n2);
             int j = (n - i*n1*n2) / n2;
             int k = n - i*n1*n2 - j*n2;
-
-            fprintf(fp, "%f,%f,%f:%lf\n", cm_set[i], gk_set[j], ic_set[k], fr_save[n]);
+            // int i = 0;
+            // int j = 0;
+            // int k = n;
+            fprintf(fp, "%d,%d,%d:%lf\n", i, j, k, fr_save[n]);
+            // fprintf(fp, "%f,%f,%f:%lf\n", cm_set[i], gk_set[j], ic_set[k], fr_save[n]);
         }
         fclose(fp);
 
@@ -235,4 +251,12 @@ double *linspace(double x0, double x1, int len_x){
         x[n] = n*(x1-x0)/(len_x-1)+x0;
     }
     return x;
+}
+
+
+void print_arr(FILE *fp, int N, const double *arr){
+    for (int n=0; n<N; n++){
+        fprintf(fp, "%f,", arr[n]);
+    }
+    fprintf(fp, "\n");
 }
