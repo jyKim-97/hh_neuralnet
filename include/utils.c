@@ -117,7 +117,7 @@ void *realloc_check(int target_size, void *arr){
 
 void append_double(double **arr, int id, double value){
     if (id % _block_size == 0){
-        *arr = realloc_check(sizeof(double) * (id + _block_size), *arr);
+        *arr = (double*) realloc_check(sizeof(double) * (id + _block_size), *arr);
     }
     (*arr)[id] = value;
 }
@@ -125,7 +125,7 @@ void append_double(double **arr, int id, double value){
 
 void append_int(int **arr, int id, int value){
     if (id % _block_size == 0){
-        *arr = realloc_check(sizeof(int) * (id + _block_size), *arr);
+        *arr = (int*) realloc_check(sizeof(int) * (id + _block_size), *arr);
     }
     (*arr)[id] = value;
 }

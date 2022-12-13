@@ -1,6 +1,10 @@
 #ifndef _UTIL_H
 #define _UTIL_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <sys/time.h>
 #include <string.h>
 #include <stdlib.h>
@@ -9,6 +13,7 @@
 #define _block_size 500
 #define MAX_IND_NUM 10
 #define CHECKPOINT(tic) clock_gettime(CLOCK_MONOTONIC, &tic) 
+
 
 typedef struct _progbar_t {
 
@@ -26,6 +31,11 @@ typedef struct _index_t {
     int id[MAX_IND_NUM];
     int id_max[MAX_IND_NUM];
 } index_t;
+
+
+#ifdef __cplusplus
+}
+#endif
 
 
 

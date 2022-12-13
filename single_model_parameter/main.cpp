@@ -1,14 +1,16 @@
 #include <iostream>
 #include <cmath>
 #include <mpi.h>
+#include <utils.h>
 
 
 // #define DEBUG
 #define THRESHOLD 0
 double _dt = 0.005;
+const int num_var = 5;
 
 // g++ -std=c++11 -O3 -o main.out main.cpp
-// mpic++ -std=c++11 -O3 -o main.out main.cpp
+// mpic++ -std=c++11 -I../include -O3 -o main.out main.cpp ../include/utils.c
 
 
 class wbNeuron {
@@ -51,19 +53,26 @@ int main(int argc, char **argv){
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
     // set parameter range
-    int n0=21, n1=21, n2=20;
-    int len = n0*n1*n2;
 
-    double *cm_set = linspace( 0.5, 1.5, n0);
-    double *gl_set = linspace(0.01, 0.5, n1);
-    double *ic_set = linspace(   0,   2, n2);
+    index_t idxer;
+    int max_len[num_var] = {21, 21, 21, 21, 20};
+    set_index_obj(&idxer, num_var, max_len);
+    int len = idxer.len;
+
+    double *cm_set  = linspace( 0.5, 1.5, max_len[0]);
+    double *gl_set  = linspace(0.01, 0.5, max_len[1]);
+    double *gk_set  = linspace(   3,  15, max_len[2]);
+    double *gna_set = linspace(  40,  70, max_len[3]);
+    double *ic_set  = linspace(   0,   2, max_len[4]);
 
     // save parameter
     if (world_rank == 0){
         FILE *fp = fopen("./params.txt", "w");
-        fprintf(fp, "cm:"); print_arr(fp, n0, cm_set);
-        fprintf(fp, "gl:"); print_arr(fp, n1, gl_set);
-        fprintf(fp, "ic:"); print_arr(fp, n2, ic_set);
+        fprintf(fp, "cm:");  print_arr(fp, max_len[0], cm_set);
+        fprintf(fp, "gl:");  print_arr(fp, max_len[1], gl_set);
+        fprintf(fp, "gk:");  print_arr(fp, max_len[2], gk_set);
+        fprintf(fp, "gna:"); print_arr(fp, max_len[3], gna_set);
+        fprintf(fp, "ic:");  print_arr(fp, max_len[4], ic_set);
         fclose(fp);
     }
 
@@ -72,17 +81,14 @@ int main(int argc, char **argv){
     double tmax = 5000;
     for (int n=world_rank; n<len; n+=world_size){
         
-        int i = n / (n1 * n2);
-        int j = (n - i*n1*n2) / n2;
-        int k = n - i*n1*n2 - j*n2;
-        // int i = 0;
-        // int j = 0;
-        // int k = n;
-
+        update_index(&idxer, n);
         wbNeuron cell;
-        cell.cm   = cm_set[i];
-        cell.gl   = gl_set[j];
-        cell.iapp = ic_set[k];
+
+        cell.cm   = cm_set[idxer.id[0]];
+        cell.gl   = gl_set[idxer.id[1]];
+        cell.gk   = gk_set[idxer.id[2]];
+        cell.gna  = gna_set[idxer.id[3]];
+        cell.iapp = ic_set[idxer.id[4]];
 
         double fr = cell.measure_fr(tmax);
         fr_save[n] = fr;
@@ -112,14 +118,11 @@ int main(int argc, char **argv){
         printf("len: %d\n", len);
         for (int n=0; n<len; n++){
 
-            int i = n / (n1 * n2);
-            int j = (n - i*n1*n2) / n2;
-            int k = n - i*n1*n2 - j*n2;
-            // int i = 0;
-            // int j = 0;
-            // int k = n;
-            fprintf(fp, "%d,%d,%d:%lf\n", i, j, k, fr_save[n]);
-            // fprintf(fp, "%f,%f,%f:%lf\n", cm_set[i], gk_set[j], ic_set[k], fr_save[n]);
+            update_index(&idxer, n);
+            for (int i=0; i<num_var-1; i++){
+                fprintf(fp, "%d,", idxer.id[i]);
+            }
+            fprintf(fp, "%d:%lf\n", idxer.id[num_var-1], fr_save[n]);
         }
         fclose(fp);
 
