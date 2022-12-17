@@ -46,16 +46,17 @@ class Synapse{
     public:
         double A, expr, expd;
         double rs=0, ds=0, ev=0, taur=1, taud=3;
+        bool params_load=false;
 
-    Synapse(double _ev, double ode_factor=0.5);
-    Synapse(double _ev, double _taur, double _taud, double ode_factor=0.5);
+    Synapse(void) {};
+    void set_params(double _ev, double _taur=1, double _taud=3, double ode_factor=0.5);
     // need to add spike update method when you inherit the class
     void update(void);
     double get_current(double vpost);
 };
 
 
-class delaySynapse:Synapse{
+class delaySynapse:public Synapse{
     private:
         int num_pre=-1, *in_node=NULL;
         double *w_in=NULL;
@@ -81,7 +82,7 @@ class delaySynapse:Synapse{
 };
 
 
-class PosSynapse:Synapse{
+class PosSynapse:public Synapse{
     private:
         double nu, w, expl;
 
@@ -89,7 +90,7 @@ class PosSynapse:Synapse{
         bool attrib_load=false;
 
     void check_setting(void);
-    void allocate_pos_attrib(double _nu, double _g);
+    void set_attrib(double _nu, double _g);
     void add_pos_spike(void);
 };
 

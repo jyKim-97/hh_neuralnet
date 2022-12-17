@@ -86,18 +86,13 @@ void wbNeuron::solve_n(double factor){
 }
 
 
-Synapse::Synapse(double _ev, double ode_factor){
-    ev = _ev;
-    init_synapse(ode_factor);
-}
-
-
-Synapse::Synapse(double _ev, double _taur, double _taud, double ode_factor){
+void Synapse::set_params(double _ev, double _taur, double _taud, double ode_factor){
     ev = _ev;
     taur = _taur;
     taud = _taud;
     init_synapse(ode_factor);
 
+    params_load = true;
 }
 
 
@@ -122,6 +117,10 @@ double Synapse::get_current(double vpost){
 
 
 void delaySynapse::check_setting(void){
+    if (!params_load){
+        std::cout << "Parameter setting is not done!" << std::endl;
+    }
+
     if (!ntk_load){
         std::cout << "Network setting is not done!" << std::endl;
     }
@@ -258,11 +257,13 @@ delaySynapse::~delaySynapse(void){
 }
 
 
-void PosSynapse::allocate_pos_attrib(double _nu, double _g){
+void PosSynapse::set_attrib(double _nu, double _g){
     nu = _nu;
-    w = _g;
+    w = _g * A;
     double l = _dt/1000. * nu;
     expl = exp(-l);
+
+    attrib_load = true;
 }
 
 
@@ -274,6 +275,10 @@ void PosSynapse::add_pos_spike(void){
 
 
 void PosSynapse::check_setting(void){
+    if (!params_load){
+        std::cout << "Parameter setting is not done!" << std::endl;
+    }
+
     if (!attrib_load){
         std::cout << "Attribute setting is not done!" << std::endl;
     }
