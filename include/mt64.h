@@ -53,6 +53,10 @@
    email: m-mat @ math.sci.hiroshima-u.ac.jp (remove spaces)
 */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* initializes mt[NN] with a seed */
 void init_genrand64(unsigned long long seed);
 
@@ -80,3 +84,7 @@ double genrand64_real3(void);
 
 /* generates a random number on (mu, sigma) normal distribution */
 double genrand64_normal(double mu, double sigma);
+
+#ifdef __cplusplus
+}
+#endif
