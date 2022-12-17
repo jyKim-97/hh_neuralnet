@@ -9,7 +9,7 @@ ntk_t get_empty_net(int N){
     for (int n=0; n<N; n++){
         ntk.adj_list[n] = (int*) malloc(_block_size * sizeof(int));
     }
-    ntk.edge_dir = 0; // out-degree
+    ntk.edge_dir = indeg; // in-degree
     return ntk;
 }
 
@@ -40,6 +40,23 @@ double cvt_mdeg_out2in(double mdeg_out, int num_pre, int num_post){
 }
 
 
+void connect(ntk_t *ntk, int id_pre, int id_post){
+    if (ntk->edge_dir == indeg){
+        int id = ntk->num_edges[id_post];
+        append_int(ntk->adj_list+id_post, id, id_pre);
+        ntk->num_edges[id_post]++;
+
+    } else if (ntk->edge_dir == outdeg){
+        int id = ntk->num_edges[id_pre];
+        append_int(ntk->adj_list+id_pre, id, id_post);
+        ntk->num_edges[id_pre]++;
+
+    } else {
+        printf("Wrong edge direction type\n");
+    }
+}
+
+
 void gen_er_mdin(ntk_t *ntk, double mdeg_in, int pre_range[2], int post_range[2]){
     int len = ntk->N; 
     int target_deg = mdeg_in * LEN(post_range);
@@ -53,10 +70,10 @@ void gen_er_mdin(ntk_t *ntk, double mdeg_in, int pre_range[2], int post_range[2]
         int npost = genrand64_real2() * num_post + post_range[0];
         // printf("total deg: %d, target deg: %d, npre=%d, npost=%d\n", total_deg, target_deg, npre, npost);
         if (used[npre*len + npost] == 1) continue;
+        if (npre == npost) continue; // remove self-loop
 
-        int id = ntk->num_edges[npre];
-        append_int(ntk->adj_list+npre, id, npost);
-        ntk->num_edges[npre]++;
+        connect(ntk, npre, npost);
+
         used[npre*len + npost] = 1;
         total_deg++;
     }

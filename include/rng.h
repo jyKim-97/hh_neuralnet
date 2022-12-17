@@ -2,6 +2,10 @@
 #ifndef _RNG
 #define _RNG
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -24,6 +28,9 @@ int pick_random_poisson(double exp_l);
 void init_exp_lambda(int N, const double *lambda);
 void free_poisson(void);
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

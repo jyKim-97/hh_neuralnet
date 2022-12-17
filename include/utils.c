@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include "utils.h"
 
+int check_state=0;
+struct timeval tic_g, toc_g;
+
 
 void init_progressbar(progbar_t *bar, int max_step)
 {
@@ -42,6 +45,17 @@ void progressbar(progbar_t *bar, int nstep)
 }
 
 
+void checkpoint(void){
+    if (check_state == 0){
+        gettimeofday(&tic_g, NULL);
+        check_state = 1;
+    } else {
+        gettimeofday(&toc_g, NULL);
+        check_state = 0;
+    }
+}
+
+
 double get_dt(struct timeval tic, struct timeval toc)
 {
     int sec, msec;
@@ -60,16 +74,12 @@ double get_dt(struct timeval tic, struct timeval toc)
 }
 
 
-void print_elapsed(struct timeval start_t)
+void print_elapsed(void)
 {
     int sec, msec, usec, x;
-    struct timeval end_t;
 
-    gettimeofday(&end_t, NULL);
-
-
-    sec = end_t.tv_sec - start_t.tv_sec;
-    usec = end_t.tv_usec - start_t.tv_usec;
+    sec = toc_g.tv_sec - tic_g.tv_sec;
+    usec = toc_g.tv_usec - tic_g.tv_usec;
     x = usec / 1e3;
     msec = x;
     usec -= x * 1e3;
@@ -86,6 +96,34 @@ void print_elapsed(struct timeval start_t)
     printf("elapsed time = %ds %dms %dus\n", sec, msec, usec);
 
 }
+
+
+// void print_elapsed(struct timeval start_t)
+// {
+//     int sec, msec, usec, x;
+//     struct timeval end_t;
+
+//     gettimeofday(&end_t, NULL);
+
+
+//     sec = end_t.tv_sec - start_t.tv_sec;
+//     usec = end_t.tv_usec - start_t.tv_usec;
+//     x = usec / 1e3;
+//     msec = x;
+//     usec -= x * 1e3;
+
+//     if (usec < 0){
+//         msec -= 1;
+//         usec += 1e3;
+//     }
+//     if (msec < 0){
+//         sec -= 1;
+//         msec += 1e3;
+//     }
+
+//     printf("elapsed time = %ds %dms %dus\n", sec, msec, usec);
+
+// }
 
 
 void print_variable(double *x, int n_print_node)
@@ -174,4 +212,18 @@ void update_index(index_t *idxer, int nstep){
         idxer->id[n] = nstep / div;
         nstep -= idxer->id[n] * div;
     }
+}
+
+
+double *linspace(double x0, double x1, int len_x){
+    double *x = (double*) malloc(sizeof(double) * len_x);
+    if (len_x == 1){
+        // printf("Too few length selected. x is set to %.2f\n", x0);
+        x[0] = x0;
+        return x;
+    }
+    for (int n=0; n<len_x; n++){
+        x[n] = n*(x1-x0)/(len_x-1)+x0;
+    }
+    return x;
 }
