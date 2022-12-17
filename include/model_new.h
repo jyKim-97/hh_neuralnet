@@ -24,7 +24,7 @@ class wbNeuron{
     double get_minf(void);
 
     public:
-        double vn, hn, nn;
+        double vn=-70, hn=0, nn=0;
         bool spike;
         double iapp=0;
         double cm=1, gna=35, gk=9, gl=0.1;

@@ -1,5 +1,7 @@
 #include "model_new.h"
 
+// g++ -std=c++11 -Wall -c model_new.cpp
+
 void wbNeuron::update(double ic){
 
     init_rk4();
@@ -31,9 +33,9 @@ void wbNeuron::check_fire(void){
 
 
 void wbNeuron::solve(double ic, double factor){
-    solve_v(ic);
-    solve_h();
-    solve_n();
+    solve_v(ic, factor);
+    solve_h(factor);
+    solve_n(factor);
     stack++;
 }
 
@@ -58,8 +60,13 @@ void wbNeuron::solve_v(double ic, double factor){
     double ina = gna * mn * mn * mn * hn * (vn - ena);
     double ik  = gk * nn * nn * nn * nn * (vn - ek);
     double il  = gl * (vn - el);
-    dv[stack] = (-ina - ik - il + ic) / cm;
+    dv[stack] = _dt * (-ina - ik - il + ic) / cm;
     vn = v0 + factor * dv[stack];
+
+    if (isnan(vn)){
+        std::cout << "nan is detected, end simulation..." << std::endl;
+        std::exit(1);
+    }
 }
 
 
