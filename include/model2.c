@@ -205,7 +205,6 @@ void set_coupling(desyn_t *syn, int pre_range[2], int post_range[2], double targ
 
 void check_coupling(desyn_t *syn){
     int N = syn->N;
-    printf("N: %d\n", N);
     if (syn->is_const_w) return;
 
     for (int id_post=0; id_post<N; id_post++){
