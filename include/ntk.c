@@ -59,9 +59,15 @@ void connect(ntk_t *ntk, int id_pre, int id_post){
 
 void gen_er_mdin(ntk_t *ntk, double mdeg_in, int pre_range[2], int post_range[2]){
     int len = ntk->N; 
-    int target_deg = mdeg_in * LEN(post_range);
     int num_pre = LEN(pre_range);
     int num_post = LEN(post_range);
+    int target_deg = mdeg_in * LEN(post_range);
+    if (target_deg == num_pre * num_post) target_deg--;
+
+    if (target_deg > num_post * num_pre){
+        printf("Network size exceed maximum edges\n");
+        exit(-1);
+    }
 
     int total_deg = 0;
     int *used = (int*) calloc(len*len, sizeof(int));
