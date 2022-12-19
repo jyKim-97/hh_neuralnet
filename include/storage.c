@@ -4,13 +4,19 @@
 // #define _fs_storage 2000
 
 // const double _fs_storage = 2000;
-#define _fs_save 2000
+double _fs_save = 2000;
 extern double _dt;
 int _nstep_save = -1;
 
 #include <stdio.h>
 void save(int N, int nstep, double* arr, FILE *fp){
-    if (_nstep_save == -1) _nstep_save = 1000./_fs_save/_dt;
+    if (_nstep_save == -1){
+        if (_fs_save == -1){
+            _nstep_save = 1;
+        } else {
+            _nstep_save = 1000./_fs_save/_dt;
+        }
+    }
     if (nstep % _nstep_save != 0) return;
 
     #ifdef save_as_float
@@ -21,6 +27,12 @@ void save(int N, int nstep, double* arr, FILE *fp){
     #else
     fwrite(arr, sizeof(double), N, fp);
     #endif    
+}
+
+
+void change_sampling_rate(double fs){
+    // if fs = -1 -> save all data
+    _fs_save = fs;
 }
 
 // NOTE: file open할 때 기존에 있는 파일 체크하는 코드 필요

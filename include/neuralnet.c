@@ -6,6 +6,7 @@ int num_syn_types = 2;
 wbneuron_t neuron;
 desyn_t syns[MAX_TYPE], ext_syn;
 double taur=1, taud=3;
+int const_current = 0;
 
 static void add_spike_total_syns(int nstep);
 static void update_total_syns(int nid);
@@ -24,8 +25,6 @@ void build_rk4(nn_info_t *info){
 
     set_attrib(&syns[0],   0, taur, taud, 0.5);
     set_attrib(&syns[1], -80, taur, taud, 0.5);
-    set_attrib(&ext_syn,   0, taur, taud, 0.5);
-    set_poisson(&ext_syn, info->nu_ext, info->w_ext);
 
     // generate network
     int e_range[2] = {0, N*0.8};
@@ -46,9 +45,18 @@ void build_rk4(nn_info_t *info){
     set_coupling(&syns[0], e_range, i_range, info->w[0][1]);
     set_coupling(&syns[1], i_range, e_range, info->w[1][0]);
     set_coupling(&syns[1], i_range, i_range, info->w[1][1]);
+    check_coupling(&syns[0]);
+    check_coupling(&syns[1]);
 
     set_const_delay(&syns[0], info->t_lag/_dt);
     set_const_delay(&syns[1], info->t_lag/_dt);
+
+    if (info->const_current == 1){
+        const_current = 1;
+    } else {
+        set_attrib(&ext_syn, 0, taur, taud, 0.5);
+        set_poisson(&ext_syn, info->nu_ext, info->w_ext);
+    }
 }
 
 
@@ -131,7 +139,7 @@ void destroy_neuralnet(void){
     for (int n=0; n<num_syn_types; n++){
         destroy_desyn(&syns[n]);
     }
-    destroy_desyn(&ext_syn);
+    if (const_current == 0) destroy_desyn(&ext_syn);
     #ifdef USE_MKL
     end_stream();
     #endif
@@ -142,7 +150,7 @@ static void add_spike_total_syns(int nstep){
     for (int n=0; n<num_syn_types; n++){
         add_spike(nstep, &syns[n], &neuron);
     }
-    add_ext_spike(&ext_syn);
+    if (const_current == 0) add_ext_spike(&ext_syn);
 }
 
 
@@ -150,12 +158,13 @@ static void update_total_syns(int nid){
     for (int n=0; n<num_syn_types; n++){
         update_desyn(&syns[n], nid);
     }
-    update_desyn(&ext_syn, nid);
+    if (const_current == 0) update_desyn(&ext_syn, nid);
 }
 
 
 static double get_total_syns_current(int nid, double vpost){
-    double isyn = get_current(&ext_syn, nid, vpost);
+    double isyn = 0;
+    if (const_current == 0) isyn = get_current(&ext_syn, nid, vpost);
     for (int n=0; n<num_syn_types; n++){
         isyn += get_current(&syns[n], nid, vpost);
     }

@@ -68,6 +68,11 @@ double solve_wb_v(wbparams_t *params, double v, double h, double n, double iapp)
     double ik  = params->gk*n*n*n*n*(v - ek);
     double il  = params->gl*(v - el);
     double dv = (-ina-ik-il+iapp) / params->cm;
+    if (isnan(dv)){
+        printf("Nan is detected, end process\n");
+        exit(-1);
+    }
+
     return _dt * dv;
 }
 
@@ -182,7 +187,7 @@ void set_coupling(desyn_t *syn, int pre_range[2], int post_range[2], double targ
         if (gen_flag == 1){
             // printf("%d, %d - %d, %d, %d\n", pre_range[0], pre_range[1], post_range[0], post_range[1], id_post);
             syn->w_list[id_post] = (double*) calloc(npre, sizeof(double));
-            for (int n=0; n<npre; n++) syn->w_list[id_post][n] = -_inf;
+            for (int n=0; n<npre; n++) syn->w_list[id_post][n] = _inf;
         }
 
         for (int n=0; n<npre; n++){
@@ -195,6 +200,22 @@ void set_coupling(desyn_t *syn, int pre_range[2], int post_range[2], double targ
 
     syn->is_const_w = false;
     syn->load_w = true;
+}
+
+
+void check_coupling(desyn_t *syn){
+    int N = syn->N;
+    if (syn->is_const_w) return;
+
+    for (int id_post=0; id_post<N; id_post++){
+        int num_pre = syn->num_indeg[id_post];
+        for (int n=0; n<num_pre; n++){
+            if (syn->w_list[id_post][n] > _inf/2.){
+                int id_pre = syn->indeg_list[id_post][n];
+                printf("coupling %d<-%d have no value\n", id_post, id_pre);
+            }
+        }
+    }
 }
 
 
@@ -237,7 +258,7 @@ void add_spike(int nstep, desyn_t *syn, wbneuron_t *neuron){
                 if (syn->is_const_w){
                     wA = syn->w * syn->A;
                 } else {
-                    wA = syn->w_list[npost][npre] * syn->A;
+                    wA = syn->w_list[npost][n] * syn->A;
                 }
 
                 syn->expr[npost] += wA;
