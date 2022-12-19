@@ -11,7 +11,6 @@ static inline double get_minf(double v);
 
 double _dt = 0.005;
 
-
 void init_wbneuron(int N, wbneuron_t *neuron){
     neuron->N = N;
     neuron->vs   = (double*) malloc(sizeof(double) * N);
@@ -307,17 +306,39 @@ void init_extsyn(int N, desyn_t *ext_syn){
 void set_poisson(desyn_t *ext_syn, double nu, double w){
     ext_syn->nu = nu;
     ext_syn->w = w;
+    #ifdef USE_MKL
+    int N = ext_syn->N;
+    ext_syn->lambda = (double*) malloc(sizeof(double) * N);
+    for (int n=0; n<N; n++) ext_syn->lambda[n] = _dt/1000. * nu;
+    #else
     ext_syn->expl = exp(-_dt/1000. * nu);
+    #endif
 }
 
 
 void add_ext_spike(desyn_t *ext_syn){
-    double expl = ext_syn->expl;
+    int N = ext_syn->N;
     double wA = ext_syn->w * ext_syn->A;
-    for (int n=0; n<ext_syn->N; n++){
+
+    #ifdef USE_MKL
+    int *num_ext_set = get_poisson_array_mkl(N, ext_syn->lambda);
+    #else
+    double expl = ext_syn->expl;
+    #endif
+
+    for (int n=0; n<N; n++){
+        #ifdef USE_MKL
+        int num_ext = num_ext_set[n];
+        #else
         int num_ext = pick_random_poisson(expl);
+        #endif
+
         ext_syn->expr[n] += wA*num_ext;
         ext_syn->expd[n] += wA*num_ext;
     }
+
+    #ifdef USE_MKL
+    free(num_ext_set);
+    #endif
 }
 

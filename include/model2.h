@@ -17,7 +17,6 @@ extern double _dt;
 #define wb_ena 55
 #define wb_ek -90
 
-
 typedef struct _wbparams_t{
     double phi, cm, gl, gna, gk;
 } wbparams_t;
@@ -56,6 +55,9 @@ typedef struct _desyn_t{
     double A, mul_expr, mul_expd;
     // for external poisson input
     double nu, expl;
+    #ifdef USE_MKL
+    double *lambda;
+    #endif
 } desyn_t;
 
 #define THRESHOLD 0
@@ -72,6 +74,7 @@ void check_fire(wbneuron_t *neuron, double *v_prev);
 
 // Synapse
 void init_desyn(int N, desyn_t *syn);
+void destroy_desyn(desyn_t *syn);
 void set_attrib(desyn_t *syn, double ev, double taur, double taud, double ode_factor);
 void set_network(desyn_t *syn, ntk_t *ntk);
 void set_const_coupling(desyn_t *syn, double w);

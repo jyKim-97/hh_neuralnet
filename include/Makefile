@@ -1,23 +1,23 @@
-#FLAGS=-Wall -Winline -O3
-# FLAGS=-Wall -Winline -O3 -funroll-loops
-#FLAGS=-g -Wall -pg
-#FLAGS=-g
 CC = gcc
-CFLAGS = -g -Wall -O3
-LDFLAGS = -lm
+# CFLAGS = -D USE_MKL -std=c11 -g -Wall -O3 -I${MKLROOT}/include
+CFLAGS = -std=c11 -g -Wall -O3 -I${MKLROOT}/include
+# LDFLAGS = -L${MKLROOT}/include -lmkl_intel_lp64 -lmkl_core -lmkl_squential -lm
+# LDFLAGS = -lm 
 
-SRCS = model.c build.c mt64.c utils.c ntk.c storage.c measurement.c
+# SRCS = model.c build.c mt64.c utils.c ntk.c storage.c measurement.c rng.c
+SRCS = mt64.c utils.c ntk.c storage.c measurement.c rng.c model2.c neuralnet.c 
 OBJS = $(SRCS:.c=.o)
 TARGET = ../lib/libhhnet.a
 
-main: $(OBJS) rng.o
+main: $(OBJS)
 	ar -rc $(TARGET) $(OBJS)
 
 $(OBJS): $(SRCS)
-	$(CC) $(CFLAGS) -o $@ -c $*$..c $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ -c $*$..c 
+# $(LDFLAGS)
 
-rng.o: rng.c
-	$(CC) $(CFLAGS) -o rng.o -c rng.c $(LDFLAGS) -I${MKLROOT}/include 
+# rng.o: rng.c
+# 	$(CC) $(CFLAGS) -o rng.o -c rng.c $(LDFLAGS) -I${MKLROOT}/include 
 # -L${MKLROOT}/lib -lmkl_intel_lp64 -lmkl_core -lmkl_squential
 
 clean:

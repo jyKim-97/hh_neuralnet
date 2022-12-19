@@ -11,7 +11,6 @@ static void add_spike_total_syns(int nstep);
 static void update_total_syns(int nid);
 static double get_total_syns_current(int nid, double vpost);
 static void fprintf2d_d(FILE *fp, double x[MAX_TYPE][MAX_TYPE]);
-static void fprintf2d_i(FILE *fp, int x[MAX_TYPE][MAX_TYPE]);
 
 
 void build_rk4(nn_info_t *info){
@@ -23,9 +22,10 @@ void build_rk4(nn_info_t *info){
         init_desyn(N, &syns[n]);
     }
 
-    set_attrib(&ext_syn,   0, taur, taud, 0.5);
     set_attrib(&syns[0],   0, taur, taud, 0.5);
     set_attrib(&syns[1], -80, taur, taud, 0.5);
+    set_attrib(&ext_syn,   0, taur, taud, 0.5);
+    set_poisson(&ext_syn, info->nu_ext, info->w_ext);
 
     // generate network
     int e_range[2] = {0, N*0.8};
@@ -126,6 +126,18 @@ void update_rk4(int nstep, double iapp){
 }
 
 
+void destroy_neuralnet(void){
+    destroy_wbneuron(&neuron);
+    for (int n=0; n<num_syn_types; n++){
+        destroy_desyn(&syns[n]);
+    }
+    destroy_desyn(&ext_syn);
+    #ifdef USE_MKL
+    end_stream();
+    #endif
+}
+
+
 static void add_spike_total_syns(int nstep){
     for (int n=0; n<num_syn_types; n++){
         add_spike(nstep, &syns[n], &neuron);
@@ -161,14 +173,3 @@ static void fprintf2d_d(FILE *fp, double x[MAX_TYPE][MAX_TYPE]){
 }
 
 
-static void fprintf2d_i(FILE *fp, int x[MAX_TYPE][MAX_TYPE]){
-    for (int i=0; i<num_syn_types; i++){
-        for (int j=0; j<num_syn_types; j++){
-            fprintf(fp, "%d, ", x[i][j]);
-        }
-        fprintf(fp, "\n");
-    }
-}
-
-
-// static void fprintf()
