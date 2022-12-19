@@ -79,6 +79,7 @@ void set_attrib(desyn_t *syn, double ev, double taur, double taud, double ode_fa
 void set_network(desyn_t *syn, ntk_t *ntk);
 void set_const_coupling(desyn_t *syn, double w);
 void set_coupling(desyn_t *syn, int pre_range[2], int post_range[2], double target_w);
+void check_coupling(desyn_t *syn);
 void set_const_delay(desyn_t *syn, double td);
 void set_delay(desyn_t *syn, int pre_range[2], int post_range[2], double target_td);
 void add_spike(int nstep, desyn_t *syn, wbneuron_t *neuron);

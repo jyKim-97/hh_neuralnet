@@ -46,6 +46,8 @@ void build_rk4(nn_info_t *info){
     set_coupling(&syns[0], e_range, i_range, info->w[0][1]);
     set_coupling(&syns[1], i_range, e_range, info->w[1][0]);
     set_coupling(&syns[1], i_range, i_range, info->w[1][1]);
+    check_coupling(&syns[0]);
+    check_coupling(&syns[1]);
 
     set_const_delay(&syns[0], info->t_lag/_dt);
     set_const_delay(&syns[1], info->t_lag/_dt);
