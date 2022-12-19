@@ -10,7 +10,13 @@ int _nstep_save = -1;
 
 #include <stdio.h>
 void save(int N, int nstep, double* arr, FILE *fp){
-    if (_nstep_save == -1) _nstep_save = 1000./_fs_save/_dt;
+    if (_nstep_save == -1){
+        if (_fs_save == -1){
+            _nstep_save = 1;
+        } else {
+            _nstep_save = 1000./_fs_save/_dt;
+        }
+    }
     if (nstep % _nstep_save != 0) return;
 
     #ifdef save_as_float
@@ -25,6 +31,7 @@ void save(int N, int nstep, double* arr, FILE *fp){
 
 
 void change_sampling_rate(double fs){
+    // if fs = -1 -> save all data
     _fs_save = fs;
 }
 
