@@ -17,13 +17,13 @@ void init_wbneuron(int N, wbneuron_t *neuron){
     neuron->vs   = (double*) malloc(sizeof(double) * N);
     neuron->hs   = (double*) malloc(sizeof(double) * N);
     neuron->ns   = (double*) malloc(sizeof(double) * N);
-    neuron->is_spk = (bool*) malloc(sizeof(bool) * sizeof(bool));
+    neuron->is_spk = (bool*) malloc(sizeof(bool) * N);
     neuron->params = (wbparams_t*) malloc(sizeof(wbparams_t) * N);
 
     for (int n=0; n<N; n++){
-        neuron->vs[n]   = -70; // initializing with constant value
-        neuron->hs[n]   = 0;
-        neuron->ns[n]   = 0;
+        neuron->vs[n] = -70; // initializing with constant value
+        neuron->hs[n] = 0;
+        neuron->ns[n] = 0;
         neuron->is_spk[n] = false;
         set_default_wbparams(&neuron->params[n]);
     }
@@ -189,7 +189,7 @@ void set_coupling(desyn_t *syn, int pre_range[2], int post_range[2], double targ
         for (int n=0; n<npre; n++){
             int id_pre = syn->indeg_list[id_post][n];
             if (IN(id_pre, pre_range) && IN(id_post, post_range)){
-                syn->w_list[id_post][id_pre] = target_w;
+                syn->w_list[id_post][n] = target_w;
             }
         }
     }
