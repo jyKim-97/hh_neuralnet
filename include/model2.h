@@ -89,7 +89,7 @@ double get_current(desyn_t *syn, int nid, double vpost);
 void init_extsyn(int N, desyn_t *syn);
 void set_poisson(desyn_t *ext_syn, double nu, double w);
 void add_ext_spike(desyn_t *ext_syn);
-
+void print_syn_network(desyn_t *syn, char *fname);
 
 // void check_fire(wbneuron_t *neuron, double *prev_vs);
 
