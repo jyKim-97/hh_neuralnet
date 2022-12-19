@@ -1,12 +1,12 @@
 #include "rng.h"
 
-#ifdef _MKL
-VSLStreamStatePtr stream;
+#ifdef USE_MKL
+VSLStreamStatePtr stream = NULL;
 #endif
 
 void set_seed(long seed){
     init_genrand64(seed);
-    #ifdef _MKL
+    #ifdef USE_MKL
     vslNewStream(&stream, VSL_BRNG_MT2203, seed);
     #endif
 }
@@ -51,9 +51,14 @@ void free_poisson(void){
 }
 
 
-#ifdef _MKL
+#ifdef USE_MKL
 
 int *get_poisson_array_mkl(int N, const double *lambda){
+    if (stream == NULL){
+        printf("Seed is not generated!\n");
+        exit(1);
+    }
+
     int *poisson_arr = (int*) malloc(sizeof(int) * N);
     viRngPoissonV(VSL_RNG_METHOD_POISSONV_POISNORM, stream, N, poisson_arr, lambda);
     return poisson_arr;
