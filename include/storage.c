@@ -4,7 +4,7 @@
 // #define _fs_storage 2000
 
 // const double _fs_storage = 2000;
-#define _fs_save 2000
+double _fs_save = 2000;
 extern double _dt;
 int _nstep_save = -1;
 
@@ -21,6 +21,11 @@ void save(int N, int nstep, double* arr, FILE *fp){
     #else
     fwrite(arr, sizeof(double), N, fp);
     #endif    
+}
+
+
+void change_sampling_rate(double fs){
+    _fs_save = fs;
 }
 
 // NOTE: file open할 때 기존에 있는 파일 체크하는 코드 필요
