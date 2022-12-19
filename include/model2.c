@@ -342,3 +342,23 @@ void add_ext_spike(desyn_t *ext_syn){
     #endif
 }
 
+
+void print_syn_network(desyn_t *syn, char *fname){
+    FILE *fp = fopen(fname, "w");
+    int N = syn->N;
+
+    fprintf(fp, "adjacency list, w\n");
+    for (int n=0; n<N; n++){
+        int num_pre = syn->num_indeg[n];
+        for (int i=0; i<num_pre; i++){
+            double w = 0;
+            if (syn->is_const_w){
+                w = syn->w;
+            } else {
+                w = syn->w_list[n][i];
+            }
+            fprintf(fp, "%d<-%d,%f\n", n,syn->indeg_list[n][i], w);
+        }
+    }
+    fclose(fp);
+}

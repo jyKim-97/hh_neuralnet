@@ -18,3 +18,4 @@ typedef struct _neuralnet_info_t{
 void build_rk4(nn_info_t *info);
 void write_info(nn_info_t *info, char *fname);
 void update_rk4(int nstep, double iapp);
+void destroy_neuralnet(void);
