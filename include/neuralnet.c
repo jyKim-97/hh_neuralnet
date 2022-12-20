@@ -48,8 +48,8 @@ void build_rk4(nn_info_t *info){
     check_coupling(&syns[0]);
     check_coupling(&syns[1]);
 
-    set_const_delay(&syns[0], info->t_lag/_dt);
-    set_const_delay(&syns[1], info->t_lag/_dt);
+    set_const_delay(&syns[0], info->t_lag);
+    set_const_delay(&syns[1], info->t_lag);
 
     if (info->const_current == 1){
         const_current = 1;
@@ -88,7 +88,6 @@ void update_rk4(int nstep, double iapp){
     int N = neuron.N;
 
     double *v_prev = (double*) malloc(sizeof(double) * N);
-    add_spike_total_syns(nstep);
 
     for (int id=0; id<N; id++){
         v_prev[id] = neuron.vs[id];
@@ -130,6 +129,7 @@ void update_rk4(int nstep, double iapp){
     }
 
     check_fire(&neuron, v_prev);
+    add_spike_total_syns(nstep);
     free(v_prev);
 }
 

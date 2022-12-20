@@ -10,7 +10,7 @@
 // #include "mt64.h"
 
 extern double _dt;
-#define _spk_buf_size 500
+#define _spk_buf_size 1000
 
 #define wb_phi 5
 #define wb_el -65
