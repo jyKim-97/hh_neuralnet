@@ -48,8 +48,8 @@ void build_rk4(nn_info_t *info){
     check_coupling(&syns[0]);
     check_coupling(&syns[1]);
 
-    set_const_delay(&syns[0], info->t_lag/_dt);
-    set_const_delay(&syns[1], info->t_lag/_dt);
+    set_const_delay(&syns[0], info->t_lag);
+    set_const_delay(&syns[1], info->t_lag);
 
     if (info->const_current == 1){
         const_current = 1;
