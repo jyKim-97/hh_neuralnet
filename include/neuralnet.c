@@ -88,7 +88,6 @@ void update_rk4(int nstep, double iapp){
     int N = neuron.N;
 
     double *v_prev = (double*) malloc(sizeof(double) * N);
-    add_spike_total_syns(nstep);
 
     for (int id=0; id<N; id++){
         v_prev[id] = neuron.vs[id];
@@ -130,6 +129,7 @@ void update_rk4(int nstep, double iapp){
     }
 
     check_fire(&neuron, v_prev);
+    add_spike_total_syns(nstep);
     free(v_prev);
 }
 

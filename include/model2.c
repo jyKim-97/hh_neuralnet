@@ -92,6 +92,7 @@ double solve_wb_n(wbparams_t *params, double n, double v){
 
 
 void check_fire(wbneuron_t *neuron, double *v_prev){
+    // 시간 맞는지 체크하기
     int nbuf = neuron->spk_count;
     for (int n=0; n<neuron->N; n++){
         if FIRE(v_prev[n], neuron->vs[n]){
@@ -103,6 +104,7 @@ void check_fire(wbneuron_t *neuron, double *v_prev){
             neuron->is_spk[n] = false;
         }
     }
+    // printf("neuron: %d\n", neuron->spk_count);
     neuron->spk_count = nbuf==_spk_buf_size-1? 0: nbuf+1;
 }
 
@@ -223,6 +225,8 @@ void set_const_delay(desyn_t *syn, double td){
     syn->n_delay = td / _dt;
     syn->is_const_delay = true;
     syn->load_delay = true;
+
+    // check _buf size & n_delay size
 }
 
 
@@ -235,11 +239,13 @@ void set_delay(desyn_t *syn, int pre_range[2], int post_range[2], double target_
 
 void add_spike(int nstep, desyn_t *syn, wbneuron_t *neuron){
     int nbuf=0;
+    // -1해ㅐ야할듯?
 
     if (syn->is_const_delay) {
         if (nstep < syn->n_delay) return;
         nbuf = (nstep - syn->n_delay) % _spk_buf_size;
     }
+    // printf("syn: %d\n", nbuf);
     
     int N = syn->N;
     for (int npost=0; npost<N; npost++){
