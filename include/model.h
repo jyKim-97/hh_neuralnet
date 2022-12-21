@@ -3,6 +3,7 @@
 
 #include "stdlib.h"
 #include "math.h"
+#include "mt64.h"
 
 // #define _dt 0.01
 
@@ -29,16 +30,31 @@ typedef struct _spkBuf{
     int **spk_buf; // (number fo the neuron) X (buffer size)
 } spkbuf_t;
 
+// 2.0 0.109 19.85 60.0
+// #define wb_cm 2 // ms
+// #define wb_phi 5
+// #define wb_gl 0.1
+// #define wb_el -65
+// #define wb_gna 60
+// #define wb_ena 55
+// #define wb_gk 20
+// #define wb_ek -90
+// -> input 없어도 firing함, 수정 필요
 
-// Parameters for neuron_t
-#define wb_cm 1 // ms
-#define wb_phi 5
-#define wb_gl 0.1
-#define wb_el -65
-#define wb_gna 35
-#define wb_ena 55
-#define wb_gk 9
-#define wb_ek -90
+
+// #define wb_cm 1 // ms
+// #define wb_phi 5
+// #define wb_gl 0.1
+#define wb_el -65.
+// #define wb_gna 35
+#define wb_ena 55.
+// #define wb_gk 9
+#define wb_ek -90.
+
+
+typedef struct _wbparams_t{
+    double phi, cm, gl, gna, gk;
+} wbparams_t;
 
 
 typedef struct _neuron_t{
@@ -58,6 +74,7 @@ typedef struct _deSyn{
     int N;
     double *expr; // rising part
     double *expd; // decaying part
+    double *gA;
     double ev;
     double A; // normalization constant
     double mul_expr;
@@ -66,6 +83,11 @@ typedef struct _deSyn{
     netsyn_t ntk;
 
 } syn_t;
+
+
+extern wbparams_t *params;
+extern int num_neuron_types;
+extern int curr_type;
 
 
 // double *solve_wbNeuron(double wb_v, double wb_h, double wb_n, double isyn, double iapp);
