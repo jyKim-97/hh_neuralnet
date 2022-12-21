@@ -10,12 +10,11 @@
 // #include "mt64.h"
 
 extern double _dt;
-#define _spk_buf_size 1000
+#define _spk_buf_size 200
 
-#define wb_phi 5
-#define wb_el -65
-#define wb_ena 55
-#define wb_ek -90
+#define ena 55.
+#define ek -90.
+#define el -65.
 
 typedef struct _wbparams_t{
     double phi, cm, gl, gna, gk;
@@ -90,14 +89,6 @@ void init_extsyn(int N, desyn_t *syn);
 void set_poisson(desyn_t *ext_syn, double nu, double w);
 void add_ext_spike(desyn_t *ext_syn);
 void print_syn_network(desyn_t *syn, char *fname);
-
-// void check_fire(wbneuron_t *neuron, double *prev_vs);
-
-
-// void add(int N, double *x, double b, double *dx);
-// double solve_wb_v(double v, double h_ion, double n_ion, double I);
-// double solve_wb_h(double h_ion, double v);
-// double solve_wb_n(double n_ion, double v);
 
 
 #endif

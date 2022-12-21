@@ -1,8 +1,5 @@
 #include "model2.h"
 
-#define ena 60
-#define ek -90
-#define el -65
 
 #define IN(x, range) ((x >= range[0]) && (x < range[1]))
 #define _inf 10000000
@@ -61,7 +58,7 @@ static inline double get_minf(double v){
     return am / (am + bm);
 }
 
-
+int print_id = 0;
 double solve_wb_v(wbparams_t *params, double v, double h, double n, double iapp){
     double m = get_minf(v);
     double ina = params->gna*m*m*m*h*(v - ena);
