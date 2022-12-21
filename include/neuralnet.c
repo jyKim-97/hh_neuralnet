@@ -126,7 +126,6 @@ void update_rk4(int nstep, double iapp){
         neuron.vs[id] = v0 + (dv1 + 2*dv2 + 2*dv3 + dv4)/6.;
         neuron.hs[id] = h0 + (dh1 + 2*dh2 + 2*dh3 + dh4)/6.;
         neuron.ns[id] = n0 + (dn1 + 2*dn2 + 2*dn3 + dn4)/6.;
-    }
 
     check_fire(&neuron, v_prev);
     add_spike_total_syns(nstep);
@@ -140,9 +139,6 @@ void write_all_vars(int nstep, FILE *fp){
     int ncol = N;
     for (int n=0; n<num_syn_types; n++) ncol += N;
     if (const_current== 0) ncol += N;
-
-    // temporal
-    ncol += 4*N;
 
     double *vars = (double*) malloc(sizeof(double) * ncol);
     int id=0;
