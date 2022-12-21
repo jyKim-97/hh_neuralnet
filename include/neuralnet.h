@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include "model2.h"
+#include "storage.h"
 
 #define MAX_TYPE 4
 
@@ -23,4 +24,5 @@ void build_rk4(nn_info_t *info);
 void write_info(nn_info_t *info, char *fname);
 void update_rk4(int nstep, double iapp);
 void destroy_neuralnet(void);
+void write_all_vars(int nstep, FILE *fp); // -> for debugging
 #endif

@@ -123,14 +123,56 @@ void update_rk4(int nstep, double iapp){
         double dh4 = solve_wb_h(ptr_params, h3, v3);
         double dn4 = solve_wb_n(ptr_params, n3, v3);
 
-        neuron.vs[id] = v0 + 1./6*(dv1 + 2*dv2 + 2*dv3 + dv4);
-        neuron.hs[id] = h0 + 1./6*(dh1 + 2*dh2 + 2*dh3 + dh4);
-        neuron.ns[id] = n0 + 1./6*(dn1 + 2*dn2 + 2*dn3 + dn4);
+        neuron.vs[id] = v0 + (dv1 + 2*dv2 + 2*dv3 + dv4)/6.;
+        neuron.hs[id] = h0 + (dh1 + 2*dh2 + 2*dh3 + dh4)/6.;
+        neuron.ns[id] = n0 + (dn1 + 2*dn2 + 2*dn3 + dn4)/6.;
     }
 
     check_fire(&neuron, v_prev);
     add_spike_total_syns(nstep);
     free(v_prev);
+}
+
+
+static int stack = 0;
+void write_all_vars(int nstep, FILE *fp){
+    int N = neuron.N;
+    int ncol = N;
+    for (int n=0; n<num_syn_types; n++) ncol += N;
+    if (const_current== 0) ncol += N;
+
+    // temporal
+    ncol += 4*N;
+
+    double *vars = (double*) malloc(sizeof(double) * ncol);
+    int id=0;
+    for (int n=0; n<N; n++){
+        vars[id++] = neuron.vs[n];
+    }
+    for (int i=0; i<num_syn_types; i++){
+        for (int n=0; n<N; n++){
+            vars[id++] = syns[i].expr[n] - syns[i].expd[i];
+        }
+    }
+    if (const_current == 0){
+        for (int n=0; n<N; n++){
+            vars[id++] = ext_syn.expr[n] - ext_syn.expd[n];
+        }
+    }
+
+    if (id > ncol){
+        printf("Index exceeds the expected length: %d/%d\n", id, ncol);
+        exit(1);
+    }
+    
+    if (stack == 0){
+        stack = 1;
+        float tmp[1] = {(float) ncol};
+        fwrite(tmp, sizeof(float), 1, fp);
+    }
+
+    save(ncol, nstep, vars, fp);
+    free(vars);
 }
 
 
