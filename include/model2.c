@@ -16,14 +16,14 @@ void init_wbneuron(int N, wbneuron_t *neuron){
     neuron->vs   = (double*) malloc(sizeof(double) * N);
     neuron->hs   = (double*) malloc(sizeof(double) * N);
     neuron->ns   = (double*) malloc(sizeof(double) * N);
-    neuron->is_spk = (bool*) malloc(sizeof(bool) * N);
+    neuron->is_spk = (int*) malloc(sizeof(int) * N);
     neuron->params = (wbparams_t*) malloc(sizeof(wbparams_t) * N);
 
     for (int n=0; n<N; n++){
         neuron->vs[n] = -70; // initializing with constant value
         neuron->hs[n] = 0;
         neuron->ns[n] = 0;
-        neuron->is_spk[n] = false;
+        neuron->is_spk[n] = 0;
         set_default_wbparams(&neuron->params[n]);
     }
     
@@ -96,15 +96,13 @@ void check_fire(wbneuron_t *neuron, double *v_prev){
     int nbuf = neuron->spk_count;
     for (int n=0; n<neuron->N; n++){
         if FIRE(v_prev[n], neuron->vs[n]){
-            // printf("fired!: nbuf: %d\n", nbuf);
             neuron->spk_buf[nbuf][n] = 1;
-            neuron->is_spk[n] = true;
+            neuron->is_spk[n] = 1;
         } else {
             neuron->spk_buf[nbuf][n] = 0;
-            neuron->is_spk[n] = false;
+            neuron->is_spk[n] = 0;
         }
     }
-    // printf("neuron: %d\n", neuron->spk_count);
     neuron->spk_count = nbuf==_spk_buf_size-1? 0: nbuf+1;
 }
 
@@ -226,7 +224,10 @@ void set_const_delay(desyn_t *syn, double td){
     syn->is_const_delay = true;
     syn->load_delay = true;
 
-    // check _buf size & n_delay size
+    if (syn->n_delay >= _spk_buf_size){
+        printf("Line 230 in model2.c: Expected delay size exceeds spike buffer size, increase the buffer\n");
+        exit(-1);
+    }
 }
 
 
@@ -239,7 +240,6 @@ void set_delay(desyn_t *syn, int pre_range[2], int post_range[2], double target_
 
 void add_spike(int nstep, desyn_t *syn, wbneuron_t *neuron){
     int nbuf=0;
-    // -1해ㅐ야할듯?
 
     if (syn->is_const_delay) {
         if (nstep < syn->n_delay) return;
