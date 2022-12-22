@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include "model2.h"
 #include "utils.h"
+#include "storage.h"
 
 #define LEN 5
 
