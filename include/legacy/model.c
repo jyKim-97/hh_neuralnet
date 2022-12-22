@@ -6,6 +6,10 @@
 const double taur=1, taud=3;
 static inline double get_minf(double v);
 double _dt = 0.005;
+wbparams_t *params;
+int num_neuron_types = 2;
+int curr_type = 0;
+
 
 /*
     Rule for defining the neuron model
@@ -32,12 +36,21 @@ void init_wbNeuron(int N, int buf_size, neuron_t *neuron){
     neuron->n_ion = (double*) malloc(sizeof(double) * N);
 
     for (int n=0; n<N; n++){
-        neuron->v[n] = genrand64_real2() * 100 - 80; // initializing with constant value
-        neuron->h_ion[n] = genrand64_real2();
-        neuron->n_ion[n] = 1 - neuron->h_ion[n];
+        neuron->v[n] = -70; // initializing with constant value
+        neuron->h_ion[n] = 0;
+        neuron->n_ion[n] = 0;
     }
 
     init_spkBuf(N, buf_size, &(neuron->buf));
+
+    params = (wbparams_t*) malloc(sizeof(wbparams_t) * num_neuron_types);
+    for (int n=0; n<num_neuron_types; n++){
+        params[n].cm  = 1;
+        params[n].phi = 5;
+        params[n].gl  = 0.1;
+        params[n].gna = 35;
+        params[n].gk  = 9;
+    }
 }
 
 
@@ -46,23 +59,40 @@ void destroy_wbNeuron(neuron_t *neuron){
     free(neuron->h_ion);
     free(neuron->n_ion);
     destroy_spkBuf(&(neuron->buf));
+    free(params);
 }
 
 
+int print_id = 0;
 double solve_wb_v(double v, double I, double h_ion, double n_ion){
+
+    if (curr_type >= num_neuron_types){
+        printf("current type exceed the total num of neuron types\n");
+    }
 
     // get ion current
     double m_ion = get_minf(v);
     // double ina = wb_gna * pow(m_ion, 3) * h_ion * (v - wb_ena);
     // double ik  = wb_gk * pow(n_ion, 4) * (v - wb_ek);
-    double ina = wb_gna * m_ion * m_ion * m_ion * h_ion * (v - wb_ena);
-    double ik = wb_gk * n_ion * n_ion * n_ion * n_ion * (v - wb_ek);
-    double il  = wb_gl * (v - wb_el);
+    double ina = params[curr_type].gna * m_ion * m_ion * m_ion * h_ion * (v - wb_ena);
+    double ik  = params[curr_type].gk * n_ion * n_ion * n_ion * n_ion * (v - wb_ek);
+    double il  = params[curr_type].gl * (v - wb_el);
 
     // printf("ina: %5.2f, ik: %5.2f, il: %5.2f, I: %5.2f\n", ina, ik, il, I);
     // printf("n_ion4: %10.2f\n", n_ion * n_ion * n_ion * n_ion);
 
-    double dv = (-ina - ik - il + I) / wb_cm;
+    double dv = (-ina - ik - il + I) / params[curr_type].cm;
+
+    // if (print_id == 1){
+    // printf("gna: %12.10f, gk: %12.10f, gl: %12.10f, cm: %12.10f\n", 
+    //         params[curr_type].gna, params[curr_type].gk, params[curr_type].gl, params[curr_type].cm);
+    // printf("ena: %12.10f, ek: %12.10f, el: %12.10f\n", wb_ena, wb_ek, wb_el);
+    // printf("m: %12.10f, h: %12.10f, n: %12.10f, i: %12.10f\n", m_ion, h_ion, n_ion, I);
+    // printf("ina: %12.10f, ik: %12.10f, il: %12.10f\n", ina, ik, il);
+    // printf("v: %12.10f, dv: %12.10f\n", v, dv);
+        
+    // }
+
     return _dt * dv;
 }
 
@@ -77,14 +107,14 @@ static inline double get_minf(double v){
 double solve_wb_h(double h_ion, double v){
     double ah = 0.07 * exp(-(v + 58)/20);
     double bh = 1 / (exp(-0.1 * (v + 28)) + 1);
-    return _dt * wb_phi * (ah * (1-h_ion) - bh * h_ion);
+    return _dt * params[curr_type].phi * (ah * (1-h_ion) - bh * h_ion);
 }
 
 
 double solve_wb_n(double n_ion, double v){
     double an = -0.01 * (v + 34) / (exp(-0.1 * (v + 34)) - 1);
     double bn = 0.125 * exp(-(v + 44)/80);
-    return _dt * wb_phi * (an * (1-n_ion) - bn * n_ion);
+    return _dt * params[curr_type].phi * (an * (1-n_ion) - bn * n_ion);
 }
 
 /*

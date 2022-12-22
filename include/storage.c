@@ -8,14 +8,11 @@ double _fs_save = 2000;
 extern double _dt;
 int _nstep_save = -1;
 
+static void set_nstep();
+
 #include <stdio.h>
 void save(int N, int nstep, double* arr, FILE *fp){
-    if (_nstep_save == -1){
-        _nstep_save = 1000./_fs_save/_dt;
-        if (_fs_save <= 0){
-            _nstep_save = 1;
-        }
-    }
+    set_nstep();
     if (nstep % _nstep_save != 0) return;
 
     #ifdef save_as_float
@@ -26,6 +23,40 @@ void save(int N, int nstep, double* arr, FILE *fp){
     #else
     fwrite(arr, sizeof(double), N, fp);
     #endif    
+}
+
+
+void write_signal_d(int len, double *arr, FILE *fp){
+    set_nstep();
+    int len_save = len / _nstep_save;
+    float *arr_save = (float*) malloc(sizeof(float)*len_save);
+    for (int n=0; n<len_save; n++){
+        arr_save[n] = (float) arr[n*_nstep_save];
+    }
+    fwrite(arr_save, sizeof(float), len_save, fp);
+    free(arr_save);
+}
+
+
+void write_signal_f(int len, float *arr, FILE *fp){
+    set_nstep();
+    int len_save = len / _nstep_save;
+    float *arr_save = (float*) malloc(sizeof(float)*len_save);
+    for (int n=0; n<len_save; n++){
+        arr_save[n] = arr[n*_nstep_save];
+    }
+    fwrite(arr_save, sizeof(float), len_save, fp);
+    free(arr_save);
+}
+
+
+static void set_nstep(){
+    if (_nstep_save == -1){
+        _nstep_save = 1000./_fs_save/_dt;
+        if (_fs_save <= 0){
+            _nstep_save = 1;
+        }
+    }
 }
 
 

@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include "model2.h"
+#include "storage.h"
 
 #define MAX_TYPE 4
 
@@ -12,15 +13,17 @@ typedef struct _neuralnet_info_t{
     int num_types;
     int type_range[MAX_TYPE];
     double mdeg_in[MAX_TYPE][MAX_TYPE];
+    double p_out[MAX_TYPE][MAX_TYPE];
     double w[MAX_TYPE][MAX_TYPE]; // pre -> post
     double t_lag;
     double nu_ext, w_ext;
-    int const_current;
+    bool const_current;
 } nn_info_t;
 
-
-void build_rk4(nn_info_t *info);
+nn_info_t get_empty_info(void);
+void build_ei_rk4(nn_info_t *info);
 void write_info(nn_info_t *info, char *fname);
 void update_rk4(int nstep, double iapp);
 void destroy_neuralnet(void);
+void write_all_vars(int nstep, FILE *fp); // -> for debugging
 #endif
