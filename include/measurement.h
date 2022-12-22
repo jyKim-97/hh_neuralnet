@@ -1,51 +1,40 @@
-/*
-Source code for measurement
-
-Accessible options
-- SPK
-- LFP
-- V_FLUCT
-- FIRING_RATE
-*/
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include "model.h"
+#include <stdbool.h>
+#include "model2.h"
 #include "utils.h"
 
-typedef struct _reading_t {
+#define LEN 5
+
+typedef struct _summary_t {
+    // 0 index is for total neurons
     int num_types;
-    double *chi; // the coherence of fluctuation (num_types, )
-    double *frs_m; // the firing rate
-    double *frs_s; // the firing rate -> firing irregularity
-    double *cv_isi;
-    double **spk_sync;
-} reading_t;
+    float chi[LEN];
+    float frs_m[LEN];
+    float frs_s[LEN];
+    float cv_isi[LEN];
+    float spk_sync[LEN][LEN];
+} summary_t;
 
-#define SPK
-#define FIRING_RATE
-#define LFP
-#define V_FLUCT
 
-// static void init_spk(void);
-// static void init_fluct(void);
-// static void init_lfp(int total_step);
-void init_measure(int N, int total_step, int n_class, int *id_class);
-void measure(int nstep, neuron_t *neuron);
+void init_measure(int N, int num_steps, int _n_class, int *_id_class);
+void set_class(int _n_class, int *_id_class);
+void init_spike();
+void init_flct();
+void free_spike();
+void free_flct();
+void reset();
+void measure(int nstep, wbneuron_t *neuron);
+float average(float *x);
+summary_t flush_measure(void);
+void destroy_measure(void);
 
-reading_t init_reading();
-reading_t flush_measure();
-void calculate_fluct(reading_t *obj_r);
-void calculate_firing_rate(reading_t *obj_r);
+void calculate_cv_isi(summary_t *obj);
+void calculate_spike_sync(summary_t *obj);
+void calculate_flct(summary_t *obj);
+void calculate_firing_rate(summary_t *obj);
 
-void reset_fluct();
-void reset_firing_rate();
-
-// static void free_spk(void);
-// static void free_fluct();
-// static void free_lfp(void);
-void free_measure();
-void free_reading(reading_t *obj_r);
-
-void export_spike(const char *tag);
+void export_spike(const char *fname);
+void export_lfp(const char *fname);
+void test_print(summary_t *obj);
