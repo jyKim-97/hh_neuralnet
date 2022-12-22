@@ -75,8 +75,9 @@ class delaySynapse:public Synapse{
     void allocate_strength(int num_types, double gs[], int up_limit[]);
     void set_delay(double t_delay);
     void set_delay(int num_types, double t_delay[], int up_limit[]);
-    template <typename T>
-    void update_buffer(T *neurons);
+    // template <typename T>
+    // void update_buffer(T *neurons);
+    void update_buffer(wbNeuron *neurons);
     void add_spike(void);
     ~delaySynapse();
 };

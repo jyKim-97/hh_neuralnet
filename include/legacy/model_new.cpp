@@ -222,8 +222,8 @@ void delaySynapse::set_delay(int num_types, double t_delay[], int up_limit[]){
 }
 
 
-template <typename T>
-void delaySynapse::update_buffer(T *neurons){
+// template <typename T>
+void delaySynapse::update_buffer(wbNeuron *neurons){
 
     int nbuf;
     if (is_const_delay){ nbuf = (spk_step + delay_const) % _buffer_size; }
