@@ -39,6 +39,22 @@ def load_vlfp(fname):
     return vlfps
 
 
+def load_network(fname):
+    ntk_in = []
+    with open(fname, "r") as fid:
+        line = fid.readline()
+        line = fid.readline()
+        while line:
+            tmp = line.split("<-")
+            npost = int(tmp[0])
+            npre = int(tmp[1].split(",")[0])
+            if len(ntk_in) <= npost:
+                ntk_in.append([])
+            ntk_in[npost].append(npre)
+            line = fid.readline()
+    return ntk_in
+        
+
 def draw_spk(step_spk, dt=0.01, xl=None, color_ranges=None, colors=None, ms=1):
     if color_ranges is not None:
         if colors is None:
