@@ -38,4 +38,5 @@ void calculate_firing_rate(summary_t *obj);
 
 void export_spike(const char *fname);
 void export_lfp(const char *fname);
+void export_result(summary_t *obj, const char *fname);
 void test_print(summary_t *obj);
