@@ -1,10 +1,10 @@
 CC = gcc
 # CFLAGS = -D USE_MKL -std=c11 -g -Wall -O3 -I${MKLROOT}/include
-CFLAGS = -std=c11 -g -Wall
+CFLAGS = -std=c11 -g -Wall -O2
 # LDFLAGS = -L${MKLROOT}/include -lmkl_intel_lp64 -lmkl_core -lmkl_squential -lm
 LDFLAGS = -lm 
 
-SRCS = mt64.c utils.c ntk.c storage.c measurement.c rng.c model2.c neuralnet.c 
+SRCS = mt64.c utils.c ntk.c storage.c measurement2.c rng.c model2.c neuralnet.c 
 
 OBJS = $(SRCS:.c=.o)
 TARGET = ../lib/libhhnet.a
@@ -15,6 +15,9 @@ main: $(OBJS)
 $(OBJS): $(SRCS)
 	$(CC) $(CFLAGS) -o $@ -c $*$..c 
 # $(LDFLAGS)
+
+mpifor:
+	mpicc -g -o mpifor.o -c mpifor.c
 
 # rng.o: rng.c
 # 	$(CC) $(CFLAGS) -o rng.o -c rng.c $(LDFLAGS) -I${MKLROOT}/include 
