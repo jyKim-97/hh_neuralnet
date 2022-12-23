@@ -12,6 +12,7 @@
 
 extern double _dt;
 extern wbneuron_t neuron;
+#define _debug
 
 
 void run(int job_id, void *idxer_void);
@@ -39,7 +40,8 @@ int main(int argc, char **argv){
     gettimeofday(&tic, NULL);
     set_control_parameters();
     set_seed(world_rank * 100);
-    for_mpi(idxer.len, run, &idxer);
+    // for_mpi(idxer.len, run, &idxer);
+    run(5, &idxer);
 
     if (world_rank == 0){
         gettimeofday(&toc, NULL);
@@ -94,6 +96,11 @@ void run(int job_id, void *idxer_void){
 
     print_job_start(job_id, idxer->len);
     int nmax = tmax/_dt;
+    #ifdef _debug
+    progbar_t bar;
+    init_progressbar(&bar, nmax);
+    #endif
+
     init_measure(N, nmax, 2, NULL);
     for (int nstep=0; nstep<nmax; nstep++){
         if ((flag_eq == 0) && (nstep * _dt >= 500)){
@@ -103,10 +110,12 @@ void run(int job_id, void *idxer_void){
 
         update_rk4(nstep, iapp);
         measure(nstep, &neuron);
+
+        #ifdef _debug
+        progressbar(&bar, nstep);
+        #endif
     }
     summary_t obj = flush_measure();
-
-    //
 
     char fname_res[100];
     sprintf(fname_res, "id%06d_result.txt", job_id);
@@ -118,7 +127,7 @@ void run(int job_id, void *idxer_void){
 
     char fname_lfp[100];
     sprintf(fname_lfp, "id%06d_lfp.dat", job_id);
-    export_lfp(path_join(fdir, "lfp.dat"));
+    export_lfp(path_join(fdir, fname_lfp));
 
     print_job_end(job_id, idxer->len);
 }
