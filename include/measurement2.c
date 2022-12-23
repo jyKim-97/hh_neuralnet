@@ -1,7 +1,7 @@
 /*
 Source code for measurement
 */
-#include "measurement.h"
+#include "measurement2.h"
 
 int max_step  = -1;
 int cum_step  = 0;
@@ -41,6 +41,7 @@ void init_measure(int N, int num_steps, int _n_class, int *_id_class){
 void destroy_measure(void){
     free_spike();
     free_flct();
+    free(id_class);
 }
 
 
@@ -364,7 +365,7 @@ float average(float *x){
 
 
 void export_lfp(const char *fname){
-    FILE *fp = fopen(fname, "wb");
+    FILE *fp = open_file(fname, "wb");
 
     float info[2] = {(float) num_class_types, (float) max_step};
     fwrite(info, sizeof(float), 2, fp);
@@ -388,7 +389,7 @@ void export_lfp(const char *fname){
 
 
 void export_spike(const char *fname){
-    FILE *fp = fopen(fname, "wb");
+    FILE *fp = open_file(fname, "wb");
     int info[2] = {ntk_size, max_step};
     fwrite(info, sizeof(int), 2, fp);
     fwrite(num_spk, sizeof(int), ntk_size, fp);
@@ -398,15 +399,51 @@ void export_spike(const char *fname){
 }
 
 
-void test_print(summary_t *obj){
-    printf("cv: ");
+void export_result(summary_t *obj, const char *fname){
+    FILE *fp = open_file(fname, "w");
+    fprintf(fp, "num_types:%d\n", num_class_types);
+    
+    fprintf(fp, "chi:");
     for (int n=0; n<num_class_types+1; n++){
-        printf("%5.3f,", obj->cv_isi[n]);
-    }; printf("\n");
+        fprintf(fp, "%f,", obj->chi[n]);
+    }; fprintf(fp, "\n");
 
+    fprintf(fp, "cv:");
+    for (int n=0; n<num_class_types+1; n++){
+        fprintf(fp, "%f,", obj->cv_isi[n]);
+    }; fprintf(fp, "\n");
+
+    fprintf(fp, "frs_m:");
+    for (int n=0; n<num_class_types+1; n++){
+        fprintf(fp, "%f,", obj->frs_m[n]);
+    }; fprintf(fp, "\n");
+
+    fprintf(fp, "frs_s:");
+    for (int n=0; n<num_class_types+1; n++){
+        fprintf(fp, "%f,", obj->frs_s[n]);
+    }; fprintf(fp, "\n");
+
+    fprintf(fp, "spike_syn:\n");
+    for (int i=0; i<num_class_types+1; i++){
+        for (int j=0; j<num_class_types+1; j++){
+            fprintf(fp, "%f,", obj->spk_sync[i][j]);
+        }
+        fprintf(fp, "\n");
+    }
+    
+    fclose(fp);
+}
+
+
+void test_print(summary_t *obj){
     printf("chi: ");
     for (int n=0; n<num_class_types+1; n++){
         printf("%5.3f,", obj->chi[n]);
+    }; printf("\n");
+
+    printf("cv: ");
+    for (int n=0; n<num_class_types+1; n++){
+        printf("%5.3f,", obj->cv_isi[n]);
     }; printf("\n");
 
     printf("frs_m: ");

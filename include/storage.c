@@ -65,12 +65,9 @@ void change_sampling_rate(double fs){
     _fs_save = fs;
 }
 
-// NOTE: file open할 때 기존에 있는 파일 체크하는 코드 필요
+
 FILE *open_file(const char *fname, const char *option){
 
-    // printf("n_step_save: %d, fs: %d, dt: %f\n", _nstep_save, _fs_save, _dt);
-
-    // check file exists
     FILE *fp = fopen(fname, "r");
     if (fp != NULL){
         fprintf(stderr, "File %s exists\n", fname);
@@ -83,3 +80,35 @@ FILE *open_file(const char *fname, const char *option){
 }
 
 
+FILE *open_file_wdir(const char *fdir, const char *fname, const char *option){
+    char *fbuf = path_join(fdir, fname);
+    FILE *fp = open_file(fbuf, option);
+    return fp;
+}
+
+
+char *path_join(const char *fdir, const char *fname){
+    char buf[200];
+    strcpy(buf, fdir);
+    int l = (int) strlen(fdir);
+    char last = fdir[l-1];
+    if (last != '/') strcat(buf, "/");
+
+    strcat(buf, fname);
+
+    // get len
+    int len = 0;
+    char *c = buf;
+    while (*c != '\0'){
+        len++;
+        c++;
+    }
+
+    char *buf_return = (char*) malloc(sizeof(char) * (len+1));
+    for (int n=0; n<len; n++){
+        buf_return[n] =  buf[n];
+    }
+    buf_return[len] = '\0';
+
+    return buf_return;
+}

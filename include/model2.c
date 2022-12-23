@@ -6,7 +6,7 @@
 
 static inline double get_minf(double v);
 
-double _dt = 0.005;
+double _dt = 0.01;
 
 void init_wbneuron(int N, wbneuron_t *neuron){
     neuron->N = N;

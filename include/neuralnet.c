@@ -12,6 +12,7 @@ static void add_spike_total_syns(int nstep);
 static void update_total_syns(int nid);
 static double get_total_syns_current(int nid, double vpost);
 static void fprintf2d_d(FILE *fp, double x[MAX_TYPE][MAX_TYPE]);
+static void fill_connection_prob(nn_info_t *info);
 
 
 nn_info_t get_empty_info(void){
@@ -90,34 +91,22 @@ void build_ei_rk4(nn_info_t *info){
 
 
 void write_info(nn_info_t *info, char *fname){
-    FILE *fp = fopen(fname, "w");
+    fill_connection_prob(info);
+
+    FILE *fp = open_file(fname, "w");
     fprintf(fp, "Size: %d\n", info->N);
     fprintf(fp, "ntypes: %d\n", num_syn_types);
     fprintf(fp, "type_range:\n");
-    fprintf(fp, "mean indegree:\n");
-    fprintf2d_d(fp, info->mdeg_in);
     fprintf(fp, "w:\n");
     fprintf2d_d(fp, info->w);
     fprintf(fp, "t_lag: %f\n", info->t_lag);
     fprintf(fp, "nu_pos: %f\n", info->nu_ext);
     fprintf(fp, "w_pos: %f\n", info->w_ext);
 
-    fprintf(fp, "Additional\n");
-    fprintf(fp, "connection_prob:\n");
-    int N = info->N;
-    if (info->p_out[0][0] >= 0){
-        fprintf(fp, "e->e: %f\n", info->p_out[0][0]);
-        fprintf(fp, "e->i: %f\n", info->p_out[0][1]);
-        fprintf(fp, "i->e: %f\n", info->p_out[1][0]);
-        fprintf(fp, "i->i: %f\n", info->p_out[1][0]);
-    } else {
-        fprintf(fp, "e->e: %f\n", info->mdeg_in[0][0]/(0.8*N));
-        fprintf(fp, "e->i: %f\n", info->mdeg_in[0][1]/(0.8*N));
-        fprintf(fp, "i->e: %f\n", info->mdeg_in[1][0]/(0.2*N));
-        fprintf(fp, "i->i: %f\n", info->mdeg_in[1][0]/(0.2*N));
-    }
-
-
+    fprintf(fp, "mean indegree:\n");
+    fprintf2d_d(fp, info->mdeg_in);
+    fprintf(fp, "connection prob (out):\n");
+    fprintf2d_d(fp, info->p_out);
     fclose(fp);
 }
 
@@ -259,3 +248,22 @@ static void fprintf2d_d(FILE *fp, double x[MAX_TYPE][MAX_TYPE]){
 }
 
 
+static void fill_connection_prob(nn_info_t *info){
+    int N = info->N;
+    int num_cells[2] = {0.8*N, 0.2*N};
+    if (num_syn_types != 2){ printf("Need to correct this part: line265"); exit(1); }
+
+    if (info->p_out[0][0] >= 0){
+        for (int i=0; i<num_syn_types; i++){
+            for (int j=0; j<num_syn_types; j++){
+                info->mdeg_in[i][j] = num_cells[i] * info->p_out[i][j]; 
+            }
+        }
+    } else if (info->mdeg_in[0][0] >= 0){
+        for (int i=0; i<num_syn_types; i++){
+            for (int j=0; j<num_syn_types; j++){
+                info->p_out[i][j] = info->mdeg_in[i][j] / num_cells[i] * num_cells[j];
+            }
+        }
+    }
+}
