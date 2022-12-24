@@ -26,7 +26,6 @@ int N = 1000;
 double iapp = 0;
 double tmax = 2500;
 char fdir[100] = "./tmp";
-int nitr = 5;
 index_t idxer;
 
 extern int world_size, world_rank;
@@ -52,19 +51,28 @@ int main(int argc, char **argv){
 }
 
 
+#define GetIntSize(arr) sizeof(arr)/sizeof(int)s
 void set_control_parameters(){
 
-    int max_len[3] = {10, 10, nitr};
-    int num_controls = sizeof(max_len) / sizeof(int);
+    int nitr = 3;
+    int max_len[4] = {10, 10, 9, nitr};
+    int num_controls = GetIntSize(max_len);
     set_index_obj(&idxer, num_controls, max_len);
 
-    g_inh = linspace(0.01, 0.5, max_len[0]);
-    p_inh = linspace(0.01, 0.95, max_len[1]);
+    g_inh  = linspace(0.01,  0.5, max_len[0]);
+    p_inh  = linspace(0.01, 0.95, max_len[1]);
+    nu_ext = linspace(500,  4000, max_len[2]);
 
     if (world_rank == 0){
         FILE *fp = open_file_wdir(fdir, "control_params.txt", "w");
-        print_arr(fp, "g_inh", max_len[0], g_inh);
-        print_arr(fp, "p_inh", max_len[1], p_inh);
+        for (int n=0; n<GetIntSize(max_len); n++){
+            fprintf(fp, "%f,", max_len[n]);
+        }
+        fprintf(fp, "\n");
+
+        print_arr(fp, "g_inh",  max_len[0], g_inh);
+        print_arr(fp, "p_inh",  max_len[1], p_inh);
+        print_arr(fp, "nu_ext", max_len[2], nu_ext);
         fclose(fp);
 
         nn_info_t info = set_info();
@@ -107,8 +115,6 @@ void run(int job_id, void *idxer_void){
     init_progressbar(&bar, nmax);
     #endif
 
-    return;
-
     init_measure(N, nmax, 2, NULL);
     for (int nstep=0; nstep<nmax; nstep++){
         if ((flag_eq == 0) && (nstep * _dt >= 500)){
@@ -150,8 +156,8 @@ nn_info_t set_info(void){
     info.type_range[0] = info.N * 0.8;
     info.type_range[1] = info.N;
 
-    info.p_out[0][0] = 0.01;
-    info.p_out[0][1] = 0.01;
+    info.p_out[0][0] = 0.1;
+    info.p_out[0][1] = 0.1;
     info.p_out[1][0] = 0.1;
     info.p_out[1][1] = 0.1;
 
