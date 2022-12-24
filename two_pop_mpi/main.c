@@ -12,7 +12,7 @@
 
 extern double _dt;
 extern wbneuron_t neuron;
-#define _debug
+// #define _debug
 
 
 void run(int job_id, void *idxer_void);
@@ -40,8 +40,8 @@ int main(int argc, char **argv){
     gettimeofday(&tic, NULL);
     set_control_parameters();
     set_seed(world_rank * 100);
-    // for_mpi(idxer.len, run, &idxer);
-    run(5, &idxer);
+    for_mpi(idxer.len, run, &idxer);
+    // run(45, &idxer);s
 
     if (world_rank == 0){
         gettimeofday(&toc, NULL);
@@ -59,7 +59,7 @@ void set_control_parameters(){
     set_index_obj(&idxer, num_controls, max_len);
 
     g_inh = linspace(0.01, 0.5, max_len[0]);
-    p_inh = linspace(0.01,   1, max_len[1]);
+    p_inh = linspace(0.01, 0.95, max_len[1]);
 
     if (world_rank == 0){
         FILE *fp = open_file_wdir(fdir, "control_params.txt", "w");
@@ -95,11 +95,19 @@ void run(int job_id, void *idxer_void){
     build_ei_rk4(&info);
 
     print_job_start(job_id, idxer->len);
+
     int nmax = tmax/_dt;
     #ifdef _debug
+    extern desyn_t syns[MAX_TYPE];
+    print_syn_network(&syns[0], path_join(fdir, "ntk_e_debug.txt"));
+    print_syn_network(&syns[1], path_join(fdir, "ntk_i_debug.txt"));
+    write_info(&info, path_join(fdir, "info_debug.txt"));
+
     progbar_t bar;
     init_progressbar(&bar, nmax);
     #endif
+
+    return;
 
     init_measure(N, nmax, 2, NULL);
     for (int nstep=0; nstep<nmax; nstep++){

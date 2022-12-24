@@ -18,14 +18,14 @@ ntk_t get_empty_net(int N){
 
 
 void gen_er_pout(ntk_t *ntk, double p_out, int pre_range[2], int post_range[2]){
-    int num_post = LEN(post_range);
-    gen_er_mdout(ntk, num_post*p_out, pre_range, post_range);
+    int num_pre = LEN(pre_range);
+    gen_er_mdin(ntk, num_pre*p_out, pre_range, post_range);
 }
 
 
 void gen_er_pin(ntk_t *ntk, double p_in, int pre_range[2], int post_range[2]){
-    int num_pre = LEN(pre_range);
-    gen_er_mdin(ntk, num_pre*p_in, pre_range, post_range);
+    int num_post = LEN(post_range);
+    gen_er_mdin(ntk, num_post*p_in, pre_range, post_range);
 }
 
 
@@ -61,8 +61,11 @@ void gen_er_mdin(ntk_t *ntk, double mdeg_in, int pre_range[2], int post_range[2]
     int len = ntk->N; 
     int num_pre = LEN(pre_range);
     int num_post = LEN(post_range);
-    int target_deg = mdeg_in * LEN(post_range);
-    if (target_deg == num_pre * num_post) target_deg--;
+    int target_deg = mdeg_in * num_post;
+
+    if ((num_pre == num_post) && (target_deg == num_pre*num_pre)){
+        target_deg -= num_pre; // p_new = (N-1)/N x p
+    } 
 
     if (target_deg > num_post * num_pre){
         printf("Network size exceed maximum edges\n");
@@ -74,7 +77,6 @@ void gen_er_mdin(ntk_t *ntk, double mdeg_in, int pre_range[2], int post_range[2]
     while (total_deg < target_deg){
         int npre  = genrand64_real2() * num_pre + pre_range[0];
         int npost = genrand64_real2() * num_post + post_range[0];
-        // printf("total deg: %d, target deg: %d, npre=%d, npost=%d\n", total_deg, target_deg, npre, npost);
         if (used[npre*len + npost] == 1) continue;
         if (npre == npost) continue; // remove self-loop
 
