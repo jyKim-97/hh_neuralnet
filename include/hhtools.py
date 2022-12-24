@@ -1,4 +1,6 @@
+from re import S
 import numpy as np
+import os
 import matplotlib.pyplot as plt
 
 
@@ -83,3 +85,134 @@ def draw_spk(step_spk, dt=0.01, xl=None, color_ranges=None, colors=None, ms=1):
 
         plt.plot(t_spk, np.ones_like(t_spk)*n, '.', ms=ms, c=c)
     plt.xlim(xl)
+
+
+def get_autocorr(x, t, tlag_max):
+    dt = t[1] - t[0]
+    idt = t >= 1
+    
+    num_lag = int(tlag_max/dt)
+    arr_app = np.zeros(num_lag)
+    
+    x_cp = np.copy(x)[idt]
+    x_cp = x_cp - np.average(x_cp)
+    y = np.concatenate((arr_app, x_cp, arr_app))
+    xcorr = np.correlate(y, x_cp, mode="valid")
+    l = len(xcorr)//2
+    xcorr /= xcorr[l]
+    lags = np.arange(-num_lag, num_lag+1) * dt
+    
+    return xcorr, lags
+
+
+# Source code for loadding summarys
+class SummaryLoader:
+    def __init__(self, fdir):
+        # read control param infos
+        self.fdir = fdir
+        self._load_controls()
+        self._read_data()
+    
+    def _load_controls(self):
+        with open(os.path.join(self.fdir, "control_params.txt"), "r") as fid:
+            line = fid.readline()
+            self.num_controls = [int(n) for n in line.split(",")[:-1]]
+            
+            self.controls = dict()
+            line = fid.readline()
+            while line:
+                tmp = line.split(":")
+                self.controls[tmp[0]] = [float(x) for x in tmp[1].split(",")[:-1]]
+                line = fid.readline()
+
+    def _read_data(self):
+        fnames = [f for f in os.listdir(self.fdir) if "id" in f and "result" in f]
+        nums = len(fnames)
+        nums_expec = 1
+        for n in self.num_controls:
+            nums_expec *= n
+        
+        if nums != nums_expec:
+            print("Expected number of # results and exact file number are different!: %d-%d"%(nums_expec, nums))
+        
+        self.summary = {}
+        var_names = ["chi", "cv", "frs_m", "frs_s", "spike_sync"]
+        # iinit
+        for k in var_names:
+            self.summary[k] = []
+
+        for n in range(nums):
+            fname = os.path.join(self.fdir, "id%06d_result.txt"%(n))
+            summary_single = read_summary(fname)
+            for k  in var_names:
+                self.summary[k].append(summary_single[k])
+        
+        # reshape
+        for k in var_names:
+            shape = np.shape(self.summary[k])[1:]
+            new_shape = list(self.num_controls)+list(shape)
+            self.summary[k] = np.reshape(self.summary[k], new_shape)
+    
+    def load_detail(self, *nid):
+        n = get_id(self.num_controls, *nid)
+        tag = os.path.join(self.fdir, "id%06d"%(n))
+        data = {}
+        data["step_spk"], _ = load_spk(tag+"_spk.dat")
+        data["vlfp"] = load_vlfp(tag+"_lfp.dat")
+        return data        
+        
+
+def get_id(num_xs, *nid):
+    if len(nid) != len(num_xs):
+        print("The number of arguments does not match to expected #")
+    num_tag = 0
+    stack = 1
+    for n in range(len(nid)-1, -1, -1):
+        if nid[n] >= num_xs[n]:
+            print("Wrong index number typed, size", num_xs, "typed", nid)
+            return -1
+        num_tag += stack * nid[n]
+        stack *= num_xs[n]
+    
+    return num_tag
+
+
+def read_summary(fname):
+    summary = dict()
+    with open(fname, "r") as fid:
+        line = fid.readline()
+        summary["num_types"] = int(line.split(":")[1])
+        line = fid.readline()
+        while line:
+            tmp = line.split(":")
+            var_name = tmp[0]
+            if var_name == "spike_syn":
+                break
+            summary[var_name] = [float(x) for x in tmp[1].split(",")[:-1]]
+            line = fid.readline()
+            
+        # read spike sync
+        summary["spike_sync"] = []
+        line = fid.readline()
+        while line:
+            summary["spike_sync"].append([float(x) for x in line.split(",")[:-1]])
+            line = fid.readline()
+    
+    for k in summary.keys():
+        summary[k] = np.array(summary[k])
+    
+    return summary
+
+
+def imshow_xy(im, x=None, y=None, **kwargs):
+    extent = []
+    if x is not None:
+        extent = [x[0], x[-1]]
+    else:
+        extent = [0, np.shape(im)[1]]
+    if y is not None:
+        extent.extend([y[0], y[-1]])
+    else:
+        extent.extend([0, np.shape(im)[0]])
+    
+    return plt.imshow(im, aspect="auto", extent=extent, origin="lower", **kwargs)
