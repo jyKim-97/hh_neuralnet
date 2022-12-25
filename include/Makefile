@@ -10,6 +10,7 @@ OBJS = $(SRCS:.c=.o)
 TARGET = ../lib/libhhnet.a
 
 main: $(OBJS)
+	rm ../lib/libhhnet.a
 	ar -rc $(TARGET) $(OBJS)
 
 $(OBJS): $(SRCS)
