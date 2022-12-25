@@ -5,7 +5,7 @@
 #include "storage.h"
 #include "model2.h"
 #include "neuralnet.h"
-#include "measurement.h"
+#include "measurement2.h"
 
 /*
 gcc -g -Wall -O2 -std=c11 -I../include -o main.out main.c -L../lib -lhhnet
@@ -22,7 +22,7 @@ char fdir[100] = "./tmp";
 FILE *fp_v = NULL;
 int N = 1000;
 double iapp = 0;
-double tmax = 1000;
+double tmax = 2500;
 
 // #define SST
 
@@ -67,7 +67,8 @@ void init(){
     print_syn_network(&syns[1], path_join(fdir, "ntk_i.txt"));
 }
 
-
+double teq = 500;
+int flag_eq = 0;
 void run(double tmax){
     int nmax = tmax/_dt;
 
@@ -77,6 +78,12 @@ void run(double tmax){
     progbar_t bar;
     init_progressbar(&bar, nmax);
     for (int nstep=0; nstep<nmax; nstep++){
+
+        if ((flag_eq == 0) && (nstep * _dt >= teq)){
+            flush_measure();
+            flag_eq = 1;
+        }
+
         update_rk4(nstep, iapp);
         measure(nstep, &neuron);
         save(N, nstep, neuron.vs, fp_v);
@@ -104,18 +111,18 @@ nn_info_t set_info(void){
     info.type_range[0] = info.N * 0.8;
     info.type_range[1] = info.N;
 
-    info.p_out[0][0] = 0.05;
-    info.p_out[0][1] = 0.05;
-    info.p_out[1][0] = 0.1;
-    info.p_out[1][1] = 0.1;
+    info.p_out[0][0] = 0.;
+    info.p_out[0][1] = 0.;
+    info.p_out[1][0] = 0.01;
+    info.p_out[1][1] = 0.01;
 
-    info.w[0][0] = 0.01;
-    info.w[0][1] = 0.01;
-    info.w[1][0] = 0.1;
-    info.w[1][1] = 0.1;
+    info.w[0][0] = 0.;
+    info.w[0][1] = 0.;
+    info.w[1][0] = 0.001;
+    info.w[1][1] = 0.001;
 
     info.t_lag = 0.5;
-    info.nu_ext = 2000;
+    info.nu_ext = 500;
     info.w_ext  = 0.001;
     info.const_current = false;
 
