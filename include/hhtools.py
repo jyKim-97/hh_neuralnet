@@ -117,40 +117,50 @@ class SummaryLoader:
         with open(os.path.join(self.fdir, "control_params.txt"), "r") as fid:
             line = fid.readline()
             self.num_controls = [int(n) for n in line.split(",")[:-1]]
-            
+            self.control_names = []
             self.controls = dict()
             line = fid.readline()
             while line:
                 tmp = line.split(":")
+                self.control_names.append(tmp[0])
                 self.controls[tmp[0]] = [float(x) for x in tmp[1].split(",")[:-1]]
                 line = fid.readline()
 
     def _read_data(self):
         fnames = [f for f in os.listdir(self.fdir) if "id" in f and "result" in f]
         nums = len(fnames)
-        nums_expec = 1
+        nums_expect = 1
         for n in self.num_controls:
-            nums_expec *= n
+            nums_expect *= n
         
-        if nums != nums_expec:
-            print("Expected number of # results and exact file number are different!: %d-%d"%(nums_expec, nums))
+        if nums != nums_expect:
+            print("Expected number of # results and exact file number are different!: %d/%d"%(nums, nums_expect))
         
         self.summary = {}
+        self.load_success = np.ones(nums_expect)
         var_names = ["chi", "cv", "frs_m", "frs_s", "spike_sync"]
         # iinit
         for k in var_names:
             self.summary[k] = []
 
-        for n in range(nums):
+        for n in range(nums_expect):
             fname = os.path.join(self.fdir, "id%06d_result.txt"%(n))
             summary_single = read_summary(fname)
-            for k  in var_names:
-                self.summary[k].append(summary_single[k])
+            if summary_single == -1:
+                self.load_success[n] = 0
+                for k in var_names:
+                    val_prev = self.summary[k][-1]
+                    self.summary[k].append(np.zeros_like(val_prev) * np.nan)
+            
+            else:
+                for k in var_names:
+                    self.summary[k].append(summary_single[k])
         
         # reshape
         for k in var_names:
             shape = np.shape(self.summary[k])[1:]
             new_shape = list(self.num_controls)+list(shape)
+            print(shape, new_shape)
             self.summary[k] = np.reshape(self.summary[k], new_shape)
     
     def load_detail(self, *nid):
@@ -178,6 +188,10 @@ def get_id(num_xs, *nid):
 
 
 def read_summary(fname):
+    # check does the file exist
+    if not os.path.exists(fname):
+        return -1
+
     summary = dict()
     with open(fname, "r") as fid:
         line = fid.readline()

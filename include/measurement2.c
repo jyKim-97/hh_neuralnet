@@ -14,10 +14,10 @@ int *id_class = NULL; // class id for each neurons
 int num_class[LEN]; // The number of the cells belongs to the class
 
 float *vlfp[LEN]; // LFP recording
-float v_avg1[LEN]; // average voltage avg
-float v_avg2[LEN]; // average v^2 avg
+double v_avg1[LEN]; // average voltage avg
+double v_avg2[LEN]; // average v^2 avg
 double v_tot1, v_tot2;
-float *v1, *v2; // each neurons membrane potential (avg, ^2)
+double *v1, *v2; // each neurons membrane potential (avg, ^2)
 
 // SPIKE recording
 int *num_spk   = NULL; // (N, )
@@ -93,8 +93,8 @@ void free_spike(){
 
 
 void init_flct(){
-    v1 = (float*) calloc(ntk_size, sizeof(float));
-    v2 = (float*) calloc(ntk_size, sizeof(float));
+    v1 = (double*) calloc(ntk_size, sizeof(double));
+    v2 = (double*) calloc(ntk_size, sizeof(double));
 
     for (int id=0; id<num_class_types; id++){
         vlfp[id] = (float*) calloc(max_step, sizeof(float));
@@ -164,6 +164,7 @@ void measure(int nstep, wbneuron_t *neuron){
 
 
 summary_t flush_measure(void){
+    printf("flush measurE!!!\n");
     summary_t obj = {0,};
     calculate_cv_isi(&obj);
     calculate_firing_rate(&obj);
@@ -291,11 +292,11 @@ void calculate_spike_sync(summary_t *obj){
 
 
 void calculate_flct(summary_t *obj){
-    float var_indiv[LEN] = {0,};
+    double var_indiv[LEN] = {0,};
 
     for (int n=0; n<ntk_size; n++){
-        float vm  = v1[n]/cum_step;
-        float var = v2[n]/cum_step - vm*vm;
+        double vm  = v1[n]/cum_step;
+        double var = v2[n]/cum_step - vm*vm;
         int id = id_class[n];
         var_indiv[id] += var;
     }
@@ -312,8 +313,8 @@ void calculate_flct(summary_t *obj){
 
     // each class
     for (int id=0; id<num_class_types; id++){
-        float vm  = v_avg1[id]/cum_step;
-        float var = v_avg2[id]/cum_step - vm*vm;
+        double vm  = v_avg1[id]/cum_step;
+        double var = v_avg2[id]/cum_step - vm*vm;
         obj->chi[id+1] = sqrt(var*num_class[id]/var_indiv[id]);
     }
 }
@@ -367,7 +368,8 @@ float average(float *x){
 void export_lfp(const char *fname){
     FILE *fp = open_file(fname, "wb");
 
-    float info[2] = {(float) num_class_types, (float) max_step};
+    extern double _fs_save;
+    float info[2] = {(float) num_class_types, (float) _fs_save};
     fwrite(info, sizeof(float), 2, fp);
     
     float *vlfp_tot = (float*) calloc(max_step, sizeof(float));
