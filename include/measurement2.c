@@ -315,7 +315,6 @@ void calculate_flct(summary_t *obj){
     for (int id=0; id<num_class_types; id++){
         double vm  = v_avg1[id]/cum_step;
         double var = v_avg2[id]/cum_step - vm*vm;
-        fprintf(stderr, "v1: %f, v2: %f, vm: %f, var: %f\n", v_avg1[id], v_avg2[id], vm, var);
         obj->chi[id+1] = sqrt(var*num_class[id]/var_indiv[id]);
     }
 }
