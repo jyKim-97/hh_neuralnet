@@ -1,4 +1,4 @@
-from re import S
+# from re import S
 import numpy as np
 import os
 import matplotlib.pyplot as plt
@@ -31,14 +31,14 @@ def load_vlfp(fname):
     with open(fname, "rb") as fid:
         data = np.fromfile(fid, dtype=np.float32)
     num_types = int(data[0])
-    max_step  = int(data[1])
+    fs = float(data[1])
     
     n0 = 2
     l = (len(data)-2)//(num_types+1)
     vlfps = []
     for n in range(num_types+1):
         vlfps.append(data[n0:n0+l])
-    return vlfps
+    return vlfps, fs
 
 
 def load_network(fname):
@@ -87,6 +87,24 @@ def draw_spk(step_spk, dt=0.01, xl=None, color_ranges=None, colors=None, ms=1):
     plt.xlim(xl)
 
 
+# def get_autocorr(x, t, tlag_max):
+#     dt = t[1] - t[0]
+#     idt = t >= 1
+    
+#     num_lag = int(tlag_max/dt)
+#     arr_app = np.zeros(num_lag)
+    
+#     x_cp = np.copy(x)[idt]
+#     x_cp = x_cp - np.average(x_cp)
+#     y = np.concatenate((arr_app, x_cp, arr_app))
+#     xcorr = np.correlate(y, x_cp, mode="valid")
+#     l = len(xcorr)//2
+#     xcorr /= xcorr[l]
+#     lags = np.arange(-num_lag, num_lag+1) * dt
+    
+#     return xcorr, lags
+
+
 def get_autocorr(x, t, tlag_max):
     dt = t[1] - t[0]
     idt = t >= 1
@@ -98,8 +116,12 @@ def get_autocorr(x, t, tlag_max):
     x_cp = x_cp - np.average(x_cp)
     y = np.concatenate((arr_app, x_cp, arr_app))
     xcorr = np.correlate(y, x_cp, mode="valid")
+    
     l = len(xcorr)//2
-    xcorr /= xcorr[l]
+    norm = np.concatenate((np.arange(0, num_lag+1), np.arange(num_lag,0,-1)))
+    norm = len(x_cp) - norm
+    # norm = np.concatenate((np.arange(num_lag+1), np.arange(l,0,-1)+1))
+    xcorr = xcorr/norm
     lags = np.arange(-num_lag, num_lag+1) * dt
     
     return xcorr, lags
@@ -160,17 +182,32 @@ class SummaryLoader:
         for k in var_names:
             shape = np.shape(self.summary[k])[1:]
             new_shape = list(self.num_controls)+list(shape)
-            print(shape, new_shape)
             self.summary[k] = np.reshape(self.summary[k], new_shape)
+
+    def get_id(self, *nid):
+        return get_id(self.num_controls, *nid)
     
     def load_detail(self, *nid):
         n = get_id(self.num_controls, *nid)
         tag = os.path.join(self.fdir, "id%06d"%(n))
         data = {}
         data["step_spk"], _ = load_spk(tag+"_spk.dat")
-        data["vlfp"] = load_vlfp(tag+"_lfp.dat")
-        return data        
-        
+        data["vlfp"], fs = load_vlfp(tag+"_lfp.dat")
+        data["ts"] = np.arange(len(data["vlfp"][0])) / fs
+        return data
+
+    def print_params(self, *nid):
+        # check
+        if len(nid) != len(self.control_names):
+            print("The number of arguments does not match to expected #")
+        for n in range(len(nid)):
+            if nid[n] >= self.num_controls[n]:
+                print("Wrong index number typed, size", self.num_controls[n], "typed", nid)
+        # print
+        for n in range(len(nid)):
+            var = self.control_names[n]
+            print("%s: %f"%(var, self.controls[var][nid[n]]))
+
 
 def get_id(num_xs, *nid):
     if len(nid) != len(num_xs):
@@ -230,3 +267,71 @@ def imshow_xy(im, x=None, y=None, **kwargs):
         extent.extend([0, np.shape(im)[0]])
     
     return plt.imshow(im, aspect="auto", extent=extent, origin="lower", **kwargs)
+
+
+def plot_sub(x, y, xl=None, *args, **kwargs):
+    if xl is not None:
+        idx = (x >= xl[0]) & (x <= xl[1])
+    y = np.array(y)
+
+    if len(y.shape) == 2:
+        p =  plt.plot(x[idx], y[idx,:], *args, **kwargs)
+    elif len(y.shape) == 1:
+        p =  plt.plot(x[idx], y[idx], *args, **kwargs)
+
+    plt.xlim(xl)
+    return p
+
+
+def extract_value_on_line(im, x, y, xq=None, yq=None):
+    if len(x) != im.shape[1] or len(y) != im.shape[0]:
+        print("size is different")
+        
+    if xq is None:
+        xq = x.copy()
+    
+    if xq[0] < x[0] or xq[-1] > x[-1]:
+        print("Range exceed")
+        return
+    
+    num = len(xq)
+    vals = []
+    for n in range(num):
+        xq0 = xq[n]
+        yq0 = yq[n]
+        if (yq0 <= y[0]) or (yq0 > y[-1]):
+            vals.append(np.nan)
+            continue
+        
+        # find the nearest 4 points
+        # print(np.where(xq0 <= x)[0])
+        nx0 = np.where(xq0 <= x)[0][0]
+        nx1 = np.where(xq0 >= x)[0][-1]
+        ny0 = np.where(yq0 <= y)[0][0]
+        ny1 = np.where(yq0 >= y)[0][-1]
+        
+        pts = [[nx0, ny0], [nx0, ny1], [nx1, ny0], [nx1, ny1]]
+        ds = []
+        tmp_vals = []
+        flag = False
+        for i in range(4):
+            # get distance
+            nx, ny = pts[i]
+            x0, y0 = x[nx], y[ny]
+            
+            d = np.sqrt((x0 - xq0)**2 + (y0-yq0)**2)            
+            v = im[ny, nx]
+            
+            if d == 0:
+                vals.append(v)
+                flag = True
+                break
+            
+            ds.append(d)
+            tmp_vals.append(v)
+
+        if flag:
+            continue
+        vals.append(np.sum([tmp_vals[i] * ds[i] / np.sum(ds) for i in range(4)]))
+    
+    return vals, xq
