@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
+#include <math.h>
 #include "utils.h"
 #include "storage.h"
 #include "model2.h"
@@ -22,7 +23,7 @@ void end_simulation();
 void print_arr(FILE *fp, char *arr_name, int arr_size, double *arr);
 
 
-int N = 1000;
+// int N = 1000;
 double iapp = 0;
 double tmax = 2500;
 double teq = 500;
@@ -44,27 +45,29 @@ int main(int argc, char **argv){
 
     if (world_rank == 0){
         gettimeofday(&toc, NULL);
-        printf("Simulation done, total elapsed: %.3f hour", get_dt(tic, toc)/3600.);
+        printf("Simulation done, total elapsed: %.3f hour\n", get_dt(tic, toc)/3600.);
     }
 
     end_simulation();
 }
 
-double *g_inh, *p_inh, *alpha, *beta, *nu_ext;
+double *p_inh, *nu_ext, *n_set;
+// double alpha = 0.1;
+double beta  = 0.2;
 // alpha: gE = alpha * gI
 // beta:  pE = beta * gE
 void set_control_parameters(){
 
-    int nitr = 2;
-    int max_len[6] = {10, 10, 5, 5, 4, nitr};
+    int nitr = 5;
+    // int max_len[6] = {10, 10, 5, 5, 4, nitr};
+    int max_len[] = {20, 20, 3, nitr};
     int num_controls = GetIntSize(max_len);
     set_index_obj(&idxer, num_controls, max_len);
 
-    alpha  = linspace(   0.,  0.1, max_len[0]);
-    beta   = linspace(   0.,   1., max_len[1]);
-    g_inh  = linspace(0.001,  0.5, max_len[2]);
-    p_inh  = linspace( 0.01, 0.95, max_len[3]);
-    nu_ext = linspace(  500, 4000, max_len[4]);
+    p_inh  = linspace( 0.01, 0.95, max_len[0]);
+    nu_ext = linspace(  160, 3000, max_len[1]);
+    n_set  = (double*) malloc(sizeof(double) * max_len[3]);
+    n_set[0] = 1000; n_set[1] = 2000; n_set[2] = 4000;
 
     if (world_rank == 0){
         FILE *fp = open_file_wdir(fdir, "control_params.txt", "w");
@@ -73,25 +76,18 @@ void set_control_parameters(){
         }
         fprintf(fp, "\n");
 
-        print_arr(fp, "alpha",  max_len[0], alpha);
-        print_arr(fp, "beta",   max_len[1], beta);
-        print_arr(fp, "g_inh",  max_len[2], g_inh);
-        print_arr(fp, "p_inh",  max_len[3], p_inh);
-        print_arr(fp, "nu_ext", max_len[4], nu_ext);
+        print_arr(fp, "p_inh",  max_len[0], p_inh);
+        print_arr(fp, "nu_ext", max_len[1], nu_ext);
+        print_arr(fp, "n_set",  max_len[2], n_set);
         fclose(fp);
-
-        nn_info_t info = set_info();
-        write_info(&info, path_join(fdir, "info.txt"));
     }
 }
 
 
 void end_simulation(){
-    free(alpha);
-    free(beta);
-    free(g_inh);
     free(p_inh);
     free(nu_ext);
+    free(n_set);
     end_mpi();
 }
 
@@ -105,16 +101,16 @@ void run(int job_id, void *idxer_void){
 
     // alpha: gE = alpha * gI
     // beta:  pE = beta * gE
-    info.w[1][0] = g_inh[idxer->id[2]];
-    info.w[1][1] = info.w[1][0];
-    info.p_out[1][0] = p_inh[idxer->id[3]];
+    info.p_out[1][0] = p_inh[idxer->id[0]];
     info.p_out[1][1] = info.p_out[1][0];
-    info.nu_ext = nu_ext[idxer->id[4]];
-
-    info.w[0][0] = alpha[idxer->id[0]] * info.w[1][0];
-    info.w[0][1] = info.w[0][0];
-    info.p_out[0][0] = beta[idxer->id[1]] * info.p_out[1][0];
+    info.nu_ext = nu_ext[idxer->id[1]];
+    info.p_out[0][0] = beta * info.p_out[1][0];
     info.p_out[0][1] = info.p_out[0][0];
+    info.N = n_set[idxer->id[2]];
+
+    char fname_info[100];
+    sprintf(fname_info, "id%06d_info.txt", job_id);
+    write_info(&info, path_join(fdir, fname_info));
 
     build_ei_rk4(&info);
     print_job_start(job_id, idxer->len);
@@ -130,7 +126,7 @@ void run(int job_id, void *idxer_void){
     init_progressbar(&bar, nmax);
     #endif
 
-    init_measure(N, nmax, 2, NULL);
+    init_measure(info.N, nmax, 2, NULL);
     for (int nstep=0; nstep<nmax; nstep++){
         if ((flag_eq == 0) && (nstep * _dt >= teq)){
             flush_measure();
@@ -166,24 +162,24 @@ nn_info_t set_info(void){
     // nn_info_t info = {0,};
     nn_info_t info = get_empty_info();
 
-    info.N = N;
+    info.N = 1000;
     info.num_types = 2;
     info.type_range[0] = info.N * 0.8;
     info.type_range[1] = info.N;
 
     info.p_out[0][0] = 0.;
     info.p_out[0][1] = 0.;
-    info.p_out[1][0] = 0.01;
-    info.p_out[1][1] = 0.01;
+    info.p_out[1][0] = 0.;
+    info.p_out[1][1] = 0.;
 
-    info.w[0][0] = 0.;
-    info.w[0][1] = 0.;
-    info.w[1][0] = 0.001;
-    info.w[1][1] = 0.001;
+    info.w[0][0] = 0.01;
+    info.w[0][1] = 0.01;
+    info.w[1][0] = 0.1;
+    info.w[1][1] = 0.1;
 
-    info.t_lag = 0.5;
-    info.nu_ext = 500;
-    info.w_ext  = 0.001;
+    info.t_lag  = 0.5;
+    info.nu_ext = 160;
+    info.w_ext  = 0.002;
     info.const_current = false;
 
     return info;
