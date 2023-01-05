@@ -127,6 +127,54 @@ def get_autocorr(x, t, tlag_max):
     return xcorr, lags
 
 
+def get_fft(x, fs, nbin=None, nbin_t=None):
+    if nbin is None and nbin_t is None:
+        N = len(x)
+    elif nbin_t is not None:
+        N = int(nbin_t*fs)
+    elif nbin is not None:
+        N = nbin
+
+    yf = np.fft.fft(x, axis=0, n=N)
+    yf = 2/N * np.abs(yf[:N//2])
+    freq = np.linspace(0, 1/2*fs, N//2)
+    return yf, freq
+
+
+def get_stfft(x, t, fs, mbin_t=0.1, wbin_t=1, f_range=None, buf_size=100):
+
+    wbin = int(wbin_t * fs)
+    mbin = int(mbin_t * fs)
+    window = np.hanning(wbin)
+    
+    ind = np.arange(wbin//2, len(t)-wbin//2, mbin, dtype=int)
+    psd = np.zeros([wbin//2, len(ind)])
+    
+    n_id = 0
+    while n_id < len(ind):
+        n_buf = min([buf_size, len(ind)-n_id])
+        y = np.zeros([wbin, n_buf])
+
+        for i in range(n_buf):
+            n = i + n_id
+            n0 = max([0, ind[n]-wbin//2])
+            n1 = min([ind[n]+wbin//2, len(t)])
+            y[n0-(ind[n]-wbin//2):wbin-(ind[n]+wbin//2)+n1, i] = x[n0:n1]
+        y = y * window[:,np.newaxis]
+        yf, fpsd = get_fft(y, fs)
+        psd[:, n_id:n_id+n_buf] = yf
+
+        n_id += n_buf
+    
+    if f_range is not None:
+        idf = (fpsd >= f_range[0]) & (fpsd <= f_range[1])
+        psd = psd[idf, :]
+        fpsd = fpsd[idf]
+    tpsd = ind / fs
+    
+    return psd, fpsd, tpsd
+
+
 # Source code for loadding summarys
 class SummaryLoader:
     def __init__(self, fdir):
