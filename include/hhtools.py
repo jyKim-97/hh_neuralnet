@@ -51,14 +51,24 @@ def load_network(fname):
             tmp = line.split("<-")
             npost = int(tmp[0])
             npre = int(tmp[1].split(",")[0])
-            if len(ntk_in) <= npost:
+            while len(ntk_in) <= npost:
                 ntk_in.append([])
                 ntk_win.append([])
             ntk_in[npost].append(npre)
             ntk_win[npost].append(float(tmp[1].split(",")[1][:-1]))
             line = fid.readline()
     return ntk_in, ntk_win
-        
+
+
+def convert_in2outdeg(ntk_in, N=None):
+    if N is None:
+        N = len(ntk_in)
+    ntk_out = [[] for _ in range(N)]
+    for n in range(N):
+        for nid in ntk_in[n]:
+            ntk_out[nid].append(n)
+    return ntk_out
+
 
 def draw_spk(step_spk, dt=0.01, xl=None, color_ranges=None, colors=None, ms=1):
     if color_ranges is not None:
