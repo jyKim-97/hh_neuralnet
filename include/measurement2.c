@@ -164,7 +164,6 @@ void measure(int nstep, wbneuron_t *neuron){
 
 
 summary_t flush_measure(void){
-    printf("flush measurE!!!\n");
     summary_t obj = {0,};
     calculate_cv_isi(&obj);
     calculate_firing_rate(&obj);

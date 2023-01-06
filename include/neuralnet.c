@@ -1,11 +1,15 @@
 #include "neuralnet.h"
 
 
+const double ev_e = 0;
+const double ev_i = -80;
+
+
 // double iapp = 0;
 int num_syn_types = 2;
 wbneuron_t neuron;
 desyn_t syns[MAX_TYPE], ext_syn;
-double taur=1, taud=3;
+double taur_default=1, taud_default=3;
 int const_current = false;
 
 static void add_spike_total_syns(int nstep);
@@ -24,6 +28,9 @@ nn_info_t get_empty_info(void){
             info.p_out[i][j] = -1;
             info.w[i][j] = 0;
         }
+
+        info.taur[i] = 1;
+        info.taud[i] = 3;
     }
     info.const_current = false;
     return info;
@@ -39,8 +46,10 @@ void build_ei_rk4(nn_info_t *info){
         init_desyn(N, &syns[n]);
     }
 
-    set_attrib(&syns[0],   0, taur, taud, 0.5);
-    set_attrib(&syns[1], -80, taur, taud, 0.5);
+    // set_attrib(&syns[0],   0, taur, taud, 0.5);
+    // set_attrib(&syns[1], -80, taur, taud, 0.5);
+    set_attrib(&syns[0], ev_e, info->taur[0], info->taud[0], 0.5);
+    set_attrib(&syns[1], ev_i, info->taur[1], info->taud[1], 0.5);
 
     // generate network
     int e_range[2] = {0, N*0.8};
@@ -84,7 +93,7 @@ void build_ei_rk4(nn_info_t *info){
     if (info->const_current){
         const_current = true;
     } else {
-        set_attrib(&ext_syn, 0, taur, taud, 0.5);
+        set_attrib(&ext_syn, 0, taur_default, taud_default, 0.5);
         set_poisson(&ext_syn, info->nu_ext, info->w_ext);
     }
 }
@@ -99,6 +108,13 @@ void write_info(nn_info_t *info, char *fname){
     fprintf(fp, "type_range:\n");
     fprintf(fp, "w:\n");
     fprintf2d_d(fp, info->w);
+    
+    fprintf(fp, "taur, taud\n");
+    for (int n=0; n<num_syn_types; n++){
+        fprintf(fp, "%f, %f\n", info->taur[n], info->taud[n]);
+    }
+
+
     fprintf(fp, "t_lag: %f\n", info->t_lag);
     fprintf(fp, "nu_pos: %f\n", info->nu_ext);
     fprintf(fp, "w_pos: %f\n", info->w_ext);

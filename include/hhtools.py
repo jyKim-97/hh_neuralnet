@@ -51,14 +51,24 @@ def load_network(fname):
             tmp = line.split("<-")
             npost = int(tmp[0])
             npre = int(tmp[1].split(",")[0])
-            if len(ntk_in) <= npost:
+            while len(ntk_in) <= npost:
                 ntk_in.append([])
                 ntk_win.append([])
             ntk_in[npost].append(npre)
             ntk_win[npost].append(float(tmp[1].split(",")[1][:-1]))
             line = fid.readline()
     return ntk_in, ntk_win
-        
+
+
+def convert_in2outdeg(ntk_in, N=None):
+    if N is None:
+        N = len(ntk_in)
+    ntk_out = [[] for _ in range(N)]
+    for n in range(N):
+        for nid in ntk_in[n]:
+            ntk_out[nid].append(n)
+    return ntk_out
+
 
 def draw_spk(step_spk, dt=0.01, xl=None, color_ranges=None, colors=None, ms=1):
     if color_ranges is not None:
@@ -173,6 +183,19 @@ def get_stfft(x, t, fs, mbin_t=0.1, wbin_t=1, f_range=None, buf_size=100):
     tpsd = ind / fs
     
     return psd, fpsd, tpsd
+
+
+def get_network_frequency(vlfp, fs=2000):
+    from scipy.signal import find_peaks
+
+    yf, freq = get_fft(vlfp, fs)
+    idf = (freq >= 2) & (freq < 200)
+    yf = yf[idf]
+    freq = freq[idf]
+
+    inds = find_peaks(yf)[0]
+    n = np.argmax(yf[inds])
+    return freq[inds[n]]
 
 
 # Source code for loadding summarys
@@ -332,6 +355,7 @@ def plot_sub(x, y, xl=None, *args, **kwargs):
 
 
 def extract_value_on_line(im, x, y, xq=None, yq=None):
+    # im: x-column, y-row
     if len(x) != im.shape[1] or len(y) != im.shape[0]:
         print("size is different")
         
@@ -342,44 +366,53 @@ def extract_value_on_line(im, x, y, xq=None, yq=None):
         print("Range exceed")
         return
     
+    def is_in(r0, rlim):
+        cond = True
+        for i in range(2):
+            cond = cond and (rlim[i][0] <= r0[i]) and (rlim[i][1] >= r0[i])
+        return cond
+    
+    def get_dist(r0, r1):
+        return np.sqrt((r0[1] - r0[0])**2 + (r1[1] - r1[0])**2)
+    
+    
     num = len(xq)
-    vals = []
+    xline, yline, zline = [], [], []
+    xlim = [x[0], x[-1]]
+    ylim = [y[0], y[-1]]
     for n in range(num):
-        xq0 = xq[n]
-        yq0 = yq[n]
-        if (yq0 <= y[0]) or (yq0 > y[-1]):
-            vals.append(np.nan)
+        if not is_in([xq[n], yq[n]], [xlim, ylim]):
             continue
+            
+        x0, y0 = xq[n], yq[n]
+        xline.append(x0)
+        yline.append(y0)
         
         # find the nearest 4 points
-        # print(np.where(xq0 <= x)[0])
-        nx0 = np.where(xq0 <= x)[0][0]
-        nx1 = np.where(xq0 >= x)[0][-1]
-        ny0 = np.where(yq0 <= y)[0][0]
-        ny1 = np.where(yq0 >= y)[0][-1]
+        nx0 = np.where(x0 <= x)[0][0]
+        nx1 = np.where(x0 >= x)[0][-1]
+        ny0 = np.where(y0 <= y)[0][0]
+        ny1 = np.where(y0 >= y)[0][-1]
+        n_pts = [[nx0, ny0], [nx0, ny1], [nx1, ny0], [nx1, ny1]]
         
-        pts = [[nx0, ny0], [nx0, ny1], [nx1, ny0], [nx1, ny1]]
-        ds = []
-        tmp_vals = []
-        flag = False
+        # get distance
+        zs, ds = [], []
+        on_the_point = False
         for i in range(4):
-            # get distance
-            nx, ny = pts[i]
-            x0, y0 = x[nx], y[ny]
+            ds.append(get_dist([x0, y0], [x[n_pts[i][0]], y[n_pts[i][1]]]))
+            zs.append(im[n_pts[i][1], n_pts[i][0]])
             
-            d = np.sqrt((x0 - xq0)**2 + (y0-yq0)**2)            
-            v = im[ny, nx]
-            
-            if d == 0:
-                vals.append(v)
-                flag = True
+            if ds[-1] == 0:
+                on_the_point = True
+                z = zs[-1]
                 break
-            
-            ds.append(d)
-            tmp_vals.append(v)
-
-        if flag:
-            continue
-        vals.append(np.sum([tmp_vals[i] * ds[i] / np.sum(ds) for i in range(4)]))
-    
-    return vals, xq
+        
+        if not on_the_point:
+            z = 0
+            dsum = np.sum(ds)
+            for i in range(4):
+                z += ds[i]/dsum * zs[i]
+        zline.append(z)
+        
+    return zline, xline, yline
+        
