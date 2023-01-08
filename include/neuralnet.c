@@ -94,7 +94,7 @@ void build_ei_rk4(nn_info_t *info){
         const_current = true;
     } else {
         set_attrib(&ext_syn, 0, taur_default, taud_default, 0.5);
-        set_poisson(&ext_syn, info->nu_ext, info->w_ext);
+        set_poisson(&ext_syn, info->nu_ext, info->w_ext_mu, info->w_ext_sd);
     }
 }
 
@@ -114,10 +114,10 @@ void write_info(nn_info_t *info, char *fname){
         fprintf(fp, "%f, %f\n", info->taur[n], info->taud[n]);
     }
 
-
     fprintf(fp, "t_lag: %f\n", info->t_lag);
     fprintf(fp, "nu_pos: %f\n", info->nu_ext);
-    fprintf(fp, "w_pos: %f\n", info->w_ext);
+    fprintf(fp, "w_pos_mu: %f\n", info->w_ext_mu);
+    fprintf(fp, "w_pos_sd: %f\n", info->w_ext_sd);
 
     fprintf(fp, "mean indegree:\n");
     fprintf2d_d(fp, info->mdeg_in);

@@ -40,8 +40,7 @@ typedef struct _desyn_t{
     int **indeg_list;
     int pre_range[2], post_range[2];
     // coupling strength
-    bool is_const_w;
-    double w, **w_list;
+    double **w_list;
     // delay
     bool is_const_delay;
     int n_delay, **n_delays;
@@ -52,7 +51,8 @@ typedef struct _desyn_t{
     double ev, taur, taud;
     double A, mul_expr, mul_expd;
     // for external poisson input
-    double nu, expl;
+    bool is_ext;
+    double *w_ext, nu, expl;
     #ifdef USE_MKL
     double *lambda;
     #endif
@@ -76,6 +76,7 @@ void destroy_desyn(desyn_t *syn);
 void set_attrib(desyn_t *syn, double ev, double taur, double taud, double ode_factor);
 void set_network(desyn_t *syn, ntk_t *ntk);
 void set_const_coupling(desyn_t *syn, double w);
+void set_gaussian_coupling(desyn_t *syn, double w_mu, double w_sd);
 void set_coupling(desyn_t *syn, int pre_range[2], int post_range[2], double target_w);
 void check_coupling(desyn_t *syn);
 void set_const_delay(desyn_t *syn, double td);
@@ -86,7 +87,7 @@ double get_current(desyn_t *syn, int nid, double vpost);
 
 // Pos synapse
 void init_extsyn(int N, desyn_t *syn);
-void set_poisson(desyn_t *ext_syn, double nu, double w);
+void set_poisson(desyn_t *ext_syn, double nu, double w_mu, double w_sd);
 void add_ext_spike(desyn_t *ext_syn);
 void print_syn_network(desyn_t *syn, char *fname);
 
