@@ -112,6 +112,8 @@ void init_desyn(int N, desyn_t *syn){
     syn->expd = (double*) calloc(N, sizeof(double));
     syn->w_list = NULL;
     syn->w_ext  = NULL;
+    syn->expl   = NULL;
+    syn->nu_ext = NULL;
 
     syn->load_ntk    = false;
     syn->load_delay  = false;
@@ -308,6 +310,8 @@ void destroy_desyn(desyn_t *syn){
     int N = syn->N;
     if (syn->is_ext){
         free(syn->w_ext);
+        free(syn->nu_ext);
+        free(syn->w_ext);
     } else {
         for (int n=0; n<N; n++){
             free(syn->w_list[n]);
@@ -357,9 +361,15 @@ void init_extsyn(int N, desyn_t *ext_syn){
 // }
 
 
-void set_poisson(desyn_t *ext_syn, double nu, double w_mu, double w_sd){
+void set_poisson(desyn_t *ext_syn, double nu_mu, double nu_sd, double w_mu, double w_sd){
     set_gaussian_coupling(ext_syn, w_mu, w_sd);
-    ext_syn->expl = exp(-_dt/1000. * nu);
+    int N = ext_syn->N;
+    ext_syn->nu_ext = (double*) malloc(sizeof(double) * N);
+    ext_syn->expl   = (double*) malloc(sizeof(double) * N);
+    for (int n=0; n<N; n++){
+        ext_syn->nu_ext[n] = genrand64_normal(nu_mu, nu_sd);
+        ext_syn->expl[n] = exp(-_dt/1000.* ext_syn->nu_ext[n]);
+    }
 }
 
 
@@ -371,15 +381,15 @@ void add_ext_spike(desyn_t *ext_syn){
 
     #ifdef USE_MKL
     int *num_ext_set = get_poisson_array_mkl(N, ext_syn->lambda);
-    #else
-    double expl = ext_syn->expl;
+    // #else
+    // double expl = ext_syn->expl[n];
     #endif
 
     for (int n=0; n<N; n++){
         #ifdef USE_MKL
         int num_ext = num_ext_set[n];
         #else
-        int num_ext = pick_random_poisson(expl);
+        int num_ext = pick_random_poisson(ext_syn->expl[n]);
         #endif
         double wA = ext_syn->w_ext[n] * A;
         ext_syn->expr[n] += wA*num_ext;

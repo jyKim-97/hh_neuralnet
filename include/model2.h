@@ -52,7 +52,7 @@ typedef struct _desyn_t{
     double A, mul_expr, mul_expd;
     // for external poisson input
     bool is_ext;
-    double *w_ext, nu, expl;
+    double *w_ext, *nu_ext, *expl;
     #ifdef USE_MKL
     double *lambda;
     #endif
@@ -87,7 +87,7 @@ double get_current(desyn_t *syn, int nid, double vpost);
 
 // Pos synapse
 void init_extsyn(int N, desyn_t *syn);
-void set_poisson(desyn_t *ext_syn, double nu, double w_mu, double w_sd);
+void set_poisson(desyn_t *ext_syn, double nu_mu, double nu_sd, double w_mu, double w_sd);
 void add_ext_spike(desyn_t *ext_syn);
 void print_syn_network(desyn_t *syn, char *fname);
 
