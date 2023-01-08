@@ -9,7 +9,7 @@ const double ev_i = -80;
 int num_syn_types = 2;
 wbneuron_t neuron;
 desyn_t syns[MAX_TYPE], ext_syn;
-double taur_default=1, taud_default=3;
+double taur_default=0.3, taud_default=1;
 int const_current = false;
 
 static void add_spike_total_syns(int nstep);
@@ -29,8 +29,8 @@ nn_info_t get_empty_info(void){
             info.w[i][j] = 0;
         }
 
-        info.taur[i] = 1;
-        info.taud[i] = 3;
+        info.taur[i] = taur_default;
+        info.taud[i] = taud_default;
     }
     info.const_current = false;
     return info;
@@ -94,7 +94,7 @@ void build_ei_rk4(nn_info_t *info){
         const_current = true;
     } else {
         set_attrib(&ext_syn, 0, taur_default, taud_default, 0.5);
-        set_poisson(&ext_syn, info->nu_ext, info->w_ext_mu, info->w_ext_sd);
+        set_poisson(&ext_syn, info->nu_ext_mu, info->nu_ext_sd, info->w_ext_mu, info->w_ext_sd);
     }
 }
 
@@ -115,7 +115,8 @@ void write_info(nn_info_t *info, char *fname){
     }
 
     fprintf(fp, "t_lag: %f\n", info->t_lag);
-    fprintf(fp, "nu_pos: %f\n", info->nu_ext);
+    fprintf(fp, "nu_pos_mu: %f\n", info->nu_ext_mu);
+    fprintf(fp, "nu_pos_sd: %f\n", info->nu_ext_sd);
     fprintf(fp, "w_pos_mu: %f\n", info->w_ext_mu);
     fprintf(fp, "w_pos_sd: %f\n", info->w_ext_sd);
 
