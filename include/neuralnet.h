@@ -18,7 +18,8 @@ typedef struct _neuralnet_info_t{
     double taur[MAX_TYPE];
     double taud[MAX_TYPE];
     double t_lag;
-    double nu_ext, w_ext;
+    double nu_ext;
+    double w_ext_mu, w_ext_sd;
     bool const_current;
 } nn_info_t;
 

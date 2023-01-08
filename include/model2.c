@@ -111,6 +111,7 @@ void init_desyn(int N, desyn_t *syn){
     syn->expr = (double*) calloc(N, sizeof(double));
     syn->expd = (double*) calloc(N, sizeof(double));
     syn->w_list = NULL;
+    syn->w_ext  = NULL;
 
     syn->load_ntk    = false;
     syn->load_delay  = false;
@@ -159,10 +160,30 @@ void set_network(desyn_t *syn, ntk_t *ntk){
 
 
 void set_const_coupling(desyn_t *syn, double w){
-    syn->w = w;
-    syn->is_const_w = true;
+    int N = syn->N;
+
+    syn->w_ext = (double*) malloc(sizeof(double) * N);
+    for (int n=0; n<N; n++){
+        syn->w_ext[n] = w;
+    }
+
+    syn->is_ext = true;
     syn->load_w = true;
 }
+
+
+void set_gaussian_coupling(desyn_t *syn, double w_mu, double w_sd){
+    int N = syn->N;
+
+    syn->w_ext = (double*) malloc(sizeof(double) * N);
+    for (int n=0; n<N; n++){
+        syn->w_ext[n] = genrand64_normal(w_mu, w_sd);
+    }
+
+    syn->is_ext = true;
+    syn->load_w = true;
+}
+
 
 
 void set_coupling(desyn_t *syn, int pre_range[2], int post_range[2], double target_w){
@@ -195,14 +216,14 @@ void set_coupling(desyn_t *syn, int pre_range[2], int post_range[2], double targ
         }
     }
 
-    syn->is_const_w = false;
+    syn->is_ext = false;
     syn->load_w = true;
 }
 
 
 void check_coupling(desyn_t *syn){
     int N = syn->N;
-    if (syn->is_const_w) return;
+    if (syn->is_ext) return;
 
     for (int id_post=0; id_post<N; id_post++){
         int num_pre = syn->num_indeg[id_post];
@@ -257,13 +278,7 @@ void add_spike(int nstep, desyn_t *syn, wbneuron_t *neuron){
             }
 
             if (neuron->spk_buf[nbuf][npre] == 1){
-                double wA;
-                if (syn->is_const_w){
-                    wA = syn->w * syn->A;
-                } else {
-                    wA = syn->w_list[npost][n] * syn->A;
-                }
-
+                double wA = syn->w_list[npost][n] * syn->A;
                 syn->expr[npost] += wA;
                 syn->expd[npost] += wA;
             }
@@ -291,7 +306,9 @@ void destroy_desyn(desyn_t *syn){
     }
 
     int N = syn->N;
-    if (!syn->is_const_w){
+    if (syn->is_ext){
+        free(syn->w_ext);
+    } else {
         for (int n=0; n<N; n++){
             free(syn->w_list[n]);
         }
@@ -317,7 +334,7 @@ void init_extsyn(int N, desyn_t *ext_syn){
     
     ext_syn->num_indeg  = NULL;
     ext_syn->indeg_list = NULL;
-    ext_syn->is_const_w = true;
+    ext_syn->is_ext     = true;
     ext_syn->is_const_delay = true;
     
     ext_syn->load_ntk    = true;
@@ -327,22 +344,30 @@ void init_extsyn(int N, desyn_t *ext_syn){
 }
 
 
-void set_poisson(desyn_t *ext_syn, double nu, double w){
-    ext_syn->nu = nu;
-    ext_syn->w = w;
-    #ifdef USE_MKL
-    int N = ext_syn->N;
-    ext_syn->lambda = (double*) malloc(sizeof(double) * N);
-    for (int n=0; n<N; n++) ext_syn->lambda[n] = _dt/1000. * nu;
-    #else
+// void set_poisson(desyn_t *ext_syn, double nu, double w){
+//     ext_syn->nu = nu;
+//     ext_syn->w = w;
+//     #ifdef USE_MKL
+//     int N = ext_syn->N;
+//     ext_syn->lambda = (double*) malloc(sizeof(double) * N);
+//     for (int n=0; n<N; n++) ext_syn->lambda[n] = _dt/1000. * nu;
+//     #else
+//     ext_syn->expl = exp(-_dt/1000. * nu);
+//     #endif
+// }
+
+
+void set_poisson(desyn_t *ext_syn, double nu, double w_mu, double w_sd){
+    set_gaussian_coupling(ext_syn, w_mu, w_sd);
     ext_syn->expl = exp(-_dt/1000. * nu);
-    #endif
 }
+
 
 
 void add_ext_spike(desyn_t *ext_syn){
     int N = ext_syn->N;
-    double wA = ext_syn->w * ext_syn->A;
+    double A = ext_syn->A;
+    // double wA = ext_syn->w * ext_syn->A;
 
     #ifdef USE_MKL
     int *num_ext_set = get_poisson_array_mkl(N, ext_syn->lambda);
@@ -356,7 +381,7 @@ void add_ext_spike(desyn_t *ext_syn){
         #else
         int num_ext = pick_random_poisson(expl);
         #endif
-
+        double wA = ext_syn->w_ext[n] * A;
         ext_syn->expr[n] += wA*num_ext;
         ext_syn->expd[n] += wA*num_ext;
     }
@@ -376,8 +401,8 @@ void print_syn_network(desyn_t *syn, char *fname){
         int num_pre = syn->num_indeg[n];
         for (int i=0; i<num_pre; i++){
             double w = 0;
-            if (syn->is_const_w){
-                w = syn->w;
+            if (syn->is_ext){
+                w = syn->w_ext[n];
             } else {
                 w = syn->w_list[n][i];
             }
