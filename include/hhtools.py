@@ -265,6 +265,11 @@ class SummaryLoader:
         data["step_spk"], _ = load_spk(tag+"_spk.dat")
         data["vlfp"], fs = load_vlfp(tag+"_lfp.dat")
         data["ts"] = np.arange(len(data["vlfp"][0])) / fs
+        if os.path.exists(tag+"_info.txt"):
+            with open(tag+"_info.txt", "r") as fid:
+                data["info"] = fid.readlines()
+        else:
+            data["info"] = None
         return data
 
     def print_params(self, *nid):
@@ -416,3 +421,7 @@ def extract_value_on_line(im, x, y, xq=None, yq=None):
         
     return zline, xline, yline
         
+
+def get_palette(cmap="jet"):
+    from matplotlib.cm import get_cmap
+    return get_cmap(cmap)

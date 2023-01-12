@@ -1,6 +1,8 @@
 #include "ntk.h"
 
 
+static void connect(ntk_t *ntk, int id_pre, int id_post);
+
 ntk_t get_empty_net(int N){
     ntk_t ntk;
     ntk.N = N;
@@ -40,7 +42,7 @@ double cvt_mdeg_out2in(double mdeg_out, int num_pre, int num_post){
 }
 
 
-void connect(ntk_t *ntk, int id_pre, int id_post){
+static void connect(ntk_t *ntk, int id_pre, int id_post){
     if (ntk->edge_dir == indeg){
         int id = ntk->num_edges[id_post];
         append_int(ntk->adj_list+id_post, id, id_pre);
