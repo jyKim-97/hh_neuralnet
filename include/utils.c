@@ -143,7 +143,7 @@ double *copy_array(int N, double *arr){
 }
 
 
-void *realloc_check(int target_size, void *arr){
+static void *realloc_check(int target_size, void *arr){
     void *ptr = realloc(arr, target_size);
     if (ptr == NULL){
         fprintf(stderr, "Re-allocating error! target size: %d\n", target_size);

@@ -32,7 +32,6 @@ void gen_er_mdout(ntk_t *ntk, double mdeg_out, int pre_range[2], int post_range[
 double cvt_mdeg_out2in(double mdeg_out, int num_pre, int num_post);
 void gen_er_mdin(ntk_t *ntk, double mdeg_in, int pre_range[2], int post_range[2]);
 void print_network(const char *fname, ntk_t *ntk);
-void connect(ntk_t *ntk, int id_pre, int id_post);
 
 #ifdef __cplusplus
 }

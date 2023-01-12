@@ -47,7 +47,6 @@ void update_index(index_t *idxer, int nstep);
 // maintaining code
 void print_variable(double *x, int n_print_node);
 double *copy_array(int N, double *arr);
-void *realloc_check(int target_size, void *arr);
 void append_double(double **arr, int id, double value);
 void append_int(int **arr, int id, int value);
 double *linspace(double x0, double x1, int len_x);
