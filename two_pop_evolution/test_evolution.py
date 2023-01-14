@@ -12,8 +12,9 @@ import matplotlib.animation as anim
 #     return -(data[0]-x0)**2 - (data[1]-y0)**2
 
 
-def fpotential(data):
+def fpotential(args):
     A = 10
+    data = args[0]
     data = np.array(data)
     return -A + np.sum(data**2 - A * np.cos(2*np.pi*data))
 
@@ -25,13 +26,13 @@ def get_landscape(fobj, pmin, pmax, w=50):
     z = np.zeros([w, w])
     for i in range(w):
         for j in range(w):
-            z[i, j] = fobj([x[i], y[j]])
+            z[i, j] = fobj([[x[i], y[j]], -1])
     return x, y, z
 
 
 
 if __name__ == "__main__":
-    solver = evolve.EA(2, mu=2, num_offspring=5, num_parent=20, max_iter=10, tol=1e-3)
+    solver = evolve.EA(2, mu=2, num_offspring=10, num_parent=20)
     solver.set_object_func(fpotential)
 
     # pmin = np.array([0, 0])
@@ -42,8 +43,9 @@ if __name__ == "__main__":
 
     param_set = []
     solver.random_initialization()
+    solver.reset_job_id()
     param_set.append(solver.param_vec.copy())
-    for n in tqdm(range(500)):
+    for n in tqdm(range(2000)):
         solver.next_generation()
         solver.print_log(n)
         param_set.append(solver.param_vec.copy())
@@ -52,7 +54,6 @@ if __name__ == "__main__":
     # fig = plt.figure(dpi=120, figsize=(4,4))
     # plt.contour(x, y, -z, 50, cmap="jet")
     # plt.show()
-    
 
     fig, ax = plt.subplots(1, 1, dpi=120, figsize=(5,5), facecolor="w")
     ax.contour(x, y, -z, 20, cmap="jet")
@@ -72,7 +73,7 @@ if __name__ == "__main__":
         return pobj
 
 
-    ani = anim.FuncAnimation(fig, update, frames=np.arange(100),
+    ani = anim.FuncAnimation(fig, update, frames=np.arange(0,2000,10),
                     init_func=init, blit=True)
 
     writergif = anim.PillowWriter(fps=30) 

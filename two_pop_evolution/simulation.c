@@ -25,12 +25,17 @@ typedef struct _simul_info_t{
 nn_info_t set_simulation(simul_info_t info);
 int run(int simul_id, simul_info_t info);
 void set_parent_dir(char *parent_dir);
+void set_taue(double tr, double td);
+void set_taui(double tr, double td);
 
 char fdir[100] = "./tmp";
 int N = 1000;
 double tmax = 1000;
 double nu_ext_sd = 0;
 double w_ext_sd = 0;
+double taur_e=0.3, taud_e=1;
+double taur_i=0.5, taud_i=2;
+// 0.5, 2 - 1, 5
 
 extern wbneuron_t neuron;
 double teq = 500;
@@ -83,6 +88,15 @@ void set_tmax(double _tmax){
     tmax = _tmax;
 }
 
+void set_taue(double tr, double td){
+    taur_e = tr;
+    taud_e = td;
+}
+
+void set_taui(double tr, double td){
+    taur_i = tr;
+    taud_i = td;
+}
 
 nn_info_t set_simulation(simul_info_t info){
     // nn_info_t info = {0,};
@@ -106,6 +120,11 @@ nn_info_t set_simulation(simul_info_t info){
     nn_info.nu_ext_sd = nu_ext_sd;
     nn_info.w_ext_sd  = w_ext_sd;
     nn_info.const_current = false;
+    
+    nn_info.taur[0] = taur_e;
+    nn_info.taud[0] = taud_e;
+    nn_info.taur[1] = taur_i;
+    nn_info.taud[1] = taud_i;
 
     return nn_info;
 }
