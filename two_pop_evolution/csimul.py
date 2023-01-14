@@ -86,8 +86,8 @@ if __name__ == "__main__":
     info.nu_ext_mu = 2000
     info.w_ext_mu = 0.002
 
-    set_taue(0.3, 1)
-    set_taui(0.5, 2)
+    change_taue(0.3, 1)
+    change_taui(0.5, 2)
 
     print("Simulation Start")
     set_parent_dir("./tmp")

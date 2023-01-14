@@ -36,6 +36,7 @@ def fobj(args):
 
     # get fitness
     score = calculate_fitness(info, job_id)
+    # score = np.random.randn()
     return score
     
 
@@ -46,7 +47,7 @@ def calculate_fitness(info, job_id):
     summary = hhtools.read_summary(fname)
     
     score = 0
-    score += 5 *(info.w[0][0]**2 + info.w[1][1]**2)
+    score += 2 *((0.5-info.w[0][0])**2 + (0.5-info.w[1][1])**2)
     score += 10*(summary["chi"][0] - target_chi)**2
     score += (summary["frs_m"][0] - target_firing_rate)**2
     return -score
@@ -74,15 +75,16 @@ if __name__ == "__main__":
     # the number of parameters: 7
     num_params = 7
     
-    pmin = [0.01, 0.01,   0,   0, 0,  700,     0]
-    pmax = [ 0.9,  0.9, 0.5, 0.5, 1, 4000, 0.005]
+    np.random.seed(1000)
+    pmin = [0.01, 0.01, 0.01, 0.01, 0,  700,     0]
+    pmax = [ 0.2,  0.2,  0.5,  0.5, 1, 4000, 0.005]
 
     csimul.set_tmax(500)
     csimul.set_parent_dir(fdir)
     csimul.change_taui(taur_i, taud_i)
     csimul.change_teq(0)
 
-    solver = evolve.EA(num_params, log_dir=fdir, mu=4, num_offspring=4, num_parent=10, use_multiprocess=True, num_process=4)
+    solver = evolve.EA(num_params, log_dir=fdir, mu=3, num_select=4, num_offspring=16, num_parent=40, use_multiprocess=True, num_process=4)
     solver.set_min_max(pmin, pmax)
     solver.set_object_func(fobj)
 
@@ -91,6 +93,6 @@ if __name__ == "__main__":
     clean_directory()
     
     solver.reset_job_id()
-    for n in tqdm(range(20)):
+    for n in tqdm(range(30)):
         solver.next_generation()
         solver.print_log(n)

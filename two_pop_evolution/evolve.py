@@ -1,3 +1,4 @@
+from re import S
 import numpy as np
 import multiprocess as mp
 from py import process
@@ -7,7 +8,7 @@ import pickle as pkl
 
 
 class EA:
-    def __init__(self, num_params, log_dir="./log", mu=2, num_offspring=5, num_parent=10, use_multiprocess=False, num_process=4):
+    def __init__(self, num_params, log_dir="./log", mu=2, num_select=2, num_offspring=5, num_parent=10, use_multiprocess=False, num_process=4):
         self.num_parent = int(num_parent)
         self.num_offspring = int(num_offspring)
         self.num_params = int(num_params)
@@ -17,11 +18,14 @@ class EA:
         self.use_multiprocess = use_multiprocess
         self.job_id = 0
         self.num_process = num_process
+        self.num_select = num_select
 
         self.mu = mu
         self.param_vec = np.zeros([self.num_params, self.num_parent])
         self.fit_score = np.zeros([self.num_parent])
         self.fobj = None
+        self.parent_id = np.ones(self.num_parent) * (-1)
+        self.offspring_id = []
         # A Functional Specialization Hypothesis for Designing Genetic Algorithms 
         self.sgm_eta = 1/np.sqrt(self.mu)
         self.sgm_xi  = 0.35/np.sqrt(self.num_parent - self.mu)
@@ -42,6 +46,9 @@ class EA:
     def check_setting(self):
         if self.num_parent < self.num_offspring:
             raise ValueError("The number of offspring is larger than # parents")
+
+        if self.num_select > self.num_offspring:
+            raise ValueError("Too large num_select")
 
         if self.mu >= self.num_params:
             raise ValueError("mu cannot be larger than # params")
@@ -73,24 +80,31 @@ class EA:
 
         if self.use_multiprocess:
             args = []
-            for n in range(self.num_offspring):
+            for n in range(self.num_parent):
                 args.append([self.param_vec[:,n], self.job_id])
-                self.job_id += 1
+                self.count_job()
 
-            with mp.Pool(self.num_parent, process=self.num_process) as p:
+            with mp.Pool(self.num_process) as p:
                 self.fit_score = p.map(self.fobj, args)
         else:
             self.fit_score = []
             for n in range(self.num_parent):
                 self.fit_score.append(self.fobj([self.param_vec[:,n], self.job_id]))
-                self.job_id += 1
+                self.count_job()
         
         self.fit_score = np.array(self.fit_score)
 
+    def count_job(self):
+        if (len(self.offspring_id) == self.num_offspring):
+            self.offspring_id = []
+        self.offspring_id.append(self.job_id)
+        self.job_id += 1
+
     def reset_job_id(self):
         self.job_id = 0
+        self.offspring_id = []
 
-    def next_generation(self, num_select=2):
+    def next_generation(self):
         # get offsprings & evaluate scores
         offspring = self.crossover()
 
@@ -99,64 +113,74 @@ class EA:
             args = []
             for n in range(self.num_offspring):
                 args.append([offspring[:,n], self.job_id])
-                self.job_id += 1
+                self.count_job()
 
-            with mp.Pool(self.num_offspring, process=self.num_process) as p:
+            with mp.Pool(self.num_process) as p:
                 fitness = p.map(self.fobj, args)
         else:
             fitness = []
             for n in range(self.num_offspring):
                 fitness.append(self.fobj([offspring[:,n], self.job_id]))
-                self.job_id += 1
+                self.count_job()
 
         # select paranet to change
-        id_selected, _ = self.pick_id(self.num_parent, num_select)
+        id_selected, _ = self.pick_id(self.num_parent, self.num_select)
 
         # evalutate score
-        pop_scores = np.zeros(self.num_offspring+num_select)
-        pop_scores[:-num_select] = fitness
-        pop_scores[-num_select:] = self.fit_score[id_selected]
+        pop_scores = np.zeros(self.num_offspring+self.num_select)
+        pop_scores[:-self.num_select] = fitness
+        pop_scores[-self.num_select:] = self.fit_score[id_selected]
+        buffer_id = self.offspring_id.copy()
+        buffer_param = self.param_vec.copy()
+        for nid in id_selected:
+            buffer_id.append(self.parent_id[nid])
 
         # natural selection
-        id_live = self.natural_selection(pop_scores, num_select)
-        for n in range(num_select):
+        id_live = self.natural_selection(pop_scores)
+        for n in range(self.num_select):
             nid = id_live[n]
             new_id = id_selected[n]
             if nid < self.num_offspring:
                 self.param_vec[:, new_id] = offspring[:, nid]
             else:
                 nold = id_selected[nid - self.num_offspring] 
-                self.param_vec[:, new_id] = self.param_vec[:, nold]
+                self.param_vec[:, new_id] = buffer_param[:, nold]
 
             self.fit_score[new_id] = pop_scores[nid]
-
-    def natural_selection(self, fitness, num_select=5):
-        id_sort = np.argsort(fitness)[::-1]
-        return id_sort[:num_select]
+            self.parent_id[new_id] = buffer_id[nid]
 
     # def natural_selection(self, fitness, num_select=5):
-    #     id_tot = list(range(self.num_offspring+num_select))
-    #     # find the best model
-    #     n_best = np.argmax(fitness)
-    #     id_tot.remove(n_best)
-    #     id_select = [n_best]
-    #     # use Roullete-Wheel method
-    #     prob_select = fitness[id_tot] / np.sum(fitness[id_tot])
-    #     for n in range(num_select-1):
-    #         p = np.random.rand()
-    #         i, p_cum = 0, 0
-    #         while p_cum < p:
-    #             i += 1
-    #             if (i == len(prob_select)):
-    #                 break
+    #     id_sort = np.argsort(fitness)[::-1]
+    #     return id_sort[:num_select]
 
-    #             p_cum += prob_select[i]
-    #         i -= 1
-    #         id_select.append(id_tot[i])
-    #     return id_select
+    def natural_selection(self, fitness):
+        id_tot = list(range(self.num_offspring+self.num_select))
+        # find the best model
+        n_best = np.argmax(fitness)
+        id_tot.remove(n_best)
+        id_select = [n_best]
+        # use Roullete-Wheel method
+        fitness_pos = fitness[id_tot]
+        fmin = np.min(fitness_pos)
+        if fmin < 0:
+            fitness_pos += fmin
+
+        prob_select = fitness_pos / np.sum(fitness_pos)
+        for n in range(self.num_select-1):
+            p = np.random.rand()
+            i, p_cum = 0, 0
+            while p_cum < p:
+                i += 1
+                if (i == len(prob_select)):
+                    break
+
+                p_cum += prob_select[i]
+            i -= 1
+            id_select.append(id_tot[i])
+        return id_select
 
     def crossover(self):
-        offspring = np.zeros([self.num_params, self.num_offspring])
+        offspring = np.ones([self.num_params, self.num_offspring]) * (-1)
         for n in range(self.num_offspring):
             # check boundary condition
             flag = True
@@ -200,8 +224,10 @@ class EA:
         eta = np.random.randn(self.mu-1, 1) * self.sgm_eta
         offspring += np.squeeze(np.dot(d_vec, eta))
         # 2nd term
-        xi = np.random.randn(self.num_params-self.mu+1, 1) * self.sgm_xi
+        # xi = np.random.randn(self.num_params-self.mu+1, 1) * self.sgm_xi
+        xi = np.random.randn(basis.shape[1], 1) * self.sgm_xi
         offspring += np.squeeze(D * np.dot(basis, xi))
+        # print(basis.shape, xi.shape, d_vec.shape, d_vec, self.mu)
 
         return offspring
 
@@ -225,7 +251,7 @@ class EA:
     def mutate(self):
         pass
 
-    def print_log(self, nstep, skip_save_param=10):
+    def print_log(self, nstep, skip_save_param=1):
         # save fitness
         with open(os.path.join(self.log_dir, "log.txt"), "a") as fid:
             for n in range(self.num_parent):
@@ -234,8 +260,9 @@ class EA:
 
         # save parameters
         if nstep % skip_save_param == 0:
+            data = {"job_id": self.parent_id, "params": self.param_vec}
             with open(os.path.join(self.log_dir, "params_%d.pkl"%(nstep)), "wb") as fid:
-                pkl.dump(self.param_vec, fid)
+                pkl.dump(data, fid)
 
 
 def get_norm(vec):
