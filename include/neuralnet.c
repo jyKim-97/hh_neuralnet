@@ -42,7 +42,7 @@ void build_ei_rk4(nn_info_t *info){
     // set with default parameter ranges
     init_wbneuron(N, &neuron);
     init_extsyn(N, &ext_syn);
-    for (int n=0; n<num_syn_types; n++){
+    for (int n=0; n<MAX_TYPE; n++){
         init_desyn(N, &syns[n]);
     }
 
