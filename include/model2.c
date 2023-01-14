@@ -115,6 +115,7 @@ void init_desyn(int N, desyn_t *syn){
     syn->expl   = NULL;
     syn->nu_ext = NULL;
 
+    syn->is_ext = false;
     syn->load_ntk    = false;
     syn->load_delay  = false;
     syn->load_w      = false;
@@ -311,7 +312,6 @@ void destroy_desyn(desyn_t *syn){
     if (syn->is_ext){
         free(syn->w_ext);
         free(syn->nu_ext);
-        free(syn->w_ext);
     } else {
         for (int n=0; n<N; n++){
             free(syn->w_list[n]);

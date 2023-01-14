@@ -51,10 +51,12 @@ int main(){
 
 int run(int simul_id, simul_info_t info){
     nn_info_t nn_info = set_simulation(info);
-    build_ei_rk4(&nn_info);
+    
     char fname_info[100];
     sprintf(fname_info, "id%06d_info.txt", simul_id);
     write_info(&nn_info, path_join(fdir, fname_info)); // for verification, save enviornment
+    
+    build_ei_rk4(&nn_info);
 
     int nmax = tmax/_dt;
     init_measure(N, nmax, 2, NULL);
