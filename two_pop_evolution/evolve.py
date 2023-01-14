@@ -1,20 +1,22 @@
 import numpy as np
 import multiprocess as mp
+from py import process
 from scipy.linalg import null_space
 import os
 import pickle as pkl
 
 
 class EA:
-    def __init__(self, num_params, log_dir="./log", mu=2, num_offspring=5, num_parent=10, max_iter=1e6, tol=1e-3):
-        self.max_iter = int(max_iter)
+    def __init__(self, num_params, log_dir="./log", mu=2, num_offspring=5, num_parent=10, use_multiprocess=False, num_process=4):
         self.num_parent = int(num_parent)
         self.num_offspring = int(num_offspring)
         self.num_params = int(num_params)
-        self.tol = tol
         self.pmin = None
         self.pmax = None
         self.log_dir = log_dir
+        self.use_multiprocess = use_multiprocess
+        self.job_id = 0
+        self.num_process = num_process
 
         self.mu = mu
         self.param_vec = np.zeros([self.num_params, self.num_parent])
@@ -26,8 +28,8 @@ class EA:
 
     def set_object_func(self, f):
         # object function need to return float (fitness)
-        # res = f(arr)
-        self.fobj = f
+        # res = f([arr, job_id])
+        self.fobj = f 
 
     def set_min_max(self, pmin, pmax):
         if (len(pmin) != self.num_params) or (len(pmin) != self.num_params):
@@ -50,7 +52,7 @@ class EA:
         if self.fobj is None:
             raise AttributeError("Object function is not defined: call set_object_func")
 
-    def run(self, auto_init=True):
+    def run(self, max_iter=100, tol=1e-3, auto_init=True):
         job_id = 0
         ncycle = 0
         dscore = 0
@@ -61,7 +63,7 @@ class EA:
         if auto_init:
             self.random_initialization()
 
-        for n in range(self.max_iter):
+        for n in range(int(max_iter)):
             self.next_generation()
             self.print_log(n)
 
@@ -69,34 +71,56 @@ class EA:
         for n in range(self.num_parent):
             self.param_vec[:, n] = np.random.uniform(self.pmin, self.pmax)
 
-        with mp.Pool(self.num_parent) as p:
-            self.fit_score = np.array(p.map(self.fobj, self.param_vec.T))
+        if self.use_multiprocess:
+            args = []
+            for n in range(self.num_offspring):
+                args.append([self.param_vec[:,n], self.job_id])
+                self.job_id += 1
 
-    def next_generation(self):
-        # select 2 parents
-        parent_id = np.arange(self.num_parent)
-        id_selected = np.random.choice(parent_id, 2, replace=False)
+            with mp.Pool(self.num_parent, process=self.num_process) as p:
+                self.fit_score = p.map(self.fobj, args)
+        else:
+            self.fit_score = []
+            for n in range(self.num_parent):
+                self.fit_score.append(self.fobj([self.param_vec[:,n], self.job_id]))
+                self.job_id += 1
+        
+        self.fit_score = np.array(self.fit_score)
 
+    def reset_job_id(self):
+        self.job_id = 0
+
+    def next_generation(self, num_select=2):
         # get offsprings & evaluate scores
         offspring = self.crossover()
 
-        # with mp.Pool(self.num_offspring) as p:
-        #     fitness = p.map(self.fobj, offspring.T)
+        if self.use_multiprocess:
+            # split data
+            args = []
+            for n in range(self.num_offspring):
+                args.append([offspring[:,n], self.job_id])
+                self.job_id += 1
 
-        fitness = []
-        for n in range(self.num_offspring):
-            fitness.append(self.fobj(offspring[:,n]))
+            with mp.Pool(self.num_offspring, process=self.num_process) as p:
+                fitness = p.map(self.fobj, args)
+        else:
+            fitness = []
+            for n in range(self.num_offspring):
+                fitness.append(self.fobj([offspring[:,n], self.job_id]))
+                self.job_id += 1
+
+        # select paranet to change
+        id_selected, _ = self.pick_id(self.num_parent, num_select)
 
         # evalutate score
-        pop_scores = np.zeros(self.num_offspring+2)
-        pop_scores[:-2] = fitness
-        pop_scores[-2:] = self.fit_score[id_selected]
+        pop_scores = np.zeros(self.num_offspring+num_select)
+        pop_scores[:-num_select] = fitness
+        pop_scores[-num_select:] = self.fit_score[id_selected]
 
-        # Roulette-wheel selection (X)
-        # choose best two solutions
-        id_order = np.argsort(pop_scores)[::-1]
-        for n in range(2):
-            nid = id_order[n]
+        # natural selection
+        id_live = self.natural_selection(pop_scores, num_select)
+        for n in range(num_select):
+            nid = id_live[n]
             new_id = id_selected[n]
             if nid < self.num_offspring:
                 self.param_vec[:, new_id] = offspring[:, nid]
@@ -105,6 +129,31 @@ class EA:
                 self.param_vec[:, new_id] = self.param_vec[:, nold]
 
             self.fit_score[new_id] = pop_scores[nid]
+
+    def natural_selection(self, fitness, num_select=5):
+        id_sort = np.argsort(fitness)[::-1]
+        return id_sort[:num_select]
+
+    # def natural_selection(self, fitness, num_select=5):
+    #     id_tot = list(range(self.num_offspring+num_select))
+    #     # find the best model
+    #     n_best = np.argmax(fitness)
+    #     id_tot.remove(n_best)
+    #     id_select = [n_best]
+    #     # use Roullete-Wheel method
+    #     prob_select = fitness[id_tot] / np.sum(fitness[id_tot])
+    #     for n in range(num_select-1):
+    #         p = np.random.rand()
+    #         i, p_cum = 0, 0
+    #         while p_cum < p:
+    #             i += 1
+    #             if (i == len(prob_select)):
+    #                 break
+
+    #             p_cum += prob_select[i]
+    #         i -= 1
+    #         id_select.append(id_tot[i])
+    #     return id_select
 
     def crossover(self):
         offspring = np.zeros([self.num_params, self.num_offspring])
