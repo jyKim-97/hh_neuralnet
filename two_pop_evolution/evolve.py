@@ -188,8 +188,7 @@ class EA:
                 offspring_tmp = self.crossover_undx()
                 if all(offspring_tmp <= self.pmax) and all(offspring_tmp >= self.pmin):
                     offspring[:, n] = offspring_tmp
-                break
-
+                    break
         return offspring
 
     def crossover_undx(self):
