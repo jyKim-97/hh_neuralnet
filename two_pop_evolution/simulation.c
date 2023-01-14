@@ -25,8 +25,9 @@ typedef struct _simul_info_t{
 nn_info_t set_simulation(simul_info_t info);
 int run(int simul_id, simul_info_t info);
 void set_parent_dir(char *parent_dir);
-void set_taue(double tr, double td);
-void set_taui(double tr, double td);
+void change_taue(double tr, double td);
+void change_taui(double tr, double td);
+void change_teq(double _teq);
 
 char fdir[100] = "./tmp";
 int N = 1000;
@@ -88,15 +89,23 @@ void set_tmax(double _tmax){
     tmax = _tmax;
 }
 
-void set_taue(double tr, double td){
+
+void change_taue(double tr, double td){
     taur_e = tr;
     taud_e = td;
 }
 
-void set_taui(double tr, double td){
+
+void change_taui(double tr, double td){
     taur_i = tr;
     taud_i = td;
 }
+
+
+void change_teq(double _teq){
+    teq = _teq;
+}
+
 
 nn_info_t set_simulation(simul_info_t info){
     // nn_info_t info = {0,};
