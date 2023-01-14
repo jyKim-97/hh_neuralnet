@@ -19,15 +19,23 @@ def set_tmax(_tmax):
     tmax = ctypes.c_double(_tmax)
     c_hhnet.set_tmax(tmax)
 
-def set_taue(tr, td):
-    tr_c = ctypes.c_double(tr)
-    td_c = ctypes.c_double(td)
-    c_hhnet.set_taue(tr_c, td_c)
 
-def set_taui(tr, td):
-    tr_c = ctypes.c_double(tr)
-    td_c = ctypes.c_double(td)
-    c_hhnet.set_taui(tr_c, td_c)
+def change_taue(_tr, _td):
+    tr = ctypes.c_double(_tr)
+    td = ctypes.c_double(_td)
+    c_hhnet.change_taue(tr, td)
+
+
+def change_taui(_tr, _td):
+    tr = ctypes.c_double(_tr)
+    td = ctypes.c_double(_td)
+    c_hhnet.change_taui(tr, td)
+
+
+def change_teq(_teq):
+    teq = ctypes.c_double(_teq)
+    c_hhnet.change_teq(teq)
+
 
 class SimulParams:
     def __init__(self, job_id):
