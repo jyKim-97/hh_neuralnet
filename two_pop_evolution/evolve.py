@@ -1,7 +1,6 @@
 from re import S
 import numpy as np
 import multiprocess as mp
-from py import process
 from scipy.linalg import null_space
 import os
 import pickle as pkl
