@@ -23,7 +23,7 @@ void end_simulation();
 void print_arr(FILE *fp, char *arr_name, int arr_size, double *arr);
 
 
-// int N = 1000;
+int N = 1000;
 double iapp = 0;
 double tmax = 2500;
 double teq = 500;
@@ -39,9 +39,12 @@ int main(int argc, char **argv){
     struct timeval tic, toc;
     gettimeofday(&tic, NULL);
     set_control_parameters();
-    set_seed(world_rank * 100);
+    set_seed(time(NULL) * world_size * 5 + world_rank*2);
     for_mpi(idxer.len, run, &idxer);
     // run(0, &idxer);
+    // for (int n=world_rank; n<idxer.len; n+=world_size){
+    //     run(n, &idxer);
+    // }
 
     if (world_rank == 0){
         gettimeofday(&toc, NULL);
@@ -51,34 +54,30 @@ int main(int argc, char **argv){
     end_simulation();
 }
 
-double *p_inh, *nu_ext, *n_set;
-// double alpha = 0.1;
-double beta  = 0.2;
-// alpha: gE = alpha * gI
-// beta:  pE = beta * gE
+
+double *p_inh, *nu_ext;
+double beta = 0.2;
+
+
 void set_control_parameters(){
 
-    int nitr = 5;
-    // int max_len[6] = {10, 10, 5, 5, 4, nitr};
-    int max_len[] = {20, 20, 3, nitr};
+    int nitr = 4;
+    int max_len[3] = {20, 21, nitr};
     int num_controls = GetIntSize(max_len);
     set_index_obj(&idxer, num_controls, max_len);
 
-    p_inh  = linspace( 0.01, 0.95, max_len[0]);
-    nu_ext = linspace(  160, 3000, max_len[1]);
-    n_set  = (double*) malloc(sizeof(double) * max_len[3]);
-    n_set[0] = 1000; n_set[1] = 2000; n_set[2] = 4000;
+    p_inh  = linspace(0.01,  0.9, max_len[0]);
+    nu_ext = linspace(1000, 20000, max_len[1]);
 
     if (world_rank == 0){
         FILE *fp = open_file_wdir(fdir, "control_params.txt", "w");
-        for (int n=0; n<GetIntSize(max_len); n++){
+        for (int n=0; n<num_controls; n++){
             fprintf(fp, "%d,", max_len[n]);
         }
         fprintf(fp, "\n");
 
-        print_arr(fp, "p_inh",  max_len[0], p_inh);
+        print_arr(fp, "p_inh", max_len[0], p_inh);
         print_arr(fp, "nu_ext", max_len[1], nu_ext);
-        print_arr(fp, "n_set",  max_len[2], n_set);
         fclose(fp);
     }
 }
@@ -87,7 +86,6 @@ void set_control_parameters(){
 void end_simulation(){
     free(p_inh);
     free(nu_ext);
-    free(n_set);
     end_mpi();
 }
 
@@ -98,22 +96,19 @@ void run(int job_id, void *idxer_void){
     nn_info_t info = set_info();
     index_t *idxer = (index_t*) idxer_void;
     update_index(idxer, job_id);
+    print_job_start(job_id, idxer->len);
 
-    // alpha: gE = alpha * gI
-    // beta:  pE = beta * gE
     info.p_out[1][0] = p_inh[idxer->id[0]];
     info.p_out[1][1] = info.p_out[1][0];
-    info.nu_ext = nu_ext[idxer->id[1]];
-    info.p_out[0][0] = beta * info.p_out[1][0];
-    info.p_out[0][1] = info.p_out[0][0];
-    info.N = n_set[idxer->id[2]];
+    info.p_out[0][1] = beta * info.p_out[1][0];
+    info.p_out[0][0] = info.p_out[0][1];
+    info.nu_ext_mu = nu_ext[idxer->id[1]];
 
     char fname_info[100];
     sprintf(fname_info, "id%06d_info.txt", job_id);
     write_info(&info, path_join(fdir, fname_info));
 
     build_ei_rk4(&info);
-    print_job_start(job_id, idxer->len);
 
     int nmax = tmax/_dt;
     #ifdef _debug
@@ -160,26 +155,30 @@ void run(int job_id, void *idxer_void){
 
 nn_info_t set_info(void){
     // nn_info_t info = {0,};
-    nn_info_t info = get_empty_info();
+    nn_info_t info = init_build_info(N, 2);
 
-    info.N = 1000;
-    info.num_types = 2;
-    info.type_range[0] = info.N * 0.8;
-    info.type_range[1] = info.N;
+    info.p_out[0][0] = 0.005;
+    info.p_out[0][1] = 0.005;
+    info.p_out[1][0] = 0.05;
+    info.p_out[1][1] = 0.05;
 
-    info.p_out[0][0] = 0.;
-    info.p_out[0][1] = 0.;
-    info.p_out[1][0] = 0.;
-    info.p_out[1][1] = 0.;
+    info.w[0][0] = 0.1;
+    info.w[0][1] = 0.1;
+    info.w[1][0] = 0.2;
+    info.w[1][1] = 0.2;
 
-    info.w[0][0] = 0.01;
-    info.w[0][1] = 0.01;
-    info.w[1][0] = 0.1;
-    info.w[1][1] = 0.1;
+    info.taur[0] = 0.3;
+    info.taud[0] = 1;
+    // info.taur[1] = 0.5;
+    // info.taud[1] = 2;
+    info.taur[1] = 1;
+    info.taud[1] = 5;
 
-    info.t_lag  = 0.5;
-    info.nu_ext = 160;
-    info.w_ext  = 0.002;
+    info.t_lag  = 0.;
+    info.nu_ext_mu = 1000;
+    info.nu_ext_sd = 0;
+    info.w_ext_mu = 0.002;
+    info.w_ext_sd = 0;
     info.const_current = false;
 
     return info;

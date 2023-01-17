@@ -8,7 +8,7 @@
 #include "measurement2.h"
 
 /*
-gcc -g -Wall -O2 -std=c11 -I../include -o main.out main.c -L../lib -lhhnet
+gcc -g -Wall -O2 -std=c11 -I../include -o main.out main.c -L../lib -lhhnet -lm
 */
 
 extern double _dt;
@@ -104,26 +104,23 @@ void run(double tmax){
 
 nn_info_t set_info(void){
     // nn_info_t info = {0,};
-    nn_info_t info = get_empty_info();
+    nn_info_t info = init_build_info(N, 2);
 
-    info.N = N;
-    info.num_types = 2;
-    info.type_range[0] = info.N * 0.8;
-    info.type_range[1] = info.N;
-
-    info.p_out[0][0] = 0.;
-    info.p_out[0][1] = 0.;
+    info.p_out[0][0] = 0.005;
+    info.p_out[0][1] = 0.005;
     info.p_out[1][0] = 0.01;
     info.p_out[1][1] = 0.01;
 
-    info.w[0][0] = 0.;
-    info.w[0][1] = 0.;
-    info.w[1][0] = 0.001;
-    info.w[1][1] = 0.001;
+    info.w[0][0] = 0.01;
+    info.w[0][1] = 0.01;
+    info.w[1][0] = 0.1;
+    info.w[1][1] = 0.1;
 
-    info.t_lag = 0.5;
-    info.nu_ext = 500;
-    info.w_ext  = 0.001;
+    info.t_lag = 0.;
+    info.nu_ext_mu = 2000;
+    info.nu_ext_sd = 100;
+    info.w_ext_mu  = 0.002;
+    info.w_ext_sd  = 0.0002;
     info.const_current = false;
 
     return info;
