@@ -45,14 +45,19 @@ void destroy_measure(void){
 }
 
 
-void set_class(int _n_class, int *_id_class){
+void set_class(int _n_class, int *type_range){
     id_class = (int*) malloc(sizeof(int) * ntk_size);
-    if ((_id_class == NULL) || (_n_class == -1)){
+    
+    if (type_range == NULL){
         num_class_types = 2;
         for (int n=0; n<ntk_size; n++) id_class[n] = (n < ntk_size*0.8)? 0: 1;
     } else {
         num_class_types = _n_class;
-        memcpy(id_class, _id_class, sizeof(int)*ntk_size);
+        int tp = 0;
+        for (int n=0; n<ntk_size; n++){
+            if (tp == type_range[tp]) tp ++;
+            id_class[n] = tp;
+        }
     }
 
     // get num_class

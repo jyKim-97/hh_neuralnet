@@ -20,7 +20,7 @@ typedef struct _summary_t {
 
 
 void init_measure(int N, int num_steps, int _n_class, int *_id_class);
-void set_class(int _n_class, int *_id_class);
+void set_class(int _n_class, int *type_range);
 void init_spike();
 void init_flct();
 void free_spike();

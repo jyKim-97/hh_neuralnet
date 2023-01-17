@@ -284,6 +284,19 @@ class SummaryLoader:
             var = self.control_names[n]
             print("%s: %f"%(var, self.controls[var][nid[n]]))
 
+    def export_summary(self):
+        import pickle as pkl
+
+        fdir = self.fdir
+        if fdir[-1] == '/':
+            fdir = fdir[:-1]
+        
+        # need to error log
+        f = fdir + ".pkl"
+        print("Save summary to %s"%(f))
+        with open(f, "wb") as fid:
+            pkl.dump(self, fid)
+
 
 def get_id(num_xs, *nid):
     if len(nid) != len(num_xs):
@@ -425,3 +438,28 @@ def extract_value_on_line(im, x, y, xq=None, yq=None):
 def get_palette(cmap="jet"):
     from matplotlib.cm import get_cmap
     return get_cmap(cmap)
+
+
+# include these functions to object
+def export_summary(obj:SummaryLoader):
+    import pickle as pkl
+
+    fdir = obj.fdir
+    if fdir[-1] == '/':
+        fdir = fdir[:-1]
+    
+    # need to error log
+    f = fdir + ".pkl"
+    print("Save summary to %s"%(f))
+    with open(f, "wb") as fid:
+        pkl.dump(obj, fid)
+    
+
+def load_summary(f):
+    import pickle as pkl
+
+    # need to error log
+    with open(f, "rb") as fid:
+        obj = pkl.load(fid)
+    
+    return obj

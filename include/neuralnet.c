@@ -5,22 +5,37 @@ const double ev_e = 0;
 const double ev_i = -80;
 
 
-// double iapp = 0;
-int num_syn_types = 2;
+static int num_cells = 0;
+static int num_types = 2;
 wbneuron_t neuron;
 desyn_t syns[MAX_TYPE], ext_syn;
 double taur_default=0.3, taud_default=1;
 int const_current = false;
+
+double cell_ratio2[2] = {0.8, 0.2};
+double cell_ratio3[3] = {8./12, 2./12, 2./12};
+int cell_range[MAX_TYPE][2] = {0,};
+
 
 static void add_spike_total_syns(int nstep);
 static void update_total_syns(int nid);
 static double get_total_syns_current(int nid, double vpost);
 static void fprintf2d_d(FILE *fp, double x[MAX_TYPE][MAX_TYPE]);
 static void fill_connection_prob(nn_info_t *info);
+static void set_cell_range(void);
 
 
-nn_info_t get_empty_info(void){
+nn_info_t init_build_info(int N, int _num_types){
+
+    num_cells = N;
+    num_types = _num_types;
+
     nn_info_t info = {0,};
+
+    info.N = N;
+    info.num_types = num_types;
+    set_cell_range();
+
     for (int i=0; i<MAX_TYPE; i++){
         info.type_range[i] = 0;
         for (int j=0; j<MAX_TYPE; j++){
@@ -28,73 +43,132 @@ nn_info_t get_empty_info(void){
             info.p_out[i][j] = -1;
             info.w[i][j] = 0;
         }
-
+        
+        info.num_types = num_types;
         info.taur[i] = taur_default;
         info.taud[i] = taud_default;
     }
     info.const_current = false;
+
     return info;
 }
 
 
 void build_ei_rk4(nn_info_t *info){
-    int N = info->N;
-    // set with default parameter ranges
-    init_wbneuron(N, &neuron);
-    init_extsyn(N, &ext_syn);
-    for (int n=0; n<MAX_TYPE; n++){
-        init_desyn(N, &syns[n]);
+
+    // verify the information
+
+    // generate empty synapse (+ external poisson input)
+    init_wbneuron(num_cells, &neuron);
+    for (int n=0; n<num_types; n++){
+        init_desyn(num_cells, &syns[n]);
+    }
+    init_extsyn(num_cells, &ext_syn);
+
+    double ev[] = {ev_e, ev_i, ev_i};
+    for (int i=0; i<num_types; i++){
+        set_attrib(&syns[i], ev[i], info->taur[i], info->taud[i], 0.5);
     }
 
-    // set_attrib(&syns[0],   0, taur, taud, 0.5);
-    // set_attrib(&syns[1], -80, taur, taud, 0.5);
-    set_attrib(&syns[0], ev_e, info->taur[0], info->taud[0], 0.5);
-    set_attrib(&syns[1], ev_i, info->taur[1], info->taud[1], 0.5);
-
-    // generate network
-    int e_range[2] = {0, N*0.8};
-    int i_range[2] = {N*0.8, N};
-    ntk_t ntk_e = get_empty_net(N);
-    if (info->p_out[0][0] >= 0){
-        gen_er_pout(&ntk_e, info->p_out[0][0], e_range, e_range);
-        gen_er_pout(&ntk_e, info->p_out[0][1], e_range, i_range);
-    } else if (info->mdeg_in[0][0] >= 0) {
-        gen_er_mdin(&ntk_e, info->mdeg_in[0][0], e_range, e_range);
-        gen_er_mdin(&ntk_e, info->mdeg_in[0][1], e_range, i_range);
-    } else {
-        printf("Set the connection info (line54)!\n"); exit(1);
-    }
-    set_network(&syns[0], &ntk_e);
-    free_network(&ntk_e);
-
-    ntk_t ntk_i = get_empty_net(N);
-    if (info->p_out[1][0] >= 0){
-        gen_er_pout(&ntk_i, info->p_out[1][0], i_range, e_range);
-        gen_er_pout(&ntk_i, info->p_out[1][1], i_range, i_range);
-    } else if (info->mdeg_in[0][0] >= 0) {
-        gen_er_mdin(&ntk_i, info->mdeg_in[1][0], i_range, e_range);
-        gen_er_mdin(&ntk_i, info->mdeg_in[1][1], i_range, i_range);
-    } else {
-        printf("Set the connection info (line67)!\n"); exit(1);
-    }
-    set_network(&syns[1], &ntk_i);
-    free_network(&ntk_i);
+    // set the cell type range
+    set_cell_range();
     
-    set_coupling(&syns[0], e_range, e_range, info->w[0][0]);
-    set_coupling(&syns[0], e_range, i_range, info->w[0][1]);
-    set_coupling(&syns[1], i_range, e_range, info->w[1][0]);
-    set_coupling(&syns[1], i_range, i_range, info->w[1][1]);
-    check_coupling(&syns[0]);
-    check_coupling(&syns[1]);
+    // check input type & generate network
+    int flag_ntk = -1;
+    if (info->p_out[0][0] >= 0) flag_ntk = 0;
+    else if (info->mdeg_in[0][0] >= 0) flag_ntk = 1;
 
-    set_const_delay(&syns[0], info->t_lag);
-    set_const_delay(&syns[1], info->t_lag);
+    if (flag_ntk == -1){
+        printf("Set the connection info (neuralnet.c)!\n"); exit(1);
+    }
+
+    for (int n=0; n<num_types; n++){
+        ntk_t ntk = get_empty_net(num_cells);
+        for (int i=0; i<num_types; i++){
+            if (flag_ntk == 0){
+                gen_er_pout(&ntk, info->p_out[n][i], cell_range[n], cell_range[i]);
+            } else {
+                gen_er_mdin(&ntk, info->mdeg_in[n][i], cell_range[n], cell_range[i]);
+            }
+        }
+        set_network(&syns[n], &ntk);
+        free_network(&ntk);
+    }
+
+    // set weight of the network
+    for (int n=0; n<num_types; n++){
+        for (int i=0; i<num_types; i++){
+            set_coupling(&syns[n], cell_range[n], cell_range[i], info->w[n][i]);
+        }
+        check_coupling(&syns[n]);
+    }
+
+    // set time delay of the network
+    for (int n=0; n<num_types; n++){
+        set_const_delay(&syns[n], info->t_lag);
+    }
 
     if (info->const_current){
         const_current = true;
     } else {
+        // NOTE: set poisson neuron for each cell types
         set_attrib(&ext_syn, 0, taur_default, taud_default, 0.5);
         set_poisson(&ext_syn, info->nu_ext_mu, info->nu_ext_sd, info->w_ext_mu, info->w_ext_sd);
+    }
+}
+
+
+void check_info(nn_info_t info){
+    
+}
+
+
+static void set_cell_range(void){
+
+    if (num_types == 2){
+        cell_range[0][0] = 0;
+        cell_range[0][1] = num_cells * cell_ratio2[0];
+        cell_range[0][1] = num_cells * cell_ratio2[0];
+        cell_range[0][1] = num_cells;
+    } else if (num_types == 3){
+        cell_range[0][0] = 0;
+        cell_range[0][1] = num_cells * cell_ratio3[0];
+        cell_range[1][0] = num_cells * cell_ratio3[0];
+        cell_range[1][1] = cell_range[1][0] + num_cells * cell_ratio3[1];
+        cell_range[2][0] = cell_range[1][1];
+        cell_range[2][1] = cell_range[1][1] + num_cells * cell_ratio3[1];
+
+    } else {
+        printf("not expected number of types (neuralnet.c: set_cell_range)\n");
+        exit(1);
+    }
+
+    // check the number (this line is for num_types == 3)
+    int num_set = 0;
+    for (int n=0; n<num_types; n++){
+        num_set += cell_range[n][1] - cell_range[n][0];
+    }
+
+    if (num_cells > num_set){
+        if (num_types != 3){
+            printf("Unexpected case, check the input cell number (neuralnet.c: set_cell_range)\n");\
+            exit(1);
+        }
+
+        int dn = num_cells - num_set;
+        int mod = dn % num_types;
+
+        if (mod == 2){
+            cell_range[1][1] += 1;
+            cell_range[2][0] = cell_range[1][1];
+            cell_range[2][1] += 2;
+        } else {
+            printf("mod = %d, check the input cell number (neuralnet.c: set_cell_range)\n", mod);
+            exit(1);
+        }
+    } else if (num_cells < num_set) {
+        printf("num_set exceeds num_cells, check the input cell number (neuralnet.c: set_cell_range)\n");
+        exit(1);
     }
 }
 
@@ -104,13 +178,13 @@ void write_info(nn_info_t *info, char *fname){
 
     FILE *fp = open_file(fname, "w");
     fprintf(fp, "Size: %d\n", info->N);
-    fprintf(fp, "ntypes: %d\n", num_syn_types);
+    fprintf(fp, "ntypes: %d\n", num_types);
     fprintf(fp, "type_range:\n");
     fprintf(fp, "w:\n");
     fprintf2d_d(fp, info->w);
     
     fprintf(fp, "taur, taud\n");
-    for (int n=0; n<num_syn_types; n++){
+    for (int n=0; n<num_types; n++){
         fprintf(fp, "%f, %f\n", info->taur[n], info->taud[n]);
     }
 
@@ -129,11 +203,10 @@ void write_info(nn_info_t *info, char *fname){
 
 
 void update_rk4(int nstep, double iapp){
-    int N = neuron.N;
 
-    double *v_prev = (double*) malloc(sizeof(double) * N);
+    double *v_prev = (double*) malloc(sizeof(double) * num_cells);
 
-    for (int id=0; id<N; id++){
+    for (int id=0; id<num_cells; id++){
         v_prev[id] = neuron.vs[id];
         wbparams_t *ptr_params = neuron.params+id;
         double v0=neuron.vs[id], h0=neuron.hs[id], n0=neuron.ns[id];
@@ -180,23 +253,22 @@ void update_rk4(int nstep, double iapp){
 
 static int stack = 0;
 void write_all_vars(int nstep, FILE *fp){
-    int N = neuron.N;
-    int ncol = N;
-    for (int n=0; n<num_syn_types; n++) ncol += N;
-    if (!const_current) ncol += N;
+    int ncol = num_cells;
+    for (int n=0; n<num_types; n++) ncol += num_cells;
+    if (!const_current) ncol += num_cells;
 
     double *vars = (double*) malloc(sizeof(double) * ncol);
     int id=0;
-    for (int n=0; n<N; n++){
+    for (int n=0; n<num_cells; n++){
         vars[id++] = neuron.vs[n];
     }
-    for (int i=0; i<num_syn_types; i++){
-        for (int n=0; n<N; n++){
+    for (int i=0; i<num_types; i++){
+        for (int n=0; n<num_cells; n++){
             vars[id++] = syns[i].expr[n] - syns[i].expd[i];
         }
     }
     if (!const_current){
-        for (int n=0; n<N; n++){
+        for (int n=0; n<num_cells; n++){
             vars[id++] = ext_syn.expr[n] - ext_syn.expd[n];
         }
     }
@@ -219,10 +291,14 @@ void write_all_vars(int nstep, FILE *fp){
 
 void destroy_neuralnet(void){
     destroy_wbneuron(&neuron);
-    for (int n=0; n<num_syn_types; n++){
+    for (int n=0; n<num_types; n++){
         destroy_desyn(&syns[n]);
     }
-    if (!const_current) destroy_desyn(&ext_syn);
+    // free poisson synaptic input
+    if (!const_current){
+        destroy_desyn(&ext_syn);
+    }
+
     #ifdef USE_MKL
     end_stream();
     #endif
@@ -230,7 +306,7 @@ void destroy_neuralnet(void){
 
 
 static void add_spike_total_syns(int nstep){
-    for (int n=0; n<num_syn_types; n++){
+    for (int n=0; n<num_types; n++){
         add_spike(nstep, &syns[n], &neuron);
     }
     if (!const_current) add_ext_spike(&ext_syn);
@@ -238,7 +314,7 @@ static void add_spike_total_syns(int nstep){
 
 
 static void update_total_syns(int nid){
-    for (int n=0; n<num_syn_types; n++){
+    for (int n=0; n<num_types; n++){
         update_desyn(&syns[n], nid);
     }
     if (!const_current) update_desyn(&ext_syn, nid);
@@ -248,7 +324,7 @@ static void update_total_syns(int nid){
 static double get_total_syns_current(int nid, double vpost){
     double isyn = 0;
     if (!const_current) isyn = get_current(&ext_syn, nid, vpost);
-    for (int n=0; n<num_syn_types; n++){
+    for (int n=0; n<num_types; n++){
         isyn += get_current(&syns[n], nid, vpost);
     }
     return isyn;
@@ -256,8 +332,8 @@ static double get_total_syns_current(int nid, double vpost){
 
 
 static void fprintf2d_d(FILE *fp, double x[MAX_TYPE][MAX_TYPE]){
-    for (int i=0; i<num_syn_types; i++){
-        for (int j=0; j<num_syn_types; j++){
+    for (int i=0; i<num_types; i++){
+        for (int j=0; j<num_types; j++){
             fprintf(fp, "%f, ", x[i][j]);
         }
         fprintf(fp, "\n");
@@ -266,20 +342,20 @@ static void fprintf2d_d(FILE *fp, double x[MAX_TYPE][MAX_TYPE]){
 
 
 static void fill_connection_prob(nn_info_t *info){
-    int N = info->N;
-    int num_cells[2] = {0.8*N, 0.2*N};
-    if (num_syn_types != 2){ printf("Need to correct this part: line265"); exit(1); }
 
     if (info->p_out[0][0] >= 0){
-        for (int i=0; i<num_syn_types; i++){
-            for (int j=0; j<num_syn_types; j++){
-                info->mdeg_in[i][j] = num_cells[i] * info->p_out[i][j]; 
+        for (int i=0; i<num_types; i++){
+            int n = cell_range[i][1] - cell_range[i][0];
+            for (int j=0; j<num_types; j++){
+                info->mdeg_in[i][j] = n * info->p_out[i][j]; 
             }
         }
     } else if (info->mdeg_in[0][0] >= 0){
-        for (int i=0; i<num_syn_types; i++){
-            for (int j=0; j<num_syn_types; j++){
-                info->p_out[i][j] = info->mdeg_in[i][j] / num_cells[i] * num_cells[j];
+        for (int i=0; i<num_types; i++){
+            int ni = cell_range[i][1] - cell_range[i][0];
+            for (int j=0; j<num_types; j++){
+                int nj = cell_range[i][1] - cell_range[i][0];
+                info->p_out[i][j] = info->mdeg_in[i][j] / ni * nj;
             }
         }
     }
