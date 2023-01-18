@@ -128,8 +128,8 @@ static void set_cell_range(void){
     if (num_types == 2){
         cell_range[0][0] = 0;
         cell_range[0][1] = num_cells * cell_ratio2[0];
-        cell_range[0][1] = num_cells * cell_ratio2[0];
-        cell_range[0][1] = num_cells;
+        cell_range[1][0] = num_cells * cell_ratio2[0];
+        cell_range[1][1] = num_cells;
     } else if (num_types == 3){
         cell_range[0][0] = 0;
         cell_range[0][1] = num_cells * cell_ratio3[0];
@@ -179,7 +179,12 @@ void write_info(nn_info_t *info, char *fname){
     FILE *fp = open_file(fname, "w");
     fprintf(fp, "Size: %d\n", info->N);
     fprintf(fp, "ntypes: %d\n", num_types);
-    fprintf(fp, "type_range:\n");
+    fprintf(fp, "type_range: ");
+    for (int n=0; n<num_types; n++){
+        fprintf(fp, "%d, ", info->type_range[n]);
+    }
+    fprintf(fp, "\n");
+    
     fprintf(fp, "w:\n");
     fprintf2d_d(fp, info->w);
     
