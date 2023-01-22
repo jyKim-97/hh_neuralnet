@@ -37,7 +37,7 @@ nn_info_t init_build_info(int N, int _num_types){
     set_cell_range();
 
     for (int i=0; i<MAX_TYPE; i++){
-        info.type_range[i] = 0;
+        info.type_range[i] = cell_range[i][1];
         for (int j=0; j<MAX_TYPE; j++){
             info.mdeg_in[i][j] = -1;
             info.p_out[i][j] = -1;
