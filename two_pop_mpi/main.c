@@ -56,18 +56,22 @@ int main(int argc, char **argv){
 
 
 double *p_inh, *nu_ext;
-double beta = 0.2;
-
+// double beta = 0.2;
+double c = 0.02;
+double *a_set, *b_set;
+// double a=0.1, b=0.3, c=0.02;
 
 void set_control_parameters(){
 
-    int nitr = 4;
-    int max_len[3] = {20, 21, nitr};
+    int nitr = 2;
+    int max_len[3] = {15, 15, 5, 5, nitr};
     int num_controls = GetIntSize(max_len);
     set_index_obj(&idxer, num_controls, max_len);
 
-    p_inh  = linspace(0.01,  0.9, max_len[0]);
-    nu_ext = linspace(1000, 20000, max_len[1]);
+    p_inh  = linspace(0.1,  0.9, max_len[0]);
+    nu_ext = linspace(2000, 5000, max_len[1]);
+    a_set = linspace(0.1, 0.5, max_len[2]);
+    b_set = linspace(0.1, 0.9, max_len[3]);
 
     if (world_rank == 0){
         FILE *fp = open_file_wdir(fdir, "control_params.txt", "w");
@@ -78,6 +82,8 @@ void set_control_parameters(){
 
         print_arr(fp, "p_inh", max_len[0], p_inh);
         print_arr(fp, "nu_ext", max_len[1], nu_ext);
+        print_arr(fp, "a_set", max_len[2], a_set);
+        print_arr(fp, "b_set", max_len[3], b_set);
         fclose(fp);
     }
 }
@@ -86,6 +92,8 @@ void set_control_parameters(){
 void end_simulation(){
     free(p_inh);
     free(nu_ext);
+    free(a_set);
+    free(b_set);
     end_mpi();
 }
 
@@ -100,9 +108,14 @@ void run(int job_id, void *idxer_void){
 
     info.p_out[1][0] = p_inh[idxer->id[0]];
     info.p_out[1][1] = info.p_out[1][0];
-    info.p_out[0][1] = beta * info.p_out[1][0];
+    info.p_out[0][1] = b_set[idxer->id[3]] * info.p_out[1][0];
     info.p_out[0][0] = info.p_out[0][1];
     info.nu_ext_mu = nu_ext[idxer->id[1]];
+
+    info.w[1][0] = c * sqrt(0.1) / sqrt(info.p_out[1][1]);
+    info.w[1][1] = info.w[1][0];
+    info.w[0][0] = a_set[idxer->id[2]] * info.w[1][1];
+    info.w[0][1] = info.w[0][0];
 
     char fname_info[100];
     sprintf(fname_info, "id%06d_info.txt", job_id);
@@ -153,6 +166,7 @@ void run(int job_id, void *idxer_void){
 }
 
 
+
 nn_info_t set_info(void){
     // nn_info_t info = {0,};
     nn_info_t info = init_build_info(N, 2);
@@ -162,19 +176,17 @@ nn_info_t set_info(void){
     info.p_out[1][0] = 0.05;
     info.p_out[1][1] = 0.05;
 
-    info.w[0][0] = 0.1;
-    info.w[0][1] = 0.1;
-    info.w[1][0] = 0.2;
-    info.w[1][1] = 0.2;
+    info.w[0][0] = 0.05;
+    info.w[0][1] = 0.05;
+    info.w[1][0] = 0.3;
+    info.w[1][1] = 0.3;
 
-    info.taur[0] = 0.3;
+    info.taur[0] = 0.5;
     info.taud[0] = 1;
-    // info.taur[1] = 0.5;
-    // info.taud[1] = 2;
     info.taur[1] = 1;
-    info.taud[1] = 5;
+    info.taud[1] = 3;
 
-    info.t_lag  = 0.;
+    info.t_lag = 0.5;
     info.nu_ext_mu = 1000;
     info.nu_ext_sd = 0;
     info.w_ext_mu = 0.002;
