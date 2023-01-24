@@ -5,6 +5,9 @@ from scipy.linalg import null_space
 import os
 import pickle as pkl
 
+import traceback
+# traceback.print_stack()
+
 
 class EA:
     def __init__(self, num_params, log_dir="./log", mu=2, num_select=2, num_offspring=5, num_parent=10, use_multiprocess=False, num_process=4):
@@ -16,6 +19,7 @@ class EA:
         self.log_dir = log_dir
         self.use_multiprocess = use_multiprocess
         self.job_id = 0
+        self.clock = 0
         self.num_process = num_process
         self.num_select = num_select
 
@@ -106,6 +110,7 @@ class EA:
     def next_generation(self):
         # get offsprings & evaluate scores
         offspring = self.crossover()
+        offspring = self.mutate(offspring)
 
         if self.use_multiprocess:
             # split data
@@ -148,6 +153,8 @@ class EA:
             self.fit_score[new_id] = pop_scores[nid]
             self.parent_id[new_id] = buffer_id[nid]
 
+        self.clock += 1
+
     # def natural_selection(self, fitness, num_select=5):
     #     id_sort = np.argsort(fitness)[::-1]
     #     return id_sort[:num_select]
@@ -185,9 +192,11 @@ class EA:
             flag = True
             while flag:
                 offspring_tmp = self.crossover_undx()
+                # offspring_tmp = self.crossover_pcx()
                 if all(offspring_tmp <= self.pmax) and all(offspring_tmp >= self.pmin):
                     offspring[:, n] = offspring_tmp
                     break
+
         return offspring
 
     def crossover_undx(self):
@@ -233,10 +242,42 @@ class EA:
         # select mu parents (mu < n), span the vectorspace V
         id_select, id_remain = self.pick_id(self.num_parent, self.mu)
         g_vec = np.average(self.param_vec[:, id_select], axis=1)
-        d_vec = self.param_vec[:, id_select[:-1]] - g_vec[:, np.newaxis]
 
         # select one parents from selected id
         nd = np.random.choice(id_select)
+        x_pick = self.param_vec[:, nd]
+        d_vec = x_pick - g_vec
+        if all(np.array(d_vec) == 0):
+            return x_pick
+
+        id_select = list(id_select)
+        id_select = remove_element(id_select, nd)
+
+        # calculate average distance
+        D = 0
+        for i in id_select:
+            D += get_distance(self.param_vec[:, i], d_vec)
+        D /= self.mu - 1
+
+        # get basis
+        basis = gram_schmidt(self.param_vec[:, id_select])
+
+        # offspinrg
+        offspring = x_pick.copy()
+        offspring += np.random.randn() * self.sgm_eta * d_vec
+        tmp = D * np.dot(basis, np.random.randn(self.mu-1, 1)) * self.sgm_xi
+        offspring += np.squeeze(D * np.dot(basis, np.random.randn(self.mu-1, 1)) * self.sgm_xi)
+
+        # print(f"vec: {self.param_vec[:, id_select]}")
+        # print(f"tmp: {np.squeeze(tmp)}, d_vec: {d_vec}, g_vec: {g_vec}, {self.param_vec[:, nd]}")
+        # print(f"{x_pick}, {self.param_vec[:, i]}")
+        # print(f"res: {offspring}")
+
+        if (norm(offspring) > 20):
+            exit()
+        
+        return offspring
+    
 
     def pick_id(self, max_id, num_pick):
         id_remain = list(range(max_id))
@@ -246,10 +287,25 @@ class EA:
         id_remain = np.array(id_remain)
         return id_select, id_remain
 
-    def mutate(self):
-        pass
+    def mutate(self, offspring):
+        p_th = 0.01/self.num_params
+        
+        for n in range(self.num_offspring):
+            for i in range(self.num_params):
+                if np.random.rand() < p_th:
+                    sgm = (self.pmax[i] - self.pmin[i])/5
+                    x = offspring[i, n] + np.random.randn()*sgm
+                    if x > self.pmax[i]:
+                        x = self.pmax[i]
+                    if x < self.pmin[i]:
+                        x = self.pmin[i]
+                    
+                    offspring[i, n] = x
 
-    def print_log(self, nstep, skip_save_param=1):
+        return offspring
+
+
+    def print_log(self, skip_save_param=1):
         # save fitness
         with open(os.path.join(self.log_dir, "log.txt"), "a") as fid:
             for n in range(self.num_parent):
@@ -257,11 +313,107 @@ class EA:
             fid.write("\n")
 
         # save parameters
-        if nstep % skip_save_param == 0:
+        if self.clock % skip_save_param == 0:
             data = {"job_id": self.parent_id, "params": self.param_vec}
-            with open(os.path.join(self.log_dir, "params_%d.pkl"%(nstep)), "wb") as fid:
+            with open(os.path.join(self.log_dir, "params_%d.pkl"%(self.clock)), "wb") as fid:
                 pkl.dump(data, fid)
 
+    def load_history(self):
+        # Note: split the function into some subfunctions & arange the logic flow
+        # Note: adapt this when the number of parents are changed
+
+        fparam = [f for f in os.listdir(self.log_dir) if ".pkl" in f]
+        max_iter = np.max([int(f[7:-4]) for f in fparam])
+
+        # load data
+        with open(os.path.join(self.log_dir, "params_%d.pkl"%(max_iter)), "rb") as fid:
+            data = pkl.load(fid)
+        
+        # allocate data
+        self.param_vec = data["params"]
+        job_id = data["job_id"]
+        max_job_id = int(np.max(job_id))
+        self.job_id = max_job_id+1
+
+        # reset log
+        import shutil
+        flog = os.path.join(self.log_dir, "log.txt")
+        fit_scores = read_log(flog)
+        shutil.copy(flog, os.path.join(self.log_dir, "xlog.txt"))
+
+        self.clock = len(fit_scores)
+
+        with open(os.path.join(self.log_dir, "log.txt"), "w") as fid:
+            for nline in range(max_iter):
+                for n in fit_scores[nline]:
+                    fid.write("%f,"%(n))
+                fid.write("\n")
+
+        # remove the file where the indxe is larger than max_job_id
+        fsimul = [f for f in os.listdir(self.log_dir) if "id" in f]
+        simul_id = np.sort(np.unique([int(f[2:].split("_")[0]) for f in fsimul]))
+
+        for n in np.arange(max_job_id+1, len(simul_id)):
+            tag = os.path.join(self.log_dir, "id%06d"%(n))
+            remove_file(tag+"_info.txt")
+            remove_file(tag+"_result.txt")
+
+
+def remove_element(arr, target_val):
+    arr = list(arr)
+    arr.remove(target_val)
+    return np.array(arr)
+
+
+def project(a, b):
+    # calculate proj_b(a): project a to b
+    # print(np.dot(b,b))
+    sz_b = np.dot(b, b)
+    return np.dot(a, b) / sz_b * b
+
+
+def get_distance(a, b):
+    # perpendicular distance to vector b
+    l = np.dot(a, b)/norm(b)
+    sz = norm(a)
+    return np.sqrt(sz**2 - l**2)
+
+
+def gram_schmidt(arr):
+    # print(arr.shape[1])
+    # arr is the column matrix
+    basis = np.zeros_like(arr)
+    for n in range(arr.shape[1]):
+        sub = 0
+        for i in range(n):
+            # print(n, n-i-1)
+            sub += project(arr[:, n], basis[:, n-i-1])
+        basis[:, n] = arr[:, n] - sub
+        basis[:, n] /= norm(basis[:, n])
+
+    return basis
+
+
+def norm(a):
+    return np.sqrt(np.sum(a**2))
+
+
+def remove_file(fname):
+    try:
+        os.remove(fname)
+    except:
+        print(f"{fname} does not exist!")
+
+
+def read_log(log_fname):
+    fit_scores = []
+    with open(log_fname, "r") as fid:
+        line = fid.readline()
+        while line:
+            fit_scores.append([float(x) for x in line.split(",")[:-1]])
+            line = fid.readline()
+    return fit_scores
+        
 
 def get_norm(vec):
     return np.sqrt(np.sum(vec**2))

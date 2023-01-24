@@ -43,12 +43,6 @@ double teq = 500;
 int flag_eq = 0;
 
 
-int main(){
-    simul_info_t info = {0,};
-    run(1, info);
-}
-
-
 int run(int simul_id, simul_info_t info){
     nn_info_t nn_info = set_simulation(info);
     
@@ -111,12 +105,7 @@ void change_teq(double _teq){
 
 nn_info_t set_simulation(simul_info_t info){
     // nn_info_t info = {0,};
-    nn_info_t nn_info = get_empty_info();
-
-    nn_info.N = N;
-    nn_info.num_types = 2;
-    nn_info.type_range[0] = N * 0.8;
-    nn_info.type_range[1] = N;
+    nn_info_t nn_info = init_build_info(N, 2);
 
     for (int i=0; i<2; i++){
         for (int j=0; j<2; j++){
