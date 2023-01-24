@@ -79,7 +79,10 @@ def fobj(args):
     fit_score, chis, cvs, frs = calculate_fitness(offspring_id)
     save_result(job_id, data, chis, cvs, frs)
 
-    # fit_score = 0
+    # clean
+    fdir_off = os.path.join(fdir, "offspring%d"%(offspring_id))
+    for f in os.listdir(fdir_off):
+        os.remove(os.path.join(fdir_off, f))
 
     return fit_score
 
@@ -102,9 +105,8 @@ def calculate_fitness(offspring_id):
 
     # calculate fitness
     # similarity chi
-    score = 100 * np.average((chis[:, 0] - chis[:, 1])**2)
-    score += 100 * np.average((chis[:2, 0]**2 + (1-chis[-2:, 0])**2))
-    score += 100 * np.average((chis[0, 1]**2 + (1-chis[-1, 1])**2))
+    score = 100 * np.average((chis[0] - chis[1])**2)
+    score += 100 * np.average((chis[:, :2]**2 + (1-chis[:, -2:])**2))
 
     # firing rate
     score += np.average((frs - target_firing_rate)**2)
