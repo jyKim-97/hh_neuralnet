@@ -14,7 +14,7 @@ import hhtools
 
 target_chi = 0.
 target_firing_rate = 8
-num_offspring = 20
+num_offspring = 10
 num_core = 16
 
 # ========== Parameters ==========
@@ -55,8 +55,10 @@ def fobj(args):
     # generate parameters for slow & faster one
     # select the control parameter range
     b1 = data[2]
+    b2 = data[3]
     bp1 = data[6]
-    bmax = max([b1, bp1])
+    bp2 = data[7]
+    bmax = max([b1, b2, bp1, bp2])
     xs_end = 0.9/bmax
     xs = np.linspace(0.01, xs_end, div)
 
@@ -70,14 +72,14 @@ def fobj(args):
         generate_info(x, data, inh_type, fname)
 
     # run simulation with the code
-    # com = "mpirun -np %d --hostfile host%d ./run_mpi.out %d"%(num_core, offspring_id, offspring_id)
-    # res = os.system(com)
+    com = "mpirun -np %d --hostfile ./data/host%d ./run_mpi.out %d"%(num_core, offspring_id, offspring_id)
+    res = os.system(com)
 
     # # calculate fitness
-    # fit_score, chis, cvs, frs = calculate_fitness(offspring_id)
-    # save_result(job_id, data, chis, cvs, frs)
+    fit_score, chis, cvs, frs = calculate_fitness(offspring_id)
+    save_result(job_id, data, chis, cvs, frs)
 
-    fit_score = 0
+    # fit_score = 0
 
     return fit_score
 
@@ -88,7 +90,7 @@ def calculate_fitness(offspring_id):
     cvs = [[], []]
     frs = [[], []]
     for n in range(num_core):
-        inh_type = num_core // (num_core//2)
+        inh_type = n // (num_core//2)
         summary = hhtools.read_summary(os.path.join(fdir, "offspring%d/result%d.txt"%(offspring_id, n)))
         chis[inh_type].append(summary["chi"][0])
         cvs[inh_type].append(summary["cv"][0])
@@ -151,15 +153,14 @@ def init_simulation():
         os.mkdir(os.path.join(fdir, "offspring%d"%(n)))
     
     # generate hostfiles
-    n0 = 25
+    nhost = 25
     for n in range(num_offspring):
         with open("./data/host%d"%(n), "w") as fid:
             for i in range(2):
-                nid = n0+i
-                if nid == 41: # dead host
-                    nid = nid+1
-                fid.write("node%d cpu=8\n"%(nid))
-            n0 = nid+1
+                if nhost == 41: # dead host
+                    nhost = nhost+1
+                fid.write("node%d cpu=8\n"%(nhost))
+                nhost += 1
 
 
 if __name__ == "__main__":
@@ -171,7 +172,7 @@ if __name__ == "__main__":
     pmin = [ 1,  1, 1, 1,  1,  1, 1, 1, 0.01,  7000, 0]
     pmax = [10, 10, 5, 5, 10, 10, 5, 5,  0.2, 20000, 1]
 
-    solver = evolve.EA(num_params, log_dir=fdir, mu=3, num_select=5, num_offspring=20, num_parent=60, use_multiprocess=True, num_process=20)
+    solver = evolve.EA(num_params, log_dir=fdir, mu=3, num_select=5, num_offspring=num_offspring, num_parent=60, use_multiprocess=False, num_process=num_offspring)
     # solver = evolve.EA(num_params, log_dir="./", mu=3, num_select=5, num_offspring=20, num_parent=60, use_multiprocess=True, num_process=2)
     solver.set_min_max(pmin, pmax)
     solver.set_object_func(fobj)
