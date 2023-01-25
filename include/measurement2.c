@@ -55,7 +55,7 @@ void set_class(int _n_class, int *type_range){
         num_class_types = _n_class;
         int tp = 0;
         for (int n=0; n<ntk_size; n++){
-            if (tp == type_range[tp]) tp ++;
+            if (n == type_range[tp]) tp ++;
             id_class[n] = tp;
         }
     }
