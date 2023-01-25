@@ -13,10 +13,6 @@ import hhtools
 # Parameters
 # pE, pI, gE, gI, tlag, nu, w
 
-target_chi = 0.
-target_firing_rate = 8
-num_offspring = 10
-num_core = 16
 
 # ========== Parameters ==========
 # control parameter x: p_{E->E,I}
@@ -43,6 +39,10 @@ num_core = 16
 
 # ========== ========== ==========
 
+target_chi = 0.
+target_firing_rate = 8
+num_offspring = 10
+num_core = 16
 
 taur_set = [0.5, 1]
 taud_set = [2.5, 8]
@@ -75,8 +75,10 @@ def fobj(args):
 
     # run simulation with the code
     com = "mpirun -np %d --hostfile ./data/host%d ./run_mpi.out %d"%(num_core, offspring_id, offspring_id)
+    # os.system(com)
+
     try:
-        res = subprocess.run(com, timeout=max_wait_time)
+        res = subprocess.run(com, timeout=max_wait_time, shell=True)
         # # calculate fitness
         fit_score, chis, cvs, frs = calculate_fitness(offspring_id)
         save_result(job_id, data, chis, cvs, frs)
@@ -179,8 +181,7 @@ if __name__ == "__main__":
     pmin = [ 1,  1, 1, 1,  1,  1, 1, 1, 0.01,  7000, 0]
     pmax = [10, 10, 5, 5, 10, 10, 5, 5,  0.2, 20000, 1]
 
-    solver = evolve.EA(num_params, log_dir=fdir, mu=3, num_select=5, num_offspring=num_offspring, num_parent=60, use_multiprocess=False, num_process=num_offspring)
-    # solver = evolve.EA(num_params, log_dir="./", mu=3, num_select=5, num_offspring=20, num_parent=60, use_multiprocess=True, num_process=2)
+    solver = evolve.EA(num_params, log_dir=fdir, mu=3, num_select=5, num_offspring=num_offspring, num_parent=60, use_multiprocess=True, num_process=num_offspring)
     solver.set_min_max(pmin, pmax)
     solver.set_object_func(fobj)
 

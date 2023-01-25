@@ -10,7 +10,7 @@ import traceback
 
 
 class EA:
-    def __init__(self, num_params, log_dir="./log", mu=2, num_select=2, num_offspring=5, num_parent=10, use_multiprocess=False, num_process=4):
+    def __init__(self, num_params, log_dir="./log", mu=2, num_select=2, num_offspring=5, num_parent=10, use_multiprocess=False, num_process=4, do_mutate=True):
         self.num_parent = int(num_parent)
         self.num_offspring = int(num_offspring)
         self.num_params = int(num_params)
@@ -32,6 +32,7 @@ class EA:
         # A Functional Specialization Hypothesis for Designing Genetic Algorithms 
         self.sgm_eta = 1/np.sqrt(self.mu)
         self.sgm_xi  = 0.35/np.sqrt(self.num_parent - self.mu)
+        self.do_mutate = do_mutate
 
     def set_object_func(self, f):
         # object function need to return float (fitness)
@@ -75,7 +76,7 @@ class EA:
 
         for n in range(int(max_iter)):
             self.next_generation()
-            self.print_log(n)
+            self.print_log()
 
     def random_initialization(self):
         for n in range(self.num_parent):
@@ -125,7 +126,8 @@ class EA:
     def next_generation(self):
         # get offsprings & evaluate scores
         offspring = self.crossover()
-        offspring = self.mutate(offspring)
+        if self.do_mutate:
+            offspring = self.mutate(offspring)
 
         if self.use_multiprocess:
             # split data
@@ -210,11 +212,17 @@ class EA:
         for n in range(self.num_offspring):
             # check boundary condition
             flag = True
+            stack = 0
             while flag:
-                offspring_tmp = self.crossover_undx()
-                # offspring_tmp = self.crossover_pcx()
+                # offspring_tmp = self.crossover_undx()
+                offspring_tmp = self.crossover_pcx()
                 if all(offspring_tmp <= self.pmax) and all(offspring_tmp >= self.pmin):
                     offspring[:, n] = offspring_tmp
+                    break
+
+                stack += 1
+                if stack == 50:
+                    offspring[:, n] = np.random.uniform(self.pmin, self.pmax)
                     break
 
         return offspring
@@ -279,22 +287,16 @@ class EA:
             D += get_distance(self.param_vec[:, i], d_vec)
         D /= self.mu - 1
 
-        # get basis
-        basis = gram_schmidt(self.param_vec[:, id_select])
+        # get basis vector which span the perpendicular to vector d
+        tmp_vec = np.concatenate([d_vec.reshape([-1, 1]), self.param_vec[:, id_select]], axis=1)
+        basis = gram_schmidt(tmp_vec)
+        basis = basis[:, 1:]
 
         # offspinrg
         offspring = x_pick.copy()
         offspring += np.random.randn() * self.sgm_eta * d_vec
         tmp = D * np.dot(basis, np.random.randn(self.mu-1, 1)) * self.sgm_xi
         offspring += np.squeeze(D * np.dot(basis, np.random.randn(self.mu-1, 1)) * self.sgm_xi)
-
-        # print(f"vec: {self.param_vec[:, id_select]}")
-        # print(f"tmp: {np.squeeze(tmp)}, d_vec: {d_vec}, g_vec: {g_vec}, {self.param_vec[:, nd]}")
-        # print(f"{x_pick}, {self.param_vec[:, i]}")
-        # print(f"res: {offspring}")
-
-        if (norm(offspring) > 20):
-            exit()
         
         return offspring
     
@@ -416,7 +418,9 @@ def gram_schmidt(arr):
             # print(n, n-i-1)
             sub += project(arr[:, n], basis[:, n-i-1])
         basis[:, n] = arr[:, n] - sub
-        basis[:, n] /= norm(basis[:, n])
+        div = norm(basis[:, n])
+        if div != 0:
+            basis[:, n] /= div
 
     return basis
 
@@ -430,16 +434,6 @@ def remove_file(fname):
         os.remove(fname)
     except:
         print(f"{fname} does not exist!")
-
-
-def read_log(log_fname):
-    fit_scores = []
-    with open(log_fname, "r") as fid:
-        line = fid.readline()
-        while line:
-            fit_scores.append([float(x) for x in line.split(",")[:-1]])
-            line = fid.readline()
-    return fit_scores
         
 
 def get_norm(vec):

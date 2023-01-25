@@ -38,7 +38,7 @@ int main(int argc, char **argv){
     // write_info(&info, "./test_input.txt");
 
     char fout[100];
-    sprintf(finfo, "./data/offspring%d/result%d.txt", id, world_rank);
+    sprintf(fout, "./data/offspring%d/result%d.txt", id, world_rank);
     run(fout, &info);
 
     end_mpi();
