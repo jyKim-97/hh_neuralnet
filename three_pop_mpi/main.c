@@ -72,7 +72,7 @@ void set_control_parameters(){
     set_index_obj(&idxer, num_controls, max_len);
 
     alpha_set = linspace(0, 2, max_len[0]);
-    beta_set  = linspace(0, 2, max_len[1]);
+    beta_set  = linspace(0, 1, max_len[1]);
     id_rank = linspace(0, 2, max_len[2]);
 
     if (world_rank == 0){
@@ -122,6 +122,11 @@ nn_info_t allocate_setting(int job_id, index_t *idxer){
             pe_f = plim[0][1];
             pe_s = plim[1][1];
             break;
+
+        default:
+            printf("Unexpected rank %d\n", rank);
+            exit(1);
+            break;
     }
 
     info.p_out[0][0] = pe_f;
@@ -129,7 +134,7 @@ nn_info_t allocate_setting(int job_id, index_t *idxer){
     info.p_out[0][2] = alpha * pe_f;
     info.p_out[0][3] = alpha * pe_f;
 
-    double pi_f = a_set[0] * pe_f;
+    double pi_f = b_set[0] * pe_f;
     info.p_out[1][0] = pi_f;
     info.p_out[1][1] = pi_f;
     info.p_out[1][2] = beta * pi_f;
@@ -140,11 +145,11 @@ nn_info_t allocate_setting(int job_id, index_t *idxer){
     info.p_out[2][2] = pe_s;
     info.p_out[2][3] = pe_s;
 
-    double pi_s = a_set[1] * pe_s;
-    info.p_out[1][0] = beta * pi_s;
-    info.p_out[1][1] = beta * pi_s;
-    info.p_out[1][2] = pi_s;
-    info.p_out[1][3] = pi_s;
+    double pi_s = b_set[1] * pe_s;
+    info.p_out[3][0] = beta * pi_s;
+    info.p_out[3][1] = beta * pi_s;
+    info.p_out[3][2] = pi_s;
+    info.p_out[3][3] = pi_s;
 
     double we_f = c * sqrt(0.01) / sqrt(pe_f);
     info.w[0][0] = we_f;
@@ -152,23 +157,23 @@ nn_info_t allocate_setting(int job_id, index_t *idxer){
     info.w[0][2] = we_f / sqrt(alpha);
     info.w[0][3] = we_f / sqrt(alpha);
 
-    double wi_f = b_set[0] * we_f;
-    info.w[0][0] = wi_f;
-    info.w[0][1] = wi_f;
-    info.w[0][2] = wi_f / sqrt(beta);
-    info.w[0][3] = wi_f / sqrt(beta);
+    double wi_f = a_set[0] * we_f;
+    info.w[1][0] = wi_f;
+    info.w[1][1] = wi_f;
+    info.w[1][2] = wi_f / sqrt(beta);
+    info.w[1][3] = wi_f / sqrt(beta);
 
     double we_s = c * sqrt(0.01) / sqrt(pe_s);
-    info.w[0][0] = we_s / sqrt(alpha);
-    info.w[0][1] = we_s / sqrt(alpha);
-    info.w[0][2] = we_s;
-    info.w[0][3] = we_s;
+    info.w[2][0] = we_s / sqrt(alpha);
+    info.w[2][1] = we_s / sqrt(alpha);
+    info.w[2][2] = we_s;
+    info.w[2][3] = we_s;
 
-    double wi_s = b_set[1] * we_s;
-    info.w[0][0] = wi_s / sqrt(beta);
-    info.w[0][1] = wi_s / sqrt(beta);
-    info.w[0][2] = wi_s;
-    info.w[0][3] = wi_s;
+    double wi_s = a_set[1] * we_s;
+    info.w[3][0] = wi_s / sqrt(beta);
+    info.w[3][1] = wi_s / sqrt(beta);
+    info.w[3][2] = wi_s;
+    info.w[3][3] = wi_s;
 
     info.taur[0] = 0.5;
     info.taud[0] = 1;
