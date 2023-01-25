@@ -19,6 +19,7 @@ int *ext_index = NULL;
 
 double cell_ratio2[2] = {0.8, 0.2};
 double cell_ratio3[3] = {4./5, 1./10, 1./10};
+double cell_ratio4[4] = {2./5, 1./5, 2./5, 1./5};
 int cell_range[MAX_TYPE][2] = {0,};
 
 
@@ -88,9 +89,16 @@ void build_ei_rk4(nn_info_t *info){
         exit(1);
     }
 
-    double ev[] = {ev_e, ev_i, ev_i};
+    double ev_set[MAX_TYPE] = {ev_e, ev_i, ev_i, ev_i};
+    if (num_types == 4){
+        ev_set[1] = ev_e; ev_set[3] = ev_i;
+    } else if (num_types > 4){
+        printf("num_types exceeds expected (neuralnet.c: build_ei_rk4)\n");
+        exit(1);
+    }
+
     for (int i=0; i<num_types; i++){
-        set_attrib(&syns[i], ev[i], info->taur[i], info->taud[i], 0.5);
+        set_attrib(&syns[i], ev_set[i], info->taur[i], info->taud[i], 0.5);
     }
 
     // set the cell type range
@@ -194,6 +202,14 @@ static void set_cell_range(void){
         cell_range[1][1] = cell_range[1][0] + num_cells * cell_ratio3[1];
         cell_range[2][0] = cell_range[1][1];
         cell_range[2][1] = cell_range[1][1] + num_cells * cell_ratio3[1];
+    } else if (num_types == 4){
+        int tmp_num_types[4] = {num_cells*0.4, num_cells*0.1, num_cells*0.4, num_cells*0.1};
+        int ncum = 0;
+        for (int n=0; n<4; n++){
+            cell_range[n][0] = ncum;
+            cell_range[n][1] = ncum + tmp_num_types[n];
+            ncum += tmp_num_types[n];
+        }
 
     } else {
         printf("not expected number of types (neuralnet.c: set_cell_range)\n");
