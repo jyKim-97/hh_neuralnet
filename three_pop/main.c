@@ -22,7 +22,7 @@ nn_info_t info = {0,};
 
 char fdir[100] = "./tmp";
 FILE *fp_v = NULL;
-int N = 1200;
+int N = 2000;
 double iapp = 0;
 double tmax = 2500;
 
@@ -41,6 +41,7 @@ int main(int argc, char **argv){
 
     _dt = 0.01;
     change_sampling_rate(2000);
+    set_seed(1000);
 
     init();
     run(tmax);
@@ -120,6 +121,14 @@ nn_info_t set_info(void){
     info.w[2][0] = 0.01;
     info.w[2][1] = 0.1;
     info.w[2][2] = 0.1;
+
+    info.taur[0] = 0.5;
+    info.taur[1] = 1;
+    info.taur[2] = 2;
+
+    info.taud[0] = 1;
+    info.taud[1] = 2.5;
+    info.taud[2] = 8;
 
     info.t_lag = 0.;
     info.nu_ext_mu = 2000;

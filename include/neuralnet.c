@@ -13,7 +13,7 @@ double taur_default=0.3, taud_default=1;
 int const_current = false;
 
 double cell_ratio2[2] = {0.8, 0.2};
-double cell_ratio3[3] = {8./12, 2./12, 2./12};
+double cell_ratio3[3] = {4./5, 1./10, 1./10};
 int cell_range[MAX_TYPE][2] = {0,};
 
 
