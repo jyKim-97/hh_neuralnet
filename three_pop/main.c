@@ -19,12 +19,14 @@ void run(double tmax);
 
 nn_info_t set_info(void);
 nn_info_t info = {0,};
+void allocate_multiple_ext(nn_info_t *info);
 
 char fdir[100] = "./tmp";
 FILE *fp_v = NULL;
 int N = 2000;
 double iapp = 0;
 double tmax = 2500;
+
 
 
 int main(int argc, char **argv){
@@ -52,12 +54,39 @@ int main(int argc, char **argv){
 void init(){
     info = set_info();
     build_ei_rk4(&info);
+    allocate_multiple_ext(&info);
 
     extern desyn_t syns[MAX_TYPE];
     write_info(&info, path_join(fdir, "info.txt"));
     print_syn_network(&syns[0], path_join(fdir, "ntk_e.txt"));
     print_syn_network(&syns[1], path_join(fdir, "ntk_i.txt"));
 }
+
+
+void allocate_multiple_ext(nn_info_t *info){
+    // depends on N
+    int nsub = N/2;
+    int *target = (int*) malloc(sizeof(int) * nsub);
+    
+    for (int ntype=0; ntype<2; ntype++){
+        // for excitatory population
+        int num_e = nsub * 0.8;
+        for (int i=0; i<num_e; i++){
+            target[i] = num_e * ntype + i;
+        }
+        // for inhibitory population
+        int n0 = N * 0.8;
+        int num_i = nsub * 0.2;
+        for (int i=0; i<num_i; i++){
+            target[num_e+i] = n0 + num_i * ntype + i;
+        }
+
+        set_multiple_ext_input(info, ntype, nsub, target);
+    }
+
+    check_multiple_input();
+}
+
 
 double teq = 500;
 int flag_eq = 0;
@@ -131,11 +160,13 @@ nn_info_t set_info(void){
     info.taud[2] = 8;
 
     info.t_lag = 0.;
-    info.nu_ext_mu = 2000;
-    info.nu_ext_sd = 100;
-    info.w_ext_mu  = 0.002;
-    info.w_ext_sd  = 0.0002;
     info.const_current = false;
+
+    info.num_ext_types = 2;
+    info.nu_ext_multi[0] = 2000;
+    info.nu_ext_multi[1] = 3000;
+    info.w_ext_multi[0] = 0.002;
+    info.w_ext_multi[1] = 0.002;
 
     return info;
 }

@@ -8,9 +8,14 @@ const double ev_i = -80;
 static int num_cells = 0;
 static int num_types = 2;
 wbneuron_t neuron;
-desyn_t syns[MAX_TYPE], ext_syn;
+desyn_t syns[MAX_TYPE], ext_syn[MAX_TYPE];
 double taur_default=0.3, taud_default=1;
 int const_current = false;
+
+// multiple types of external inputs
+static int num_ext_types = -1;
+int *ext_class = NULL;
+int *ext_index = NULL;
 
 double cell_ratio2[2] = {0.8, 0.2};
 double cell_ratio3[3] = {4./5, 1./10, 1./10};
@@ -43,12 +48,14 @@ nn_info_t init_build_info(int N, int _num_types){
             info.p_out[i][j] = -1;
             info.w[i][j] = 0;
         }
+        info.nu_ext_multi[i] = 0;
+        info.w_ext_multi[i] = 0;
         
-        info.num_types = num_types;
         info.taur[i] = taur_default;
         info.taud[i] = taud_default;
     }
     info.const_current = false;
+    info.num_ext_types = 1;
 
     return info;
 }
@@ -63,7 +70,23 @@ void build_ei_rk4(nn_info_t *info){
     for (int n=0; n<num_types; n++){
         init_desyn(num_cells, &syns[n]);
     }
-    init_extsyn(num_cells, &ext_syn);
+
+    num_ext_types = info->num_ext_types;
+    ext_class = (int*) calloc(num_cells, sizeof(int));
+    ext_index = (int*) calloc(num_cells, sizeof(int));
+    if (num_ext_types == 1){
+        init_extsyn(num_cells, &(ext_syn[0]));
+        for (int n=0; n<num_cells; n++) ext_index[n] = n;
+    } else if (num_ext_types > 1){
+        for (int n=0; n<info->N; n++){
+            ext_class[n] = -1;
+            ext_index[n] = -1;
+        }
+
+    } else {
+        printf("Typed wrong number of poisson inputs: %d\n", info->num_ext_types);
+        exit(1);
+    }
 
     double ev[] = {ev_e, ev_i, ev_i};
     for (int i=0; i<num_types; i++){
@@ -112,14 +135,48 @@ void build_ei_rk4(nn_info_t *info){
         const_current = true;
     } else {
         // NOTE: set poisson neuron for each cell types
-        set_attrib(&ext_syn, 0, taur_default, taud_default, 0.5);
-        set_poisson(&ext_syn, info->nu_ext_mu, info->nu_ext_sd, info->w_ext_mu, info->w_ext_sd);
+        if (num_ext_types == 1){
+            set_attrib(&(ext_syn[0]), 0, taur_default, taud_default, 0.5);
+            set_poisson(&(ext_syn[0]), info->nu_ext_mu, info->nu_ext_sd, info->w_ext_mu, info->w_ext_sd);
+        }
     }
 }
 
 
-void check_info(nn_info_t info){
-    
+void set_multiple_ext_input(nn_info_t *info, int type_id, int num_targets, int *target_id){
+    if (type_id >= num_ext_types){
+        printf("type id (%d) exceed expected maximal id (%d) (neuralnet.c: set_multiple_ext_input)\n", type_id, num_ext_types-1);
+        exit(1);
+    }
+
+    double nu_ext_sd = 0, w_ext_sd = 0;
+
+    for (int n=0; n<num_targets; n++){
+        int nid = target_id[n];
+        if (nid >= num_cells){
+            printf("nid (%d) exceeds the network size\n", nid);
+            exit(1);
+        }
+
+        ext_class[nid] = type_id;
+        ext_index[nid] = n;
+    }
+
+    init_extsyn(num_targets, &(ext_syn[type_id]));
+    set_attrib(&(ext_syn[type_id]), 0, taur_default, taud_default, 0.5);
+    set_poisson(&(ext_syn[type_id]), info->nu_ext_multi[type_id], nu_ext_sd, info->w_ext_multi[type_id], w_ext_sd);
+}
+
+
+void check_multiple_input(){
+    if (num_ext_types > 1){
+        for (int n=0; n<num_cells; n++){
+            if (ext_class[n] == -1){
+                printf("Allocate the external input (neuralnet.c: check_multiple_input)\n");
+                exit(1);
+            }
+        }
+    }
 }
 
 
@@ -193,16 +250,26 @@ void write_info(nn_info_t *info, char *fname){
         fprintf(fp, "%f, %f\n", info->taur[n], info->taud[n]);
     }
 
-    fprintf(fp, "t_lag: %f\n", info->t_lag);
-    fprintf(fp, "nu_pos_mu: %f\n", info->nu_ext_mu);
-    fprintf(fp, "nu_pos_sd: %f\n", info->nu_ext_sd);
-    fprintf(fp, "w_pos_mu: %f\n", info->w_ext_mu);
-    fprintf(fp, "w_pos_sd: %f\n", info->w_ext_sd);
-
     fprintf(fp, "mean indegree:\n");
     fprintf2d_d(fp, info->mdeg_in);
     fprintf(fp, "connection prob (out):\n");
     fprintf2d_d(fp, info->p_out);
+
+    fprintf(fp, "t_lag: %f\n", info->t_lag);
+
+    if (num_ext_types == 1){
+        fprintf(fp, "nu_pos_mu: %f\n", info->nu_ext_mu);
+        fprintf(fp, "nu_pos_sd: %f\n", info->nu_ext_sd);
+        fprintf(fp, "w_pos_mu: %f\n", info->w_ext_mu);
+        fprintf(fp, "w_pos_sd: %f\n", info->w_ext_sd);
+    } else {
+        for (int n=0; n<num_ext_types; n++){
+            fprintf(fp, "poisson type %d (sd=0)\n", n);
+            fprintf(fp, "nu_pos_mu: %f\n", info->nu_ext_multi[n]);
+            fprintf(fp, "w_pos_mu: %f\n", info->w_ext_multi[n]);
+        }
+    }
+
     fclose(fp);
 }
 
@@ -261,6 +328,10 @@ void write_all_vars(int nstep, FILE *fp){
     int ncol = num_cells;
     for (int n=0; n<num_types; n++) ncol += num_cells;
     if (!const_current) ncol += num_cells;
+    if (num_ext_types > 1){
+        printf("This function is not devloped for multiple excitation sources\n");
+        return;
+    }
 
     double *vars = (double*) malloc(sizeof(double) * ncol);
     int id=0;
@@ -274,7 +345,7 @@ void write_all_vars(int nstep, FILE *fp){
     }
     if (!const_current){
         for (int n=0; n<num_cells; n++){
-            vars[id++] = ext_syn.expr[n] - ext_syn.expd[n];
+            vars[id++] = ext_syn[0].expr[n] - ext_syn[0].expd[n];
         }
     }
 
@@ -301,7 +372,11 @@ void destroy_neuralnet(void){
     }
     // free poisson synaptic input
     if (!const_current){
-        destroy_desyn(&ext_syn);
+        for (int n=0; n<num_ext_types; n++){
+            destroy_desyn(&(ext_syn[n]));
+        }
+        free(ext_class);
+        free(ext_index);
     }
 
     #ifdef USE_MKL
@@ -314,7 +389,12 @@ static void add_spike_total_syns(int nstep){
     for (int n=0; n<num_types; n++){
         add_spike(nstep, &syns[n], &neuron);
     }
-    if (!const_current) add_ext_spike(&ext_syn);
+
+    if (!const_current){
+        for (int n=0; n<num_ext_types; n++){
+            add_ext_spike(&(ext_syn[n]));
+        }
+    }
 }
 
 
@@ -322,16 +402,27 @@ static void update_total_syns(int nid){
     for (int n=0; n<num_types; n++){
         update_desyn(&syns[n], nid);
     }
-    if (!const_current) update_desyn(&ext_syn, nid);
+    
+    if (!const_current){
+        int ntype = ext_class[nid];
+        int id = ext_index[nid];
+        update_desyn(&(ext_syn[ntype]), id);
+    }
 }
 
 
 static double get_total_syns_current(int nid, double vpost){
     double isyn = 0;
-    if (!const_current) isyn = get_current(&ext_syn, nid, vpost);
     for (int n=0; n<num_types; n++){
         isyn += get_current(&syns[n], nid, vpost);
     }
+
+    if (!const_current){
+        int ntype = ext_class[nid];
+        int id = ext_index[nid];
+        isyn += get_current(&(ext_syn[ntype]), id, vpost);
+    }
+
     return isyn;
 }
 
