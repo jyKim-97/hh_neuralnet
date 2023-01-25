@@ -70,7 +70,7 @@ void set_class(int _n_class, int *type_range){
         }
 
         if (id_class[n] >= _n_class){
-            printf("The class id (%d) is different with expected (%d)\n", id_class[n], num_class_types);
+            printf("The class id (%d) exceeds with expected (%d) (measurement2.c: set_class)\n", id_class[n], num_class_types);
         }
 
         int id = id_class[n];

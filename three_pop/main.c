@@ -69,18 +69,9 @@ void allocate_multiple_ext(nn_info_t *info){
     int *target = (int*) malloc(sizeof(int) * nsub);
     
     for (int ntype=0; ntype<2; ntype++){
-        // for excitatory population
-        int num_e = nsub * 0.8;
-        for (int i=0; i<num_e; i++){
-            target[i] = num_e * ntype + i;
+        for (int i=0; i<nsub; i++){
+            target[i] = i + nsub * ntype;
         }
-        // for inhibitory population
-        int n0 = N * 0.8;
-        int num_i = nsub * 0.2;
-        for (int i=0; i<num_i; i++){
-            target[num_e+i] = n0 + num_i * ntype + i;
-        }
-
         set_multiple_ext_input(info, ntype, nsub, target);
     }
 
@@ -93,7 +84,7 @@ int flag_eq = 0;
 void run(double tmax){
     int nmax = tmax/_dt;
 
-    init_measure(N, nmax, 3, info.type_range);
+    init_measure(N, nmax, 4, info.type_range);
     fp_v = fopen(path_join(fdir, "v_out.dat"), "wb");
 
     progbar_t bar;
@@ -123,41 +114,59 @@ void run(double tmax){
 
 nn_info_t set_info(void){
     // nn_info_t info = {0,};
-    nn_info_t info = init_build_info(N, 3);
+    nn_info_t info = init_build_info(N, 4);
 
     // connection probability
     info.p_out[0][0] = 0.01;
     info.p_out[0][1] = 0.01;
     info.p_out[0][2] = 0.01;
+    info.p_out[0][3] = 0.01;
 
     info.p_out[1][0] = 0.1;
     info.p_out[1][1] = 0.1;
     info.p_out[1][2] = 0.1;
+    info.p_out[1][3] = 0.1;
 
-    info.p_out[2][0] = 0.1;
-    info.p_out[2][1] = 0.1;
-    info.p_out[2][2] = 0.1;
+    info.p_out[2][0] = 0.01;
+    info.p_out[2][1] = 0.01;
+    info.p_out[2][2] = 0.01;
+    info.p_out[2][3] = 0.01;
+
+    info.p_out[3][0] = 0.1;
+    info.p_out[3][1] = 0.1;
+    info.p_out[3][2] = 0.1;
+    info.p_out[3][3] = 0.1;
 
     // connection strength
-    info.w[0][0] = 0.01;
-    info.w[0][1] = 0.01;
-    info.w[0][2] = 0.01;
+    info.w[0][0] = 0.2;
+    info.w[0][1] = 0.2;
+    info.w[0][2] = 0.2;
+    info.w[0][3] = 0.2;
 
-    info.w[1][0] = 0.01;
-    info.w[1][1] = 0.01;
-    info.w[1][2] = 0.01;
+    info.w[1][0] = 0.5;
+    info.w[1][1] = 0.5;
+    info.w[1][2] = 0.5;
+    info.w[1][3] = 0.5;
 
-    info.w[2][0] = 0.01;
-    info.w[2][1] = 0.1;
-    info.w[2][2] = 0.1;
+    info.w[2][0] = 0.2;
+    info.w[2][1] = 0.2;
+    info.w[2][2] = 0.2;
+    info.w[2][3] = 0.2;
+
+    info.w[3][0] = 0.5;
+    info.w[3][1] = 0.5;
+    info.w[3][2] = 0.5;
+    info.w[3][3] = 0.5;
 
     info.taur[0] = 0.5;
     info.taur[1] = 1;
-    info.taur[2] = 2;
+    info.taur[2] = 0.5;
+    info.taur[3] = 2;
 
     info.taud[0] = 1;
     info.taud[1] = 2.5;
-    info.taud[2] = 8;
+    info.taud[2] = 1;
+    info.taud[3] = 8;
 
     info.t_lag = 0.;
     info.const_current = false;
@@ -165,6 +174,7 @@ nn_info_t set_info(void){
     info.num_ext_types = 2;
     info.nu_ext_multi[0] = 2000;
     info.nu_ext_multi[1] = 3000;
+    
     info.w_ext_multi[0] = 0.002;
     info.w_ext_multi[1] = 0.002;
 
