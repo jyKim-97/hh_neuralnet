@@ -87,8 +87,23 @@ class EA:
                 args.append([self.param_vec[:,n], self.job_id])
                 self.count_job()
 
-            with mp.Pool(self.num_process) as p:
-                self.fit_score = p.map(self.fobj, args)
+            self.fit_score = []
+            flag = False
+            n_set = self.num_parent // self.num_process
+            if self.num_parent % self.num_process != 0:
+                flag = True
+                n_set += 1
+
+            for n in range(n_set):
+                n0 = self.num_process * n
+                with mp.Pool(self.num_process) as p:
+                    if flag and (n == n_set-1):
+                        args_tmp = args[n0:]
+                    else:
+                        args_tmp = args[n0:n0+self.num_process]
+
+                    tmp_fit = p.map(self.fobj, args_tmp)
+                    self.fit_score.extend(tmp_fit)
         else:
             self.fit_score = []
             for n in range(self.num_parent):
@@ -162,12 +177,17 @@ class EA:
     def natural_selection(self, fitness):
         id_tot = list(range(self.num_offspring+self.num_select))
         # find the best model
-        n_best = np.argmax(fitness)
-        id_tot.remove(n_best)
+        n_best = np.nanargmax(fitness)
+        id_tot.pop(n_best)
         id_select = [n_best]
+
+        # clean nan
+        id_nan = np.where(np.isnan(fitness))[0]
+        remove_index(id_tot, id_nan)
+
         # use Roullete-Wheel method
         fitness_pos = fitness[id_tot]
-        fmin = np.min(fitness_pos)
+        fmin = np.nanmin(fitness_pos)
         if fmin < 0:
             fitness_pos += fmin
 
@@ -363,6 +383,13 @@ def remove_element(arr, target_val):
     arr = list(arr)
     arr.remove(target_val)
     return np.array(arr)
+
+
+def remove_index(arr_list, id_target):
+    stack = 0
+    for n in id_target:
+        arr_list.pop(n-stack)
+        stack += 1
 
 
 def project(a, b):

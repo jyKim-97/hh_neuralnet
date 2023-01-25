@@ -3,6 +3,7 @@ import evolve
 from tqdm import tqdm
 import os
 import sys
+import subprocess
 import pickle as pkl
 
 sys.path.append("../include")
@@ -46,6 +47,7 @@ num_core = 16
 taur_set = [0.5, 1]
 taud_set = [2.5, 8]
 fdir = "./data" # -> Need to be fixed to "data"
+max_wait_time = 600
 
 def fobj(args):
     data = args[0]
@@ -73,11 +75,14 @@ def fobj(args):
 
     # run simulation with the code
     com = "mpirun -np %d --hostfile ./data/host%d ./run_mpi.out %d"%(num_core, offspring_id, offspring_id)
-    res = os.system(com)
-
-    # # calculate fitness
-    fit_score, chis, cvs, frs = calculate_fitness(offspring_id)
-    save_result(job_id, data, chis, cvs, frs)
+    try:
+        res = subprocess.run(com, timeout=max_wait_time)
+        # # calculate fitness
+        fit_score, chis, cvs, frs = calculate_fitness(offspring_id)
+        save_result(job_id, data, chis, cvs, frs)
+    except:
+        print("offspring #%d timeout, job_id: %d"%(offspring_id, job_id))
+        fit_score = np.nan
 
     # clean
     fdir_off = os.path.join(fdir, "offspring%d"%(offspring_id))
