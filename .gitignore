@@ -11,6 +11,9 @@ callgrind*
 
 # data
 *.dat
+*data*
+*case*
+*dYSM*
 
 # Libraries
 *.lib
