@@ -28,6 +28,7 @@ void allocate_multiple_ext(nn_info_t *info);
 int N = 2000;
 double iapp = 0;
 double tmax = 2500;
+// double tmax = 1500;
 double teq = 500;
 char fdir[100] = "./tmp";
 index_t idxer;
@@ -66,8 +67,8 @@ double plim[][2] = {{0.051, 0.234},
 
 void set_control_parameters(){
 
-    int nitr = 5;
-    int max_len[] = {30, 30, 3, nitr};
+    int nitr = 2;
+    int max_len[] = {13, 13, 3, nitr};
     int num_controls = GetIntSize(max_len);
     set_index_obj(&idxer, num_controls, max_len);
 
@@ -154,24 +155,24 @@ nn_info_t allocate_setting(int job_id, index_t *idxer){
     double we_f = c * sqrt(0.01) / sqrt(pe_f);
     info.w[0][0] = we_f;
     info.w[0][1] = we_f;
-    info.w[0][2] = we_f / sqrt(alpha);
-    info.w[0][3] = we_f / sqrt(alpha);
+    info.w[0][2] = sqrt(alpha) * we_f;
+    info.w[0][3] = sqrt(alpha) * we_f;
 
     double wi_f = a_set[0] * we_f;
     info.w[1][0] = wi_f;
     info.w[1][1] = wi_f;
-    info.w[1][2] = wi_f / sqrt(beta);
-    info.w[1][3] = wi_f / sqrt(beta);
+    info.w[1][2] = sqrt(beta) * wi_f;
+    info.w[1][3] = sqrt(beta) * wi_f;
 
     double we_s = c * sqrt(0.01) / sqrt(pe_s);
-    info.w[2][0] = we_s / sqrt(alpha);
-    info.w[2][1] = we_s / sqrt(alpha);
+    info.w[2][0] = sqrt(alpha) * we_s;
+    info.w[2][1] = sqrt(alpha) * we_s;
     info.w[2][2] = we_s;
     info.w[2][3] = we_s;
 
     double wi_s = a_set[1] * we_s;
-    info.w[3][0] = wi_s / sqrt(beta);
-    info.w[3][1] = wi_s / sqrt(beta);
+    info.w[3][0] = sqrt(beta) * wi_s;
+    info.w[3][1] = sqrt(beta) * wi_s;
     info.w[3][2] = wi_s;
     info.w[3][3] = wi_s;
 
@@ -191,8 +192,8 @@ nn_info_t allocate_setting(int job_id, index_t *idxer){
     info.const_current = false;
 
     info.num_ext_types = 2;
-    info.nu_ext_multi[0] = 1./sqrt(d_set[0]) * sqrt(pe_f);
-    info.nu_ext_multi[1] = 1./sqrt(d_set[1]) * sqrt(pe_s);
+    info.nu_ext_multi[0] = d_set[0] * sqrt(pe_f);
+    info.nu_ext_multi[1] = d_set[1] * sqrt(pe_s);
     info.w_ext_multi[0] = 0.002;
     info.w_ext_multi[1] = 0.002;
 
@@ -225,7 +226,7 @@ void run(int job_id, void *idxer_void){
     init_progressbar(&bar, nmax);
     #endif
 
-    init_measure(info.N, nmax, 4, NULL);
+    init_measure(info.N, nmax, 4, info.type_range);
     for (int nstep=0; nstep<nmax; nstep++){
         if ((flag_eq == 0) && (nstep * _dt >= teq)){
             flush_measure();
@@ -259,7 +260,7 @@ void run(int job_id, void *idxer_void){
 
 nn_info_t set_info(void){
     // nn_info_t info = {0,};
-    nn_info_t info = init_build_info(N, 3);
+    nn_info_t info = init_build_info(N, 4);
 
     // connection strength
     for (int i=0; i<3; i++){
@@ -306,5 +307,6 @@ void allocate_multiple_ext(nn_info_t *info){
         set_multiple_ext_input(info, ntype, nsub, target);
     }
 
+    free(target);
     check_multiple_input();
 }
