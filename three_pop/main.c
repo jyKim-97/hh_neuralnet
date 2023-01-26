@@ -32,11 +32,11 @@ double tmax = 2500;
 int main(int argc, char **argv){
 
     for (int n=1; n<argc; n++){
-        if (strcmp(argv[n], "-fdir") == 0){
+        if (strcmp(argv[n], "--fdir") == 0){
             sprintf(fdir, "%s", argv[n+1]);
         }
 
-        if (strcmp(argv[n], "-tmax") == 0){
+        if (strcmp(argv[n], "--tmax") == 0){
             tmax = atof(argv[n+1]);
         }
     }
