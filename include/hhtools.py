@@ -38,6 +38,7 @@ def load_vlfp(fname):
     vlfps = []
     for n in range(num_types+1):
         vlfps.append(data[n0:n0+l])
+        n0 += l
     return vlfps, fs
 
 
