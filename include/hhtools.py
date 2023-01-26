@@ -70,7 +70,7 @@ def convert_in2outdeg(ntk_in, N=None):
     return ntk_out
 
 
-def draw_spk(step_spk, dt=0.01, xl=None, color_ranges=None, colors=None, ms=1):
+def draw_spk(step_spk, dt=0.01, sequence=None, xl=None, color_ranges=None, colors=None, ms=1):
     if color_ranges is not None:
         if colors is None:
             print("Type the colors")
@@ -79,11 +79,17 @@ def draw_spk(step_spk, dt=0.01, xl=None, color_ranges=None, colors=None, ms=1):
             if len(color_ranges) != len(colors):
                 print("The length of color and color range does not match")
                 return
-    
-    cid = 0
+
     N = len(step_spk)
-    for n in range(N):
-        t_spk = np.array(step_spk[n]) * dt
+    if sequence is None:
+        sequence = np.arange(N)
+    else:
+        if len(sequence) != N:
+            raise ValueError("Length of sequence (%d) does not match to N (%d)"%(len(sequencye), N))
+
+    cid = 0
+    for n, nid in enumerate(sequence):
+        t_spk = np.array(step_spk[nid]) * dt
         if xl is not None:
             t_spk = t_spk[(t_spk >= xl[0]) & (t_spk <= xl[1])]
         if color_ranges is not None:
@@ -95,6 +101,7 @@ def draw_spk(step_spk, dt=0.01, xl=None, color_ranges=None, colors=None, ms=1):
 
         plt.plot(t_spk, np.ones_like(t_spk)*n, '.', ms=ms, c=c)
     plt.xlim(xl)
+    plt.ylim([0, N])
 
 
 # def get_autocorr(x, t, tlag_max):
@@ -137,7 +144,7 @@ def get_autocorr(x, t, tlag_max):
     return xcorr, lags
 
 
-def get_fft(x, fs, nbin=None, nbin_t=None):
+def get_fft(x, fs, nbin=None, nbin_t=None, frange=None):
     if nbin is None and nbin_t is None:
         N = len(x)
     elif nbin_t is not None:
@@ -148,6 +155,16 @@ def get_fft(x, fs, nbin=None, nbin_t=None):
     yf = np.fft.fft(x, axis=0, n=N)
     yf = 2/N * np.abs(yf[:N//2])
     freq = np.linspace(0, 1/2*fs, N//2)
+
+    if frange is not None:
+        if frange[0] is None:
+            frange[0] = freq[0]
+        if frange[1] is None:
+            frange[1] = freq[-1]
+        idf = (freq >= frange[0]) & (freq <= frange[1])
+        yf = yf[idf]
+        freq = freq[idf]
+
     return yf, freq
 
 
