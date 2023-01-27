@@ -259,6 +259,9 @@ summary_t flush_measure(void){
         cum_steps[n-1] = cum_steps[n];
         check_steps[n-1] = check_steps[n];
     }
+    cum_steps[num_check-1] = 0;
+    check_steps[num_check-1] = 0;
+
     num_check--;
 
     return obj;
@@ -281,6 +284,7 @@ static void push_flct(){
         }
 
     }
+
     v1[num_check-1] = NULL;
     v2[num_check-1] = NULL;
 }
@@ -380,6 +384,8 @@ static void calculate_flct(summary_t *obj){
     v_tot1[0] /= cum_steps[0];
     double var_tot = v_tot2[0] - v_tot1[0] * v_tot1[0];
     obj->chi[0] = sqrt(var_tot * ntk_size/var_indiv_tot);
+
+    // printf("cum steps: %d, var_tot: %f, var_indiv_tot: %f\n", cum_steps[0], var_tot, var_indiv_tot/ntk_size);
 
     // each class
     for (int id=0; id<num_class_types; id++){
