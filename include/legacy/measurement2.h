@@ -6,26 +6,35 @@
 #include "utils.h"
 #include "storage.h"
 
-#define MAX_CLASS_M 5
-#define MAX_CHECK_M 10
+#define LEN 5
 
 typedef struct _summary_t {
     // 0 index is for total neurons
     int num_types;
-    float chi[MAX_CLASS_M];
-    float frs_m[MAX_CLASS_M];
-    float frs_s[MAX_CLASS_M];
-    float cv_isi[MAX_CLASS_M];
-    // float spk_sync[MAX_CLASS_M][MAX_CLASS_M];
+    float chi[LEN];
+    float frs_m[LEN];
+    float frs_s[LEN];
+    float cv_isi[LEN];
+    float spk_sync[LEN][LEN];
 } summary_t;
 
 
-void init_measure(int N, int num_steps, int _num_class_types, int *_type_range);
+void init_measure(int N, int num_steps, int _n_class, int *_id_class);
+void set_class(int _n_class, int *type_range);
+void init_spike();
+void init_flct();
+void free_spike();
+void free_flct();
 void reset();
-void add_checkpoint(int nstep);
 void measure(int nstep, wbneuron_t *neuron);
+float average(float *x);
 summary_t flush_measure(void);
 void destroy_measure(void);
+
+void calculate_cv_isi(summary_t *obj);
+void calculate_spike_sync(summary_t *obj);
+void calculate_flct(summary_t *obj);
+void calculate_firing_rate(summary_t *obj);
 
 void export_spike(const char *fname);
 void export_lfp(const char *fname);
