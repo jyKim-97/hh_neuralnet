@@ -218,9 +218,10 @@ def get_network_frequency(vlfp, fs=2000):
 
 # Source code for loadding summarys
 class SummaryLoader:
-    def __init__(self, fdir):
+    def __init__(self, fdir, num_overlap=1):
         # read control param infos
         self.fdir = fdir
+        self.num_overlap = num_overlap
         self._load_controls()
         self._read_data()
     
@@ -243,34 +244,45 @@ class SummaryLoader:
         nums_expect = 1
         for n in self.num_controls:
             nums_expect *= n
+        # nums_expect *= self.num_overlaps
         
-        if nums != nums_expect:
-            print("Expected number of # results and exact file number are different!: %d/%d"%(nums, nums_expect))
+        if nums != nums_expect * self.num_overlap:
+            print("Expected number of # results and exact file number are different!: %d/%d"%(nums, nums_expect*self.num_overlap))
         
         self.summary = {}
         self.load_success = np.ones(nums_expect)
-        var_names = ["chi", "cv", "frs_m", "frs_s", "spike_sync"]
+        # var_names = ["chi", "cv", "frs_m", "frs_s", "spike_sync"]
+        var_names = ["chi", "cv", "frs_m", "frs_s"]
         # iinit
         for k in var_names:
             self.summary[k] = []
 
         for n in range(nums_expect):
-            fname = os.path.join(self.fdir, "id%06d_result.txt"%(n))
-            summary_single = read_summary(fname)
-            if summary_single == -1:
-                self.load_success[n] = 0
-                for k in var_names:
-                    val_prev = self.summary[k][-1]
-                    self.summary[k].append(np.zeros_like(val_prev) * np.nan)
-            
-            else:
-                for k in var_names:
-                    self.summary[k].append(summary_single[k])
+
+            for i in range(self.num_overlap):
+                if self.num_overlap == 1:
+                    fname = os.path.join(self.fdir, "id%06d_result.txt"%(n))    
+                else:
+                    fname = os.path.join(self.fdir, "id%06d_%02d_result.txt"%(n, i))
+                summary_single = read_summary(fname)
+
+                if summary_single == -1:
+                    self.load_success[n] = 0
+                    for k in var_names:
+                        val_prev = self.summary[k][-1]
+                        self.summary[k].append(np.zeros_like(val_prev) * np.nan)
+                
+                else:
+                    for k in var_names:
+                        self.summary[k].append(summary_single[k])
         
         # reshape
         for k in var_names:
             shape = np.shape(self.summary[k])[1:]
-            new_shape = list(self.num_controls)+list(shape)
+            if self.num_overlap == 1:
+                new_shape = list(self.num_controls)+list(shape)
+            else:
+                new_shape = list(self.num_controls)+[self.num_overlap]+list(shape)
             self.summary[k] = np.reshape(self.summary[k], new_shape)
 
     def get_id(self, *nid):
@@ -350,11 +362,11 @@ def read_summary(fname):
             line = fid.readline()
             
         # read spike sync
-        summary["spike_sync"] = []
-        line = fid.readline()
-        while line:
-            summary["spike_sync"].append([float(x) for x in line.split(",")[:-1]])
-            line = fid.readline()
+        # summary["spike_sync"] = []
+        # line = fid.readline()
+        # while line:
+        #     summary["spike_sync"].append([float(x) for x in line.split(",")[:-1]])
+        #     line = fid.readline()
     
     for k in summary.keys():
         summary[k] = np.array(summary[k])
