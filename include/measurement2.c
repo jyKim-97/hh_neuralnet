@@ -108,6 +108,11 @@ static void set_class(int _num_class_types, int *type_range){
 }
 
 
+void print_num_check(){
+    printf("num_check: %d\n", num_check);
+}
+
+
 static void init_spike(){
     num_spk  = (int*) calloc(ntk_size, sizeof(int));
     step_spk = (int**) malloc(ntk_size * sizeof(int*));

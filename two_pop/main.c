@@ -23,7 +23,7 @@ char fdir[100] = "./tmp";
 FILE *fp_v = NULL, *fp_syn_e=NULL, *fp_syn_i=NULL;
 int N = 1000;
 double iapp = 0;
-double tmax = 1500;
+double tmax = 5000;
 
 int main(int argc, char **argv){
 
@@ -59,9 +59,10 @@ void init(){
 double teq = 500;
 int flag_eq = 0;
 void run(double tmax){
+
     int nmax = tmax/_dt;
-    int nsub = 200/_dt;
-    int neq = teq / _dt;
+    int neq  = teq / _dt;
+    int nmove = 200 / _dt;
 
     init_measure(N, nmax, 2, NULL);
     add_checkpoint(0);
@@ -70,24 +71,25 @@ void run(double tmax){
     fp_syn_e = fopen(path_join(fdir, "syn_e.dat"), "wb");
     fp_syn_i = fopen(path_join(fdir, "syn_i.dat"), "wb");
 
+
     progbar_t bar;
     init_progressbar(&bar, nmax);
     for (int nstep=0; nstep<nmax; nstep++){
 
-        if ((flag_eq == 0) && (nstep * _dt >= teq)){
+        if ((flag_eq == 0) && (nstep == neq)){
             flush_measure();
-            // add_checkpoint(nstep);
+            add_checkpoint(nstep);
             flag_eq = 1;
-            printf("Flsuh! -> ");
         }
 
-        if ((flag_eq == 1) && ((nstep-neq) % nsub == 0)){
-            add_checkpoint(nstep);
-            if (nstep*_dt > 1000){
-                summary_t obj = flush_measure();
-                printf("chi: %f\n", obj.chi[0]);
-            }
-        }
+        // if ((flag_eq == 1) && ((nstep-neq)%nmove == 0)){
+        //     add_checkpoint(nstep);
+        //     print_num_check();
+
+        //     if (nstep >= neq + 5*nmove){
+        //         summary_t obj = flush_measure();
+        //     }
+        // }
 
         update_rk4(nstep, iapp);
         measure(nstep, &neuron);

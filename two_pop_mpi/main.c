@@ -54,24 +54,27 @@ int main(int argc, char **argv){
     end_simulation();
 }
 
+double *p_exc, *nu_ext, *id_set;
 
-double *p_inh, *nu_ext;
-// double beta = 0.2;
-double c = 0.02;
-double *a_set, *b_set;
-// double a=0.1, b=0.3, c=0.02;
+double p_gamma=0.03;
+
+
+double a_set[2] = {4, 2.8};
+double b_set[2] = {3, 4.5};
+double tr_set[2] = {0.5, 1};
+double td_set[2] = {2, 6};
+
 
 void set_control_parameters(){
 
-    int nitr = 2;
-    int max_len[3] = {15, 15, 5, 5, nitr};
+    int nitr = 4;
+    int max_len[] = {30, 30, 2, nitr};
     int num_controls = GetIntSize(max_len);
     set_index_obj(&idxer, num_controls, max_len);
 
-    p_inh  = linspace(0.1,  0.9, max_len[0]);
-    nu_ext = linspace(2000, 5000, max_len[1]);
-    a_set = linspace(0.1, 0.5, max_len[2]);
-    b_set = linspace(0.1, 0.9, max_len[3]);
+    p_exc  = linspace(0.01, 0.2, max_len[0]);
+    nu_ext = linspace(700, 8000, max_len[1]);
+    id_set = linspacee(0, 1, max_len[2]);
 
     if (world_rank == 0){
         FILE *fp = open_file_wdir(fdir, "control_params.txt", "w");
@@ -80,20 +83,18 @@ void set_control_parameters(){
         }
         fprintf(fp, "\n");
 
-        print_arr(fp, "p_inh", max_len[0], p_inh);
+        print_arr(fp, "p_exc", max_len[0], p_exc);
         print_arr(fp, "nu_ext", max_len[1], nu_ext);
-        print_arr(fp, "a_set", max_len[2], a_set);
-        print_arr(fp, "b_set", max_len[3], b_set);
+        print_arr(fp, "id_set", max_len[2], id_set);
         fclose(fp);
     }
 }
 
 
 void end_simulation(){
-    free(p_inh);
+    free(p_exc);
     free(nu_ext);
-    free(a_set);
-    free(b_set);
+    free(id_set);
     end_mpi();
 }
 
@@ -106,16 +107,27 @@ void run(int job_id, void *idxer_void){
     update_index(idxer, job_id);
     print_job_start(job_id, idxer->len);
 
-    info.p_out[1][0] = p_inh[idxer->id[0]];
-    info.p_out[1][1] = info.p_out[1][0];
-    info.p_out[0][1] = b_set[idxer->id[3]] * info.p_out[1][0];
-    info.p_out[0][0] = info.p_out[0][1];
+    double pe = p_exc[idxer->id[0]];
+    int id = id_set[idxer->id[2]];
+    double p_alpha = a_set[id];
+    double p_beta = b_set[id];
+    double tr = tr_set[id];
+    double td = td_set[id];
+
+    info.p_out[0][0] = pe;
+    info.p_out[0][1] = pe;
+    info.p_out[1][1] = p_beta * pe;
+    info.p_out[1][0] = p_beta * pe;
+
+    info.w[0][0] = p_gamma * sqrt(p_exc[0])/sqrt(pe);
+    info.w[0][1] = info.w[0][0];
+    info.w[1][1] = p_alpha * info.w[0][0];
+    info.w[1][0] = info.w[1][1];
+
     info.nu_ext_mu = nu_ext[idxer->id[1]];
 
-    info.w[1][0] = c * sqrt(0.1) / sqrt(info.p_out[1][1]);
-    info.w[1][1] = info.w[1][0];
-    info.w[0][0] = a_set[idxer->id[2]] * info.w[1][1];
-    info.w[0][1] = info.w[0][0];
+    info.taur[1] = tr;
+    info.taud[1] = td;
 
     char fname_info[100];
     sprintf(fname_info, "id%06d_info.txt", job_id);
@@ -135,8 +147,10 @@ void run(int job_id, void *idxer_void){
     #endif
 
     init_measure(info.N, nmax, 2, NULL);
+    add_checkpoint(0);
     for (int nstep=0; nstep<nmax; nstep++){
         if ((flag_eq == 0) && (nstep * _dt >= teq)){
+            add_checkpoint(nstep);
             flush_measure();
             flag_eq = 1;
         }
@@ -166,7 +180,6 @@ void run(int job_id, void *idxer_void){
 }
 
 
-
 nn_info_t set_info(void){
     // nn_info_t info = {0,};
     nn_info_t info = init_build_info(N, 2);
@@ -176,17 +189,19 @@ nn_info_t set_info(void){
     info.p_out[1][0] = 0.05;
     info.p_out[1][1] = 0.05;
 
-    info.w[0][0] = 0.05;
-    info.w[0][1] = 0.05;
-    info.w[1][0] = 0.3;
-    info.w[1][1] = 0.3;
+    info.w[0][0] = 0.05; //
+    info.w[0][1] = 0.05; //
+    info.w[1][0] = 0.1;
+    info.w[1][1] = 0.1;
 
-    info.taur[0] = 0.5;
+    info.taur[0] = 0.3;
     info.taud[0] = 1;
+    // info.taur[1] = 0.5;
+    // info.taud[1] = 2;
     info.taur[1] = 1;
-    info.taud[1] = 3;
+    info.taud[1] = 6;
 
-    info.t_lag = 0.5;
+    info.t_lag = 0.;
     info.nu_ext_mu = 1000;
     info.nu_ext_sd = 0;
     info.w_ext_mu = 0.002;
@@ -195,7 +210,6 @@ nn_info_t set_info(void){
 
     return info;
 }
-
 
 void print_arr(FILE *fp, char *arr_name, int arr_size, double *arr){
     fprintf(fp, "%s:", arr_name);

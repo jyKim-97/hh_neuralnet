@@ -25,7 +25,8 @@ char fdir[100] = "./tmp";
 FILE *fp_v = NULL;
 int N = 2000;
 double iapp = 0;
-double tmax = 2500;
+// double tmax = 2500;
+double tmax = 1500;
 
 
 
@@ -84,7 +85,8 @@ int flag_eq = 0;
 void run(double tmax){
     int nmax = tmax/_dt;
 
-    init_measure(N, nmax, 4, info.type_range);
+    int pop_range[2] = {N/2, N};
+    init_measure(N, nmax, 2, pop_range);
     fp_v = fopen(path_join(fdir, "v_out.dat"), "wb");
 
     progbar_t bar;
