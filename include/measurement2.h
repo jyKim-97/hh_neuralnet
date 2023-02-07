@@ -26,6 +26,7 @@ void add_checkpoint(int nstep);
 void measure(int nstep, wbneuron_t *neuron);
 summary_t flush_measure(void);
 void destroy_measure(void);
+void print_num_check();
 
 void export_spike(const char *fname);
 void export_lfp(const char *fname);
