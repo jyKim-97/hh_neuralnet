@@ -54,10 +54,12 @@ void run(const char *out_name, nn_info_t *nn_info){
 
     int nmax = tmax/_dt;
     init_measure(N, nmax, 2, NULL);
+    add_checkpoint(0);
     for (int nstep=0; nstep<nmax; nstep++){
 
         if ((flag_eq == 0) && (nstep * _dt >= teq)){
             flush_measure();
+            add_checkpoint(nstep);
             flag_eq = 1;
         }
 
@@ -68,6 +70,7 @@ void run(const char *out_name, nn_info_t *nn_info){
     summary_t obj = flush_measure();
     export_result(&obj, out_name);
     destroy_neuralnet();
+    destroy_measure();
 }
 
 

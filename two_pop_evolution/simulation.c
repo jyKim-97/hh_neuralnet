@@ -54,10 +54,12 @@ int run(int simul_id, simul_info_t info){
 
     int nmax = tmax/_dt;
     init_measure(N, nmax, 2, NULL);
+    add_checkpoint(0);
     for (int nstep=0; nstep<nmax; nstep++){
 
         if ((flag_eq == 0) && (nstep * _dt >= teq)){
             flush_measure();
+            add_checkpoint(nstep);
             flag_eq = 1;
         }
 
@@ -71,6 +73,7 @@ int run(int simul_id, simul_info_t info){
     sprintf(fname, "id%06d_result.txt", simul_id);
     export_result(&obj, path_join(fdir, fname));
     destroy_neuralnet();
+    destroy_measure();
 
     return 0;
 }
