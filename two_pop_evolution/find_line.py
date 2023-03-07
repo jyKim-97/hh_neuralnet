@@ -17,27 +17,27 @@ import genalg.evolve as evolve
 
 
 # ========== Parameters ==========
-# control parameter x: p_{E->E,I}
+# control parameter x: p_ee (p_{E->E})
+
+#  0: w_ee = c * sqrt(0.01) / sqrt(x)
+#  1: d: nu_ext = d * sqrt(p_ee)
+#  2: tlag: time lag between neurons
+#  3: a1: w_ei = a1 * w_ee (w_{E->I})
+#  4: b1: p_ei = b1 * x
 
 # For faster one
-
-# 0: a1: w_{I->E} = a1 * wE
-# 0: a1: w_{I->I} = a1 * wE
-# 1: b1: p_{I->E} = b1 * x
-# 1: b1: p_{I->I} = b1 * x
+#  5: a2: w_ie = a2 * w_ee
+#  6: a3: w_ii = a3 * w_ee
+#  7: b2: p_ie = b2 * x
+#  8: b3: p_ii = b3 * x
 
 # For slower one
+#  9: a'2: w_ie = a'2 * w_ee
+# 10: a'3: w_ii = a'3 * w_ee
+# 11: b'2: p_ie = b'2 * x
+# 12: b'3: p_ii = b'3 * x
 
-# 2: a'1: w_{I->E} = a'1 * wE
-# 2: a'1: w_{I->I} = a'1 * wE
-# 3: b'1: p_{I->E} = b'1 * x
-# 3: b'1: p_{I->I} = b'1 * x
-
-# 4: c: wE = c * sqrt(0.01)/sqrt(x)
-# 5: d: nu_ext = d * sqrt(pE)
-# 6: tlag: time lag between neurons
-
-# num params: 7
+# num params: 13
 
 # ========== ========== ==========
 
@@ -167,30 +167,31 @@ def save_result(job_id, data, chis, cvs, frs):
 
 
 def generate_info(x, data, inh_type, fname):
-    we = data[4] * np.sqrt(0.01)/np.sqrt(x)
-    nu_ext = data[5] * np.sqrt(x)
-    tlag = data[6]
+    w_ee = data[0] * np.sqrt(0.01)/np.sqrt(x)
+    nu_ext = data[1] * np.sqrt(x)
+    tlag = data[2]
+    w_ei = data[3] * w_ee
+    p_ei = data[4] * x
 
-    n0 = inh_type * 2
-    w_ie = data[n0] * we
-    w_ii = data[n0] * we
-    p_ie = data[n0+1] * x
-    p_ii = data[n0+1] * x
+    n0 = inh_type*4 + 5
+    w_ie = data[n0]   * w_ee
+    w_ii = data[n0+1] * w_ee
+    p_ie = data[n0+2] * x
+    p_ii = data[n0+3] * x
 
     with open(fname, "w") as fid:
-        fid.write("%f,"%(we))
-        fid.write("%f,"%(we))
+        fid.write("%f,"%(w_ee))
+        fid.write("%f,"%(w_ei))
         fid.write("%f,"%(w_ie))
         fid.write("%f,"%(w_ii))
         fid.write("%f,"%(x))
-        fid.write("%f,"%(x))
+        fid.write("%f,"%(p_ei))
         fid.write("%f,"%(p_ie))
         fid.write("%f,"%(p_ii))
         fid.write("%f,"%(tlag))
         fid.write("%f,"%(taur_set[inh_type]))
         fid.write("%f,"%(taud_set[inh_type]))
         fid.write("%f,"%(nu_ext))
-
 
 
 def init_simulation():

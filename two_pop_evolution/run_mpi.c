@@ -15,9 +15,9 @@ nn_info_t allocate_simulation_param(const char *fname);
 void run(const char *out_name, nn_info_t *nn_info);
 
 double teq = 500;
-double tmax = 2500;
+double tmax = 1500;
 int flag_eq = 0;
-
+const char *fdir_abs = "/home/jungyoung/Project/hh_neuralnet/two_pop_evolution";
 
 int main(int argc, char **argv){
 
@@ -32,13 +32,14 @@ int main(int argc, char **argv){
     int id = atoi(argv[1]);
 
     char finfo[100];
-    sprintf(finfo, "./data/offspring%d/param%d.txt", id, world_rank);
+    // sprintf(finfo, "./data/process%d/param%d.txt", id, world_rank);
+    sprintf(finfo, "%s/data/process%d/param%d.txt", fdir_abs, id, world_rank);
     nn_info_t info = allocate_simulation_param(finfo);
 
     // write_info(&info, "./test_input.txt");
 
     char fout[100];
-    sprintf(fout, "./data/offspring%d/result%d.txt", id, world_rank);
+    sprintf(fout, "%s/data/process%d/result%d.txt", fdir_abs, id, world_rank);
     run(fout, &info);
 
     end_mpi();
