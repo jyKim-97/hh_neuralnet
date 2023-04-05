@@ -68,6 +68,12 @@ void init_measure(int N, int num_steps, int _num_class_types, int *_type_range){
 
 
 void destroy_measure(void){
+    num_check = 0;
+    for (int n=0; n<MAX_CHECK_M; n++){
+        cum_steps[n] = 0;
+        check_steps[n] = 0;
+    }
+
     free_spike();
     free_flct();
     free(id_class);
