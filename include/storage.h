@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdlib.h>
  
+int is_save_step(int nstep);
 void save(int N, int nstep, double* arr, FILE *fp);
 void change_sampling_rate(double fs);
 void write_signal_d(int len, double *arr, FILE *fp);

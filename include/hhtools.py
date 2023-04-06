@@ -251,9 +251,7 @@ class SummaryLoader:
         
         self.summary = {}
         self.load_success = np.ones(nums_expect)
-        # var_names = ["chi", "cv", "frs_m", "frs_s", "spike_sync"]
         var_names = ["chi", "cv", "frs_m", "frs_s"]
-        # iinit
         for k in var_names:
             self.summary[k] = []
 
@@ -269,8 +267,11 @@ class SummaryLoader:
                 if summary_single == -1:
                     self.load_success[n] = 0
                     for k in var_names:
-                        val_prev = self.summary[k][-1]
-                        self.summary[k].append(np.zeros_like(val_prev) * np.nan)
+                        if len(self.summary[k]) > 0:
+                            val_prev = self.summary[k][-1]
+                            self.summary[k].append(np.zeros_like(val_prev) * np.nan)
+                        else:
+                            self.summary[k].append([])
                 
                 else:
                     for k in var_names:
@@ -493,3 +494,4 @@ def load_summary(f):
         obj = pkl.load(fid)
     
     return obj
+

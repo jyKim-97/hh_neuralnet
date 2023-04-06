@@ -21,9 +21,9 @@ void save_current(int nstep);
 
 char fdir[100] = "./tmp";
 FILE *fp_v = NULL, *fp_syn_e=NULL, *fp_syn_i=NULL;
-int N = 1000;
+int N = 500;
 double iapp = 0;
-double tmax = 5000;
+double tmax = 4000; // ~220 s (with N=1000)
 
 int main(int argc, char **argv){
 
@@ -62,7 +62,7 @@ void run(double tmax){
 
     int nmax = tmax/_dt;
     int neq  = teq / _dt;
-    int nmove = 200 / _dt;
+    // int nmove = 200 / _dt;
 
     init_measure(N, nmax, 2, NULL);
     add_checkpoint(0);
@@ -70,7 +70,6 @@ void run(double tmax){
     fp_v = fopen(path_join(fdir, "v_out.dat"), "wb");
     fp_syn_e = fopen(path_join(fdir, "syn_e.dat"), "wb");
     fp_syn_i = fopen(path_join(fdir, "syn_i.dat"), "wb");
-
 
     progbar_t bar;
     init_progressbar(&bar, nmax);
@@ -81,15 +80,6 @@ void run(double tmax){
             add_checkpoint(nstep);
             flag_eq = 1;
         }
-
-        // if ((flag_eq == 1) && ((nstep-neq)%nmove == 0)){
-        //     add_checkpoint(nstep);
-        //     print_num_check();
-
-        //     if (nstep >= neq + 5*nmove){
-        //         summary_t obj = flush_measure();
-        //     }
-        // }
 
         update_rk4(nstep, iapp);
         measure(nstep, &neuron);
@@ -115,23 +105,49 @@ nn_info_t set_info(void){
     // nn_info_t info = {0,};
     nn_info_t info = init_build_info(N, 2);
 
-    info.p_out[0][0] = 0.234024;
-    info.p_out[0][1] = 0.234024;
-    info.p_out[1][0] = 0.702073;
-    info.p_out[1][1] = 0.702073;
+    // info.p_out[0][0] = 0.21;
+    // info.p_out[0][1] = 0.23706;
+    // info.p_out[1][0] = 0.93227;
+    // info.p_out[1][1] = 0.63310;
 
-    info.w[0][0] = 0.002067;
-    info.w[0][1] = 0.002067;
-    info.w[1][0] = 0.019431;
-    info.w[1][1] = 0.019431;
+    // info.w[0][0] = 0.01537;
+    // info.w[0][1] = 0.10873;
+    // info.w[1][0] = 0.13037;
+    // info.w[1][1] = 0.22721;
+
+    // info.taur[0] = 0.3;
+    // info.taud[0] = 1;
+    // info.taur[1] = 0.5;
+    // info.taud[1] = 2.5;
+    // // info.taur[1] = 1;
+    // // info.taud[1] = 10;
+
+    // info.t_lag = 0.78073;
+    // info.nu_ext_mu = 6298.24245;
+    // info.nu_ext_sd = 0;
+    // info.w_ext_mu  = 0.002;
+    // info.w_ext_sd  = 0.0;
+    // info.const_current = false;
+
+    info.p_out[0][0] = 0.21 * 2;
+    info.p_out[0][1] = 0.01129 * 2;
+    info.p_out[1][0] = 0.04439 * 2;
+    info.p_out[1][1] = 0.03015 * 2;
+
+    info.w[0][0] = 0.07044;
+    info.w[0][1] = 0.49824;
+    info.w[1][0] = 0.59741;
+    info.w[1][1] = 1.04121;
 
     info.taur[0] = 0.3;
     info.taud[0] = 1;
     info.taur[1] = 0.5;
     info.taud[1] = 2.5;
+    // info.taur[1] = 1;
+    // info.taud[1] = 10;
 
-    info.t_lag = 0.;
-    info.nu_ext_mu = 6841.410000;
+    info.t_lag = 0.78073;
+    info.nu_ext_mu = 1374.38918;
     info.nu_ext_sd = 0;
     info.w_ext_mu  = 0.002;
     info.w_ext_sd  = 0.0;
@@ -141,23 +157,20 @@ nn_info_t set_info(void){
 }
 
 
-extern int _nstep_save;
-
 void save_current(int nstep){
-    if (nstep % _nstep_save != 0) return;
+    if (is_save_step(nstep) == 0) return;
 
     extern desyn_t syns[MAX_TYPE];
-
-    double *ic_e = (double*) malloc(sizeof(double) * N);
-    double *ic_i = (double*) malloc(sizeof(double) * N);
+    float *ic_e = (float*) malloc(sizeof(float) * N);
+    float *ic_i = (float*) malloc(sizeof(float) * N);
     
     for (int n=0; n<N; n++){
-        ic_e[n] = get_current(&(syns[0]), n, neuron.vs[n]);
-        ic_i[n] = get_current(&(syns[1]), n, neuron.vs[n]);
+        ic_e[n] = (float) get_current(&(syns[0]), n, neuron.vs[n]);
+        ic_i[n] = (float) get_current(&(syns[1]), n, neuron.vs[n]);
     }
 
-    write_signal_d(N, ic_e, fp_syn_e);
-    write_signal_d(N, ic_i, fp_syn_i);
+    fwrite(ic_e, sizeof(float), N, fp_syn_e);
+    fwrite(ic_i, sizeof(float), N, fp_syn_i);
     
     free(ic_e);
     free(ic_i);

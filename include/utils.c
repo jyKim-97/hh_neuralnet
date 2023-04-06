@@ -45,7 +45,7 @@ void progressbar(progbar_t *bar, int nstep)
 }
 
 
-void checkpoint(void){
+void checkpoint_tic(void){
     if (check_state == 0){
         gettimeofday(&tic_g, NULL);
         check_state = 1;

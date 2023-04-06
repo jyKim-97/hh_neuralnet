@@ -13,7 +13,7 @@ static void set_nstep();
 #include <stdio.h>
 void save(int N, int nstep, double* arr, FILE *fp){
     set_nstep();
-    if (nstep % _nstep_save != 0) return;
+    if (is_save_step(nstep) == 0) return;
 
     #ifdef save_as_float
     float *arr_f = (float*) malloc(sizeof(float) * N);
@@ -23,6 +23,15 @@ void save(int N, int nstep, double* arr, FILE *fp){
     #else
     fwrite(arr, sizeof(double), N, fp);
     #endif    
+}
+
+// 0 (False), 1 (True)
+int is_save_step(int nstep){
+    if (nstep % _nstep_save == 0){
+        return 1;
+    } else {
+        return 0;
+    }
 }
 
 

@@ -28,7 +28,8 @@ void allocate_multiple_ext(nn_info_t *info);
 int N = 2000;
 double iapp = 0;
 // double tmax = 5000;
-double tmax = 3000;
+// double tmax = 2500;
+double tmax = 2000;
 // double tmax = 10;
 double teq = 500;
 char fdir[100] = "./tmp";
@@ -44,10 +45,10 @@ int main(int argc, char **argv){
     gettimeofday(&tic, NULL);
     set_control_parameters();
     set_seed(time(NULL) * world_size * 5 + world_rank*2);
-    // for_mpi(idxer.len, run, &idxer);
-    for (int n=world_rank; n<idxer.len; n+=world_size){
-        run(n, &idxer);
-    }
+    for_mpi(idxer.len, run, &idxer);
+    // for (int n=world_rank; n<idxer.len; n+=world_size){
+    //     run(n, &idxer);
+    // }
 
     if (world_rank == 0){
         gettimeofday(&toc, NULL);
@@ -58,7 +59,7 @@ int main(int argc, char **argv){
 }
 
 
-double *alpha_set, *beta_set, *id_rank; // alpha_set: pE->?, beta_set: pI->?
+double *alpha_set, *beta_set, *id_rank, *p_ratio_set; // alpha_set: pE->?, beta_set: pI->?, w_ratio_set is for the correction
 
 /* === Default parameters === */
 double a_set[2] = {9.4, 4.5};
@@ -72,14 +73,16 @@ double plim[][2] = {{0.051, 0.234},
 void set_control_parameters(){
 
     int nitr = 2;
-    int max_len[] = {15, 15, 3, nitr};
+    int max_len[] = {13, 13, 2, 6, nitr};
     int num_controls = GetIntSize(max_len);
     set_index_obj(&idxer, num_controls, max_len);
 
     alpha_set = linspace(0, 2, max_len[0]);
     beta_set  = linspace(0, 1, max_len[1]);
     // id_rank = linspace(0, 4, max_len[2]);
-    id_rank = linspace(0, 2, max_len[2]);
+    id_rank = linspace(0, 1, max_len[2]);
+    p_ratio_set = linspace(0.1, 1, max_len[3]);
+    
 
     if (world_rank == 0){
         FILE *fp = open_file_wdir(fdir, "control_params.txt", "w");
@@ -91,6 +94,7 @@ void set_control_parameters(){
         print_arr(fp, "alpha_set", max_len[0], alpha_set);
         print_arr(fp, "beta_set", max_len[1], beta_set);
         print_arr(fp, "id_rank", max_len[2], id_rank);
+        print_arr(fp, "p_ratio_set", max_len[2], p_ratio_set);
         fclose(fp);
     }
 }
@@ -100,6 +104,7 @@ void end_simulation(){
     free(alpha_set);
     free(beta_set);
     free(id_rank);
+    free(p_ratio_set);
     end_mpi();
 }
 
@@ -111,6 +116,7 @@ nn_info_t allocate_setting(int job_id, index_t *idxer){
     double alpha = alpha_set[idxer->id[0]];
     double beta  = beta_set[idxer->id[1]];
     int rank = id_rank[idxer->id[2]];
+    double p_ratio = p_ratio_set[idxer->id[3]];
 
     double pe_f, pe_s;
     switch (rank){
@@ -119,25 +125,25 @@ nn_info_t allocate_setting(int job_id, index_t *idxer){
             pe_s = plim[1][0];
             break;
 
+        // case 1:
+        //     pe_f = (plim[0][0]+plim[0][1])/2.;
+        //     pe_s = (plim[1][0]+plim[1][1])/2.;
+        //     break;
+
         case 1:
-            pe_f = (plim[0][0]+plim[0][1])/2.;
-            pe_s = (plim[1][0]+plim[1][1])/2.;
-            break;
-
-        case 2:
             pe_f = plim[0][1];
             pe_s = plim[1][1];
             break;
 
-        case 3: // low rank (f) - high rank (s)
-            pe_f = plim[0][0];
-            pe_s = plim[1][1];
-            break;
+        // case 3: // low rank (f) - high rank (s)
+        //     pe_f = plim[0][0];
+        //     pe_s = plim[1][1];
+        //     break;
 
-        case 4: // high rank (f) - low rank (s)
-            pe_f = plim[0][1];
-            pe_s = plim[1][0];
-            break;
+        // case 4: // high rank (f) - low rank (s)
+        //     pe_f = plim[0][1];
+        //     pe_s = plim[1][0];
+        //     break;
 
         default:
             printf("Unexpected rank %d\n", rank);
@@ -147,14 +153,14 @@ nn_info_t allocate_setting(int job_id, index_t *idxer){
 
     info.p_out[0][0] = pe_f;
     info.p_out[0][1] = pe_f;
-    info.p_out[0][2] = alpha * pe_f;
-    info.p_out[0][3] = alpha * pe_f;
+    info.p_out[0][2] = alpha * pe_f * p_ratio;
+    info.p_out[0][3] = alpha * pe_f * p_ratio;
 
     double pi_f = b_set[0] * pe_f;
     info.p_out[1][0] = pi_f;
     info.p_out[1][1] = pi_f;
-    info.p_out[1][2] = beta * pi_f;
-    info.p_out[1][3] = beta * pi_f;
+    info.p_out[1][2] = beta * pi_f * p_ratio;
+    info.p_out[1][3] = beta * pi_f * p_ratio;
 
     info.p_out[2][0] = alpha * pe_s;
     info.p_out[2][1] = alpha * pe_s;
@@ -170,24 +176,32 @@ nn_info_t allocate_setting(int job_id, index_t *idxer){
     double we_f = c * sqrt(0.01) / sqrt(pe_f);
     info.w[0][0] = we_f;
     info.w[0][1] = we_f;
-    info.w[0][2] = we_f / sqrt(alpha);
-    info.w[0][3] = we_f / sqrt(alpha);
+    // info.w[0][2] = we_f / sqrt(alpha) * w_ratio;
+    // info.w[0][3] = we_f / sqrt(alpha) * w_ratio;
+    info.w[0][2] = we_f;
+    info.w[0][3] = we_f;
 
     double wi_f = a_set[0] * we_f;
     info.w[1][0] = wi_f;
     info.w[1][1] = wi_f;
-    info.w[1][2] = wi_f / sqrt(beta);
-    info.w[1][3] = wi_f / sqrt(beta);
+    // info.w[1][2] = wi_f / sqrt(beta) * w_ratio;
+    // info.w[1][3] = wi_f / sqrt(beta) * w_ratio;
+    info.w[1][2] = wi_f;
+    info.w[1][3] = wi_f;
 
     double we_s = c * sqrt(0.01) / sqrt(pe_s);
-    info.w[2][0] = we_s / sqrt(alpha);
-    info.w[2][1] = we_s / sqrt(alpha);
+    // info.w[2][0] = we_s / sqrt(alpha);
+    // info.w[2][1] = we_s / sqrt(alpha);
+    info.w[2][0] = we_s;
+    info.w[2][1] = we_s;
     info.w[2][2] = we_s;
     info.w[2][3] = we_s;
 
     double wi_s = a_set[1] * we_s;
-    info.w[3][0] = wi_s / sqrt(beta);
-    info.w[3][1] = wi_s / sqrt(beta);
+    // info.w[3][0] = wi_s / sqrt(beta);
+    // info.w[3][1] = wi_s / sqrt(beta);
+    info.w[3][0] = wi_s;
+    info.w[3][1] = wi_s;
     info.w[3][2] = wi_s;
     info.w[3][3] = wi_s;
 
@@ -233,7 +247,7 @@ void run(int job_id, void *idxer_void){
     int N = info.N;
     int nmax = tmax/_dt;
     int neq  = teq / _dt;
-    int nmove = 200 / _dt;
+    int nmove = 500 / _dt;
     int nstack = 0;
 
     int pop_range[2] = {N/2, N};
@@ -249,7 +263,7 @@ void run(int job_id, void *idxer_void){
         if ((flag_eq == 1) && ((nstep-neq)%nmove == 0)){
             add_checkpoint(nstep);
 
-            if (nstep >= neq + 5*nmove){
+            if (nstep >= neq + nmove){
                 summary_t obj = flush_measure();
                 char fname_res[100];
                 sprintf(fname_res, "id%06d_%02d_result.txt", job_id, nstack);
