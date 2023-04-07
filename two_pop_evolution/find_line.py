@@ -4,8 +4,8 @@ import os
 import sys
 import subprocess
 import pickle as pkl
-import paramiko
 import traceback
+import time
 
 sys.path.append("../include")
 import hhtools
@@ -62,20 +62,30 @@ taud_set = [2.5, 10]
 fdir = "./data" # -> Need to be fixed to "data"
 max_wait_time = 1000
 
+CONNECT2SSH = False
+USEMULTI = False
+CHECKTIME = True
+SSHTYPE = "mpich" # ['openmpi', 'mpich']
+
+if CONNECT2SSH:
+    import paramiko
+
 avail_nodes = ["node2", "node3", "node4", "node5",
             "node6", "node7", "node8", "node9",
             "node12", "node13", "node14", "node15", 
             "node16", "node17", "node18", "node19", "node20",
             "node21", "node22", "node23", "node24", "node25"]
+num_cores = 84
 
 avail_cores = 6
-num_overlap = 3
+num_overlap = 2
 num_point = 12 # number of point to calculate (= n * 2 (types))
-num_offspring = len(avail_nodes) * avail_cores * num_overlap // num_point
-num_process = num_offspring // num_overlap
+if USEMULTI:
+    num_offspring = len(avail_nodes) * avail_cores * num_overlap // num_point
+else:
+    num_offspring = num_cores * num_overlap // num_point
 
-CONNECT2SSH = False
-SSHTYPE = "openmpi" # ['openmpi', 'mpich']
+num_process = num_offspring // num_overlap
 
 fdir_abs = "/home/jungyoung/Project/hh_neuralnet/two_pop_evolution"
 
@@ -99,13 +109,14 @@ def fobj(args):
     # read parameter and allocate simulation parameters
     process_id = job_id % num_process
 
-    with open("./data/host%d"%(process_id), "r") as fid:
-        line = fid.readline()
-        if SSHTYPE == "openmpi":
-            tmp = line.split(" ")
-        elif SSHTYPE == "mpich":
-            tmp = line.split(":")
-        pid = int(tmp[0][4:])
+    if USEMULTI:
+        with open("./data/host%d"%(process_id), "r") as fid:
+            line = fid.readline()
+            if SSHTYPE == "openmpi":
+                tmp = line.split(" ")
+            elif SSHTYPE == "mpich":
+                tmp = line.split(":")
+            pid = int(tmp[0][4:])
 
     for n in range(num_point):
         inh_type = n // div
@@ -114,7 +125,10 @@ def fobj(args):
         fname = os.path.join(fdir, "process%d/param%d.txt"%(process_id, n))
         generate_info(x, data, inh_type, fname)
 
-    com = "/usr/lib64/%s/bin/mpirun -np %d --hostfile %s/data/host%d %s/run_mpi.out %d"%(SSHTYPE, num_point, fdir_abs, process_id, fdir_abs, process_id)
+    if USEMULTI:
+        com = "/usr/lib64/%s/bin/mpirun -np %d --hostfile %s/data/host%d %s/run_mpi.out %d"%(SSHTYPE, num_point, fdir_abs, process_id, fdir_abs, process_id)
+    else:
+        com = "/usr/lib64/%s/bin/mpirun -np %d %s/run_mpi.out %d"%(SSHTYPE, num_point, fdir_abs, process_id)
 
     if CONNECT2SSH:
         ssh = paramiko.SSHClient()
@@ -122,11 +136,14 @@ def fobj(args):
         ssh.connect("10.100.1.%d"%(pid))
 
     try:
+        if CHECKTIME:
+            tic = time.time()
         if CONNECT2SSH:
             stdin, stdout, stderr = ssh.exec_command(com, timeout=max_wait_time)
             # exit_status = stdout.channel.recv_exit_status()
         else:
             res = subprocess.run(com, timeout=max_wait_time, shell=True)
+        print("Job %4d Done, elapsed=%.5f s"%(time.time()-tic))
 
         fit_score, chis, cvs, frs = calculate_fitness(process_id)
         save_result(job_id, data, chis, cvs, frs)
@@ -230,6 +247,13 @@ def init_simulation():
     # generate sibling's directory
     for n in range(num_process):
         os.mkdir(os.path.join(fdir, "process%d"%(n)))
+
+    if not USEMULTI and CONNECT2SSH:
+        print("If USEMULTI is false, you cannot select CONNECT2SSH True")
+        exit(-1)
+
+    if not USEMULTI:
+        return
     
     # generate hostfiles
     num_spawn = num_offspring * num_point
