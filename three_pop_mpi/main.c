@@ -29,7 +29,7 @@ int N = 2000;
 double iapp = 0;
 // double tmax = 5000;
 // double tmax = 2500;
-double tmax = 2000;
+double tmax = 5000;
 // double tmax = 10;
 double teq = 500;
 char fdir[100] = "./tmp";
@@ -72,8 +72,8 @@ double plim[][2] = {{0.051, 0.234},
 
 void set_control_parameters(){
 
-    int nitr = 2;
-    int max_len[] = {13, 13, 2, 6, nitr};
+    int nitr = 3;
+    int max_len[] = {15, 15, 2, 7, nitr};
     int num_controls = GetIntSize(max_len);
     set_index_obj(&idxer, num_controls, max_len);
 
@@ -263,7 +263,7 @@ void run(int job_id, void *idxer_void){
         if ((flag_eq == 1) && ((nstep-neq)%nmove == 0)){
             add_checkpoint(nstep);
 
-            if (nstep >= neq + nmove){
+            if (nstep >= neq + 2*nmove){
                 summary_t obj = flush_measure();
                 char fname_res[100];
                 sprintf(fname_res, "id%06d_%02d_result.txt", job_id, nstack);
@@ -273,12 +273,19 @@ void run(int job_id, void *idxer_void){
         }
 
         update_rk4(nstep, iapp);
+        KEEP_SIMUL();
         measure(nstep, &neuron);
 
         #ifdef _debug
         progressbar(&bar, nstep);
         #endif
     }
+
+    summary_t obj = flush_measure();
+    char fname_res[100];
+    sprintf(fname_res, "id%06d_%02d_result.txt", job_id, nstack);
+    export_result(&obj, path_join(fdir, fname_res));
+
     // summary_t obj = flush_measure();
     // char fname_res[100];
     // sprintf(fname_res, "id%06d_result.txt", job_id);
