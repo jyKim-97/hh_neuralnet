@@ -74,6 +74,7 @@ void end_mpi(){
 }
 
 static struct timeval tic, toc;
+static double get_dt_mpi(void);
 
 void print_job_start(int job_id, int max_job){
     time_t t_tmp = time(NULL);
@@ -85,11 +86,29 @@ void print_job_start(int job_id, int max_job){
 
 
 void print_job_end(int job_id, int max_job){
-    gettimeofday(&toc, NULL);
-    double elapsed = get_dt(tic, toc);
+    double elapsed = get_dt_mpi();
 
     time_t t_tmp = time(NULL);
     struct tm t = *localtime(&t_tmp);
     printf("[%d-%02d-%02d %02d:%02d:%02d] ", t.tm_year+1900, t.tm_mon+1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec);
     printf("Node%3d Done  job%5d/%d, elapsed=%.1fs\n", world_rank, job_id, max_job, elapsed);
+}
+
+
+double get_dt_mpi(void){
+    gettimeofday(&toc, NULL);
+
+    int sec, msec;
+
+    sec = toc.tv_sec - tic.tv_sec;
+    msec = (toc.tv_usec - tic.tv_usec)/1e3;
+
+    if (msec < 0){
+        sec -= 1;
+        msec += 1e3;
+    }
+
+    double dt = sec + ((double) msec) * 1e-3;
+
+    return dt;
 }
