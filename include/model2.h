@@ -10,7 +10,10 @@
 // #include "mt64.h"
 
 extern double _dt;
+extern int flag_nan;
+
 #define _spk_buf_size 200
+#define KEEP_SIMUL() if (flag_nan == 1) break;
 
 #define ena 55.
 #define ek -90.

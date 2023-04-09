@@ -7,6 +7,7 @@
 static inline double get_minf(double v);
 
 double _dt = 0.01;
+int flag_nan = 0;
 
 void init_wbneuron(int N, wbneuron_t *neuron){
     neuron->N = N;
@@ -66,8 +67,7 @@ double solve_wb_v(wbparams_t *params, double v, double h, double n, double iapp)
     double il  = params->gl*(v - el);
     double dv = (-ina-ik-il+iapp) / params->cm;
     if (isnan(dv)){
-        printf("Nan is detected, end process\n");
-        exit(-1);
+        flag_nan = 1;
     }
 
     return _dt * dv;
