@@ -18,29 +18,22 @@ import genalg.evolve as evolve
 
 
 # ========== Parameters ==========
-# control parameter x: p_ee (p_{E->E})
-
-#  0: w_ee = c * sqrt(0.01) / sqrt(x)
-#  1: d: nu_ext = d * sqrt(p_ee)
-#  2: tlag: time lag between neurons
+# control parameter x: p_e (p_{E->?})
+# 0: tlag: time lag between neurons
 
 # For faster one
-#  3: a1: w_ei = a1 * w_ee (w_{E->If})
-#  4: a2: w_ie = a2 * w_ee
-#  5: a3: w_ii = a3 * w_ee
-#  6: b1: p_ei = b1 * x
-#  7: b2: p_ie = b2 * x
-#  8: b3: p_ii = b3 * x
+# 1:  d: nu_ext = d * sqrt(p_e) 
+# 2:  c: w_e = c * sqrt(0.01) / sqrt(x)
+# 3: a1: w_i = a1 * w_e
+# 4: b1: p_i = b1 * x
 
 # For slower one
-#  9: a'1: w_ei = a'1 * w_ee
-# 10: a'2: w_ie = a'2 * w_ee
-# 11: a'3: w_ii = a'3 * w_ee
-# 12: b'1: p_ei = b'1 * x
-# 13: b'2: p_ie = b'2 * x
-# 14: b'3: p_ii = b'3 * x
+# 5:  d': nu_ext = d' * sqrt(p_e) 
+# 6:  c': w_e = c * sqrt(0.01) / sqrt(x)
+# 7: a'1: w_i = a'1 * w_e
+# 8: b'1: p_i = b'1 * x
 
-# num params: 15
+# num params: 9
 
 # ========== Check list ==========
 # if you change the parameter
@@ -60,12 +53,13 @@ import genalg.evolve as evolve
 taur_set = [0.5,  1]
 taud_set = [2.5, 10]
 fdir = "./data" # -> Need to be fixed to "data"
-max_wait_time = 1000
+max_wait_time = 600
 
 CONNECT2SSH = False
-USEMULTI = False
-CHECKTIME = True
+USEMULTI = True
+CHECKTIME = False
 SSHTYPE = "mpich" # ['openmpi', 'mpich']
+# check SSHTYPE uses same compiler with "mpifor"
 
 if CONNECT2SSH:
     import paramiko
@@ -96,13 +90,9 @@ def fobj(args):
 
     # generate parameters for slow & faster one
     # select the control parameter range
-    b1 = data[6]
-    b2 = data[7]
-    b3 = data[8]
-    bp1 = data[12]
-    bp2 = data[13]
-    bp3 = data[14]
-    bmax = max([b1, b2, b3, bp1, bp2, bp3])
+    b = data[4]
+    bp = data[8]
+    bmax = max([b, bp])
     xs_end = 0.95/bmax
     xs = np.linspace(0.01, xs_end, div)
 
@@ -129,6 +119,7 @@ def fobj(args):
         com = "/usr/lib64/%s/bin/mpirun -np %d --hostfile %s/data/host%d %s/run_mpi.out %d"%(SSHTYPE, num_point, fdir_abs, process_id, fdir_abs, process_id)
     else:
         com = "/usr/lib64/%s/bin/mpirun -np %d %s/run_mpi.out %d"%(SSHTYPE, num_point, fdir_abs, process_id)
+    # print(com)
 
     if CONNECT2SSH:
         ssh = paramiko.SSHClient()
@@ -143,7 +134,8 @@ def fobj(args):
             # exit_status = stdout.channel.recv_exit_status()
         else:
             res = subprocess.run(com, timeout=max_wait_time, shell=True)
-        print("Job %4d Done, elapsed=%.5f s"%(time.time()-tic))
+        if CHECKTIME:
+            print("Job %4d Done, elapsed=%.5f s"%(job_id, time.time()-tic))
 
         fit_score, chis, cvs, frs = calculate_fitness(process_id)
         save_result(job_id, data, chis, cvs, frs)
@@ -188,23 +180,23 @@ def calculate_fitness(process_id):
 
     # calculate fitness
     # similarity chi
-    score =  200 * np.average((chis[0] - chis[1])**2)
-    score += 100 * np.average(chis[:, :2]**2)
-    score += 10 * np.average((1-chis[:, -2:])**2)
+    score =  10 * np.average((chis[0] - chis[1])**2)
+    score += 5 * np.average(chis[:, :2]**2)
+    score += 2.5 * np.average((1-chis[:, -2:])**2)
 
     # firing rate
     mf = np.average(frs)
-    score += 100 * np.average(np.sqrt(((frs[0] - frs[1])/mf)**2))
+    score += 5 * np.average(np.sqrt(((frs[0] - frs[1])/mf)**2))
     if (frs > 10).any():
-        score += 1000
+        score += 50
     else:
-        score += 200 * np.average(np.sqrt((frs/mf - 1)**2))
-        score += 20 / mf
+        score += 10 * np.average(np.sqrt((frs/mf - 1)**2))
+        score += 1 / mf
         # score +=  20 * np.cos(np.pi*mf/20)
         # score += 10 * np.average(np.cos(np.pi * frs) + 1)
 
     # CV
-    score += 10 * np.average((1-cvs)**2)
+    score += 2 * np.average((1-cvs)**2)
 
     return 1/score, chis, cvs, frs
     
@@ -216,27 +208,23 @@ def save_result(job_id, data, chis, cvs, frs):
 
 
 def generate_info(x, data, inh_type, fname):
-    w_ee = data[0] * np.sqrt(0.01)/np.sqrt(x)
-    nu_ext = data[1] * np.sqrt(x)
-    tlag = data[2]
-
-    n0 = inh_type*6 + 3
-    w_ei = data[n0]   * w_ee
-    w_ie = data[n0+1] * w_ee
-    w_ii = data[n0+2] * w_ee
-    p_ei = data[n0+3] * x
-    p_ie = data[n0+4] * x
-    p_ii = data[n0+5] * x
+    tlag = data[0]
+    n0 = inh_type * 4 + 1
+    
+    nu_ext = data[n0] * np.sqrt(x)
+    w_e = data[n0+1] * np.sqrt(0.01) / np.sqrt(x)
+    w_i = data[n0+2] * w_e
+    p_i = data[n0+3] * x
 
     with open(fname, "w") as fid:
-        fid.write("%f,"%(w_ee))
-        fid.write("%f,"%(w_ei))
-        fid.write("%f,"%(w_ie))
-        fid.write("%f,"%(w_ii))
+        fid.write("%f,"%(w_e))
+        fid.write("%f,"%(w_e))
+        fid.write("%f,"%(w_i))
+        fid.write("%f,"%(w_i))
         fid.write("%f,"%(x))
-        fid.write("%f,"%(p_ei))
-        fid.write("%f,"%(p_ie))
-        fid.write("%f,"%(p_ii))
+        fid.write("%f,"%(x))
+        fid.write("%f,"%(p_i))
+        fid.write("%f,"%(p_i))
         fid.write("%f,"%(tlag))
         fid.write("%f,"%(taur_set[inh_type]))
         fid.write("%f,"%(taud_set[inh_type]))
@@ -343,11 +331,12 @@ if __name__ == "__main__":
     np.random.seed(2000)
     init_simulation()
     
-    num_params = 15
-    pmin = [0.001,  5000, 0, 0.1, 0.5, 0.5, 0.1, 0.5, 0.5,  0.1, 0.5, 0.5, 0.5, 0.5, 0.5]
-    pmax = [  0.2, 25000, 1,  10,  20,  20,   3,   5,   5,   10,  20,  20,   3,   5., 5.]
+    num_params = 9
 
-    solver = evolve.EA(num_params, log_dir=fdir, mu=3, num_select=5, num_offspring=num_offspring, num_parent=60, use_multiprocess=True, num_process=num_process, num_overlap=num_overlap)
+    pmin = [0,  5000, 0.1, 0.5, 0.5, 5000, 0.1, 0.5, 0.5]
+    pmax = [1, 25000, 10, 20, 5, 25000, 10, 20, 5]
+
+    solver = evolve.EA(num_params, log_dir=fdir, mu=3, num_select=5, num_offspring=num_offspring, num_parent=40, use_multiprocess=True, num_process=num_process, num_overlap=num_overlap)
     solver.set_min_max(pmin, pmax)
     solver.set_object_func(fobj)
     solver.check_setting()
