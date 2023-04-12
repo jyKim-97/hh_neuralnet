@@ -218,10 +218,10 @@ def get_network_frequency(vlfp, fs=2000):
 
 # Source code for loadding summarys
 class SummaryLoader:
-    def __init__(self, fdir, num_overlap=1):
+    def __init__(self, fdir):
         # read control param infos
         self.fdir = fdir
-        self.num_overlap = num_overlap
+        # self.num_overlap = num_overlap
         self._load_controls()
         self._read_data()
     
@@ -240,11 +240,12 @@ class SummaryLoader:
 
     def _read_data(self):
         fnames = [f for f in os.listdir(self.fdir) if "id" in f and "result" in f]
+        self.num_overlap = self.check_overlap(fnames)
+
         nums = len(fnames)
         nums_expect = 1
         for n in self.num_controls:
             nums_expect *= n
-        # nums_expect *= self.num_overlaps
         
         if nums != nums_expect * self.num_overlap:
             print("Expected number of # results and exact file number are different!: %d/%d"%(nums, nums_expect*self.num_overlap))
@@ -280,11 +281,22 @@ class SummaryLoader:
         # reshape
         for k in var_names:
             shape = np.shape(self.summary[k])[1:]
-            if self.num_overlap == 1:
-                new_shape = list(self.num_controls)+list(shape)
-            else:
-                new_shape = list(self.num_controls)+[self.num_overlap]+list(shape)
+            num_tmp = self.num_controls.copy()
+            if self.num_overlap != 1:
+                num_tmp[-1] *= self.num_overlap # last index corresponds to # of samples
+            new_shape = list(num_tmp)+list(shape)
             self.summary[k] = np.reshape(self.summary[k], new_shape)
+
+    def check_overlap(self, fnames):
+        # check overlap based on the first element
+        f0 = fnames[0]
+        frags = f0.split("_")
+        if len(frags) == 2: # no overlap
+            return 1
+        
+        prefix = frags[0]
+        fsub = [f for f in fnames if prefix in f]
+        return len(fsub)
 
     def get_id(self, *nid):
         return get_id(self.num_controls, *nid)
