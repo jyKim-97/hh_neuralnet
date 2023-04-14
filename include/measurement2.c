@@ -68,6 +68,12 @@ void init_measure(int N, int num_steps, int _num_class_types, int *_type_range){
 
 
 void destroy_measure(void){
+
+    for (int n=0; n<num_check; n++){
+        free(v1[n]);
+        free(v2[n]);
+        free(cum_spk[n]);
+    }
     num_check = 0;
 
     for (int n=0; n<MAX_CHECK_M; n++){
@@ -295,9 +301,6 @@ static void push_flct(){
         memcpy(v1[n-1], v1[n], sz);
         memcpy(v2[n-1], v2[n], sz);
 
-        v_tot1[n-1] = v_tot1[n];
-        v_tot2[n-1] = v_tot2[n];
-
         for (int id=0; id<MAX_CLASS_M; id++){
             v_avg1[n-1][id] = v_avg1[n][id];
             v_avg2[n-1][id] = v_avg2[n][id];
@@ -322,7 +325,6 @@ static void push_spike(){
     
     for (int n=1; n<num_check; n++){
         memcpy(cum_spk[n-1], cum_spk[n], sz);
-        cum_spk[n-1] = cum_spk[n];
     }
 
     if (num_check > 1){

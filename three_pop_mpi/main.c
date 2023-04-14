@@ -13,7 +13,7 @@
 
 extern double _dt;
 extern wbneuron_t neuron;
-#define _debug
+// #define _debug
 #define GetIntSize(arr) sizeof(arr)/sizeof(int)
 
 void run(int job_id, void *idxer_void);
