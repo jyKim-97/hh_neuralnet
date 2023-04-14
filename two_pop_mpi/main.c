@@ -129,18 +129,24 @@ void run(int job_id, void *idxer_void){
     info.taur[1] = tr;
     info.taud[1] = td;
 
-    char fname_info[100];
+    char fname_info[100], fout[200];
     sprintf(fname_info, "id%06d_info.txt", job_id);
-    write_info(&info, path_join(fdir, fname_info));
+    path_join(fbuf, fdir, fname_info);
+    write_info(&info, fbuf);
 
     build_ei_rk4(&info);
 
     int nmax = tmax/_dt;
     #ifdef _debug
     extern desyn_t syns[MAX_TYPE];
-    print_syn_network(&syns[0], path_join(fdir, "ntk_e_debug.txt"));
-    print_syn_network(&syns[1], path_join(fdir, "ntk_i_debug.txt"));
-    write_info(&info, path_join(fdir, "info_debug.txt"));
+    path_join(fout, fdir, "info.txt");
+    write_info(&info, fout);
+    
+    path_join(fout, fdir, "ntk_e.txt");
+    print_syn_network(&syns[0], fout);
+
+    path_join(fout, fdir, "ntk_i.txt");
+    print_syn_network(&syns[1], fout);
 
     progbar_t bar;
     init_progressbar(&bar, nmax);
@@ -166,15 +172,18 @@ void run(int job_id, void *idxer_void){
 
     char fname_res[100];
     sprintf(fname_res, "id%06d_result.txt", job_id);
-    export_result(&obj, path_join(fdir, fname_res));
+    path_join(fbuf, fdir, fname_res);
+    export_result(&obj, fbuf);
 
     char fname_spk[100];
     sprintf(fname_spk, "id%06d_spk.dat", job_id);
-    export_spike(path_join(fdir, fname_spk));
+    path_join(fbuf, fdir, fname_spk);
+    export_spike(fbuf);
 
     char fname_lfp[100];
     sprintf(fname_lfp, "id%06d_lfp.dat", job_id);
-    export_lfp(path_join(fdir, fname_lfp));
+    path_join(fbuf, fdir, fname_lfp);
+    export_lfp(fbuf);
 
     print_job_end(job_id, idxer->len);
 }

@@ -49,11 +49,17 @@ int main(int argc, char **argv){
 void init(){
     nn_info_t info = set_info();
     build_ei_rk4(&info);
-
     extern desyn_t syns[MAX_TYPE];
-    write_info(&info, path_join(fdir, "info.txt"));
-    print_syn_network(&syns[0], path_join(fdir, "ntk_e.txt"));
-    print_syn_network(&syns[1], path_join(fdir, "ntk_i.txt"));
+
+    char fout[200];
+    path_join(fout, fdir, "info.txt");
+    write_info(&info, fout);
+    
+    path_join(fout, fdir, "ntk_e.txt");
+    print_syn_network(&syns[0], fout);
+
+    path_join(fout, fdir, "ntk_i.txt");
+    print_syn_network(&syns[1], fout);
 }
 
 double teq = 500;
@@ -67,9 +73,9 @@ void run(double tmax){
     init_measure(N, nmax, 2, NULL);
     add_checkpoint(0);
 
-    fp_v = fopen(path_join(fdir, "v_out.dat"), "wb");
-    fp_syn_e = fopen(path_join(fdir, "syn_e.dat"), "wb");
-    fp_syn_i = fopen(path_join(fdir, "syn_i.dat"), "wb");
+    fp_v     = open_file_wdir(fdir, "v_out.dat", "wb");
+    fp_syn_e = open_file_wdir(fdir, "syn_e.dat", "wb");
+    fp_syn_i = open_file_wdir(fdir, "syn_i.dat", "wb");
 
     progbar_t bar;
     init_progressbar(&bar, nmax);
@@ -90,14 +96,20 @@ void run(double tmax){
     }
     printf("\n");
 
-    export_spike(path_join(fdir, "spk.dat"));
-    export_lfp(path_join(fdir, "lfp.dat"));
+    char fbuf[200];
+    path_join(fbuf, fdir, "spk.dat");
+    export_spike(fbuf);
+
+    path_join(fbuf, fdir, "lfp.dat");
+    export_lfp(fbuf);
 
     fclose(fp_v);
     fclose(fp_syn_e);
     fclose(fp_syn_i);
     summary_t obj = flush_measure();
-    export_result(&obj, path_join(fdir, "result.txt"));
+
+    path_join(fbuf, fdir, "result.txt");
+    export_result(&obj, fbuf);
 }
 
 

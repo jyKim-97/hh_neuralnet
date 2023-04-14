@@ -13,7 +13,7 @@
 
 extern double _dt;
 extern wbneuron_t neuron;
-// #define _debug
+#define _debug
 #define GetIntSize(arr) sizeof(arr)/sizeof(int)
 
 void run(int job_id, void *idxer_void);
@@ -29,7 +29,7 @@ int N = 2000;
 double iapp = 0;
 // double tmax = 5000;
 // double tmax = 2500;
-double tmax = 5000;
+double tmax = 1500; // 5000
 // double tmax = 10;
 double teq = 500;
 char fdir[100] = "./tmp";
@@ -38,22 +38,29 @@ index_t idxer;
 extern int world_size, world_rank;
 
 int main(int argc, char **argv){
+    #ifndef _debug
     init_mpi(&argc, &argv);
+    set_seed(time(NULL) * world_size * 5 + world_rank*2);
+    #else
+    set_seed(20000);
+    _dt = 0.1;
+    #endif
+
     if (argc == 2){ sprintf(fdir, "%s", argv[1]); }
 
+    set_control_parameters();
+
+    #ifndef _debug
     struct timeval tic, toc;
     gettimeofday(&tic, NULL);
-    set_control_parameters();
-    set_seed(time(NULL) * world_size * 5 + world_rank*2);
     for_mpi(idxer.len, run, &idxer);
-    // for (int n=world_rank; n<idxer.len; n+=world_size){
-    //     run(n, &idxer);
-    // }
-
     if (world_rank == 0){
         gettimeofday(&toc, NULL);
         printf("Simulation done, total elapsed: %.3f hour\n", get_dt(tic, toc)/3600.);
     }
+    #else
+    run(5738, &idxer);
+    #endif
 
     end_simulation();
 }
@@ -105,7 +112,9 @@ void end_simulation(){
     free(beta_set);
     free(id_rank);
     free(p_ratio_set);
+    #ifndef _debug
     end_mpi();
+    #endif
 }
 
 
@@ -237,9 +246,10 @@ void run(int job_id, void *idxer_void){
     print_job_start(job_id, idxer->len);
     nn_info_t info = allocate_setting(job_id, idxer);
 
-    char fname_info[100];
+    char fname_info[100], fbuf[200];;
     sprintf(fname_info, "id%06d_info.txt", job_id);
-    write_info(&info, path_join(fdir, fname_info));
+    path_join(fbuf, fdir, fname_info);
+    write_info(&info, fbuf);
 
     build_ei_rk4(&info);
     allocate_multiple_ext(&info);
@@ -253,7 +263,12 @@ void run(int job_id, void *idxer_void){
     int pop_range[2] = {N/2, N};
     init_measure(N, nmax, 2, pop_range);
     add_checkpoint(0);
-    // init_measure(info.N, nmax, 4, info.type_range);
+    
+    #ifdef _debug
+    progbar_t bar;
+    init_progressbar(&bar, nmax);
+    #endif
+
     for (int nstep=0; nstep<nmax; nstep++){
         if ((flag_eq == 0) && (nstep == neq)){
             flush_measure();
@@ -267,7 +282,8 @@ void run(int job_id, void *idxer_void){
                 summary_t obj = flush_measure();
                 char fname_res[100];
                 sprintf(fname_res, "id%06d_%02d_result.txt", job_id, nstack);
-                export_result(&obj, path_join(fdir, fname_res));
+                path_join(fbuf, fdir, fname_res);
+                export_result(&obj, fbuf);
                 nstack ++;
             }
         }
@@ -284,21 +300,18 @@ void run(int job_id, void *idxer_void){
     summary_t obj = flush_measure();
     char fname_res[100];
     sprintf(fname_res, "id%06d_%02d_result.txt", job_id, nstack);
-    export_result(&obj, path_join(fdir, fname_res));
-
-    // summary_t obj = flush_measure();
-    // char fname_res[100];
-    // sprintf(fname_res, "id%06d_result.txt", job_id);
-    // export_result(&obj, path_join(fdir, fname_res));
-
+    path_join(fbuf, fdir, fname_res);
+    export_result(&obj, fbuf);
 
     char fname_spk[100];
     sprintf(fname_spk, "id%06d_spk.dat", job_id);
-    export_spike(path_join(fdir, fname_spk));
+    path_join(fbuf, fdir, fname_spk);
+    export_spike(fbuf);
 
     char fname_lfp[100];
     sprintf(fname_lfp, "id%06d_lfp.dat", job_id);
-    export_lfp(path_join(fdir, fname_lfp));
+    path_join(fbuf, fdir, fname_lfp);
+    export_lfp(fbuf);
 
     destroy_neuralnet();
     destroy_measure();
