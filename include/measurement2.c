@@ -69,6 +69,7 @@ void init_measure(int N, int num_steps, int _num_class_types, int *_type_range){
 
 void destroy_measure(void){
     num_check = 0;
+
     for (int n=0; n<MAX_CHECK_M; n++){
         cum_steps[n] = 0;
         check_steps[n] = 0;
@@ -274,6 +275,7 @@ summary_t flush_measure(void){
     check_steps[num_check-1] = 0;
 
     num_check--;
+    // printf("num_check: %d\n", num_check);
 
     return obj;
 }
@@ -282,9 +284,16 @@ summary_t flush_measure(void){
 static void push_flct(){
     free(v1[0]);
     free(v2[0]);
+    int sz = sizeof(double) * ntk_size;
+
+    if (num_check > 1){
+        v1[0] = (double*) malloc(sz);
+        v2[0] = (double*) malloc(sz);
+    }
+
     for (int n=1; n<num_check; n++){
-        v1[n-1] = v1[n];
-        v2[n-1] = v2[n];
+        memcpy(v1[n-1], v1[n], sz);
+        memcpy(v2[n-1], v2[n], sz);
 
         v_tot1[n-1] = v_tot1[n];
         v_tot2[n-1] = v_tot2[n];
@@ -296,17 +305,29 @@ static void push_flct(){
 
     }
 
-    v1[num_check-1] = NULL;
-    v2[num_check-1] = NULL;
+    if (num_check > 1){
+        free(v1[num_check-1]);
+        free(v2[num_check-1]);
+    }
 }
 
 
 static void push_spike(){
     free(cum_spk[0]);
+    int sz = sizeof(int) * ntk_size;
+
+    if (num_check > 1){
+        cum_spk[0] = (int*) malloc(sz);
+    }
+    
     for (int n=1; n<num_check; n++){
+        memcpy(cum_spk[n-1], cum_spk[n], sz);
         cum_spk[n-1] = cum_spk[n];
     }
-    cum_spk[num_check-1] = NULL;
+
+    if (num_check > 1){
+        free(cum_spk[num_check-1]);
+    }
 }
 
 
@@ -485,6 +506,7 @@ void export_spike(const char *fname){
     for (int n=0; n<ntk_size; n++){
         fwrite(step_spk[n], sizeof(int), num_spk[n], fp);
     }
+    fclose(fp);
 }
 
 
