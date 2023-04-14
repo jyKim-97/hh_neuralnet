@@ -106,8 +106,8 @@ void check_fire(wbneuron_t *neuron, double *v_prev){
 
 void init_desyn(int N, desyn_t *syn){
     syn->N = N;
-    syn->num_indeg  = (int*) calloc(N, sizeof(int));
-    syn->indeg_list = (int**) malloc(N * sizeof(int*));
+    syn->num_indeg  = NULL; //(int*) calloc(N, sizeof(int));
+    syn->indeg_list = NULL; //(int**) malloc(N * sizeof(int*));
     syn->expr = (double*) calloc(N, sizeof(double));
     syn->expd = (double*) calloc(N, sizeof(double));
     syn->w_list = NULL;
@@ -303,20 +303,27 @@ double get_current(desyn_t *syn, int nid, double vpost){
 
 
 void destroy_desyn(desyn_t *syn){
+    int N = syn->N;
+
     if (syn->num_indeg != NULL){
         free(syn->num_indeg);
+        for (int n=0; n<N; n++){
+            free(syn->indeg_list[n]);
+        }
         free(syn->indeg_list);
     }
 
-    int N = syn->N;
     if (syn->is_ext){
         free(syn->w_ext);
         free(syn->nu_ext);
+        free(syn->expl);
     } else {
         for (int n=0; n<N; n++){
             free(syn->w_list[n]);
+            // free(syn->indeg_list[n]);
         }
         free(syn->w_list);
+        // free(syn->indeg_list);
     }
 
     if (!syn->is_const_delay){
