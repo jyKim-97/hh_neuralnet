@@ -90,34 +90,45 @@ FILE *open_file(const char *fname, const char *option){
 
 
 FILE *open_file_wdir(const char *fdir, const char *fname, const char *option){
-    char *fbuf = path_join(fdir, fname);
+    // char *fbuf = path_join(fdir, fname);
+    char fbuf[200];
+    path_join(fbuf, fdir, fname);
     FILE *fp = open_file(fbuf, option);
     return fp;
 }
 
 
-char *path_join(const char *fdir, const char *fname){
-    char buf[200];
-    strcpy(buf, fdir);
+// char *path_join(const char *fdir, const char *fname){
+//     char buf[200];
+//     strcpy(buf, fdir);
+//     int l = (int) strlen(fdir);
+//     char last = fdir[l-1];
+//     if (last != '/') strcat(buf, "/");
+
+//     strcat(buf, fname);
+
+//     // get len
+//     int len = 0;
+//     char *c = buf;
+//     while (*c != '\0'){
+//         len++;
+//         c++;
+//     }
+
+//     char *buf_return = (char*) malloc(sizeof(char) * (len+1));
+//     for (int n=0; n<len; n++){
+//         buf_return[n] =  buf[n];
+//     }
+//     buf_return[len] = '\0';
+
+//     return buf_return;
+// }
+
+void path_join(char fout[], const char *fdir, const char *fname){
+    strcpy(fout, fdir);
     int l = (int) strlen(fdir);
     char last = fdir[l-1];
-    if (last != '/') strcat(buf, "/");
+    if (last != '/') strcat(fout, "/");
 
-    strcat(buf, fname);
-
-    // get len
-    int len = 0;
-    char *c = buf;
-    while (*c != '\0'){
-        len++;
-        c++;
-    }
-
-    char *buf_return = (char*) malloc(sizeof(char) * (len+1));
-    for (int n=0; n<len; n++){
-        buf_return[n] =  buf[n];
-    }
-    buf_return[len] = '\0';
-
-    return buf_return;
+    strcat(fout, fname);
 }
