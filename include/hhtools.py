@@ -85,8 +85,8 @@ def draw_spk(step_spk, dt=0.01, sequence=None, xl=None, color_ranges=None, color
     if sequence is None:
         sequence = np.arange(N)
     else:
-        if len(sequence) != N:
-            raise ValueError("Length of sequence (%d) does not match to N (%d)"%(len(sequencye), N))
+        if len(sequence) >= N:
+            raise ValueError("Length of sequence (%d) exceeds N (%d)"%(len(sequence), N))
 
     cid = 0
     for n, nid in enumerate(sequence):
@@ -102,7 +102,7 @@ def draw_spk(step_spk, dt=0.01, sequence=None, xl=None, color_ranges=None, color
 
         plt.plot(t_spk, np.ones_like(t_spk)*n, '.', ms=ms, c=c)
     plt.xlim(xl)
-    plt.ylim([0, N])
+    plt.ylim([0, len(sequence)])
 
 
 # def get_autocorr(x, t, tlag_max):
@@ -123,97 +123,26 @@ def draw_spk(step_spk, dt=0.01, sequence=None, xl=None, color_ranges=None, color
 #     return xcorr, lags
 
 
-def get_autocorr(x, t, tlag_max):
-    dt = t[1] - t[0]
-    idt = t >= 1
+# def get_autocorr(x, t, tlag_max):
+#     dt = t[1] - t[0]
+#     idt = t >= 1
     
-    num_lag = int(tlag_max/dt)
-    arr_app = np.zeros(num_lag)
+#     num_lag = int(tlag_max/dt)
+#     arr_app = np.zeros(num_lag)
     
-    x_cp = np.copy(x)[idt]
-    x_cp = x_cp - np.average(x_cp)
-    y = np.concatenate((arr_app, x_cp, arr_app))
-    xcorr = np.correlate(y, x_cp, mode="valid")
+#     x_cp = np.copy(x)[idt]
+#     x_cp = x_cp - np.average(x_cp)
+#     y = np.concatenate((arr_app, x_cp, arr_app))
+#     xcorr = np.correlate(y, x_cp, mode="valid")
     
-    l = len(xcorr)//2
-    norm = np.concatenate((np.arange(0, num_lag+1), np.arange(num_lag,0,-1)))
-    norm = len(x_cp) - norm
-    # norm = np.concatenate((np.arange(num_lag+1), np.arange(l,0,-1)+1))
-    xcorr = xcorr/norm
-    lags = np.arange(-num_lag, num_lag+1) * dt
+#     l = len(xcorr)//2
+#     norm = np.concatenate((np.arange(0, num_lag+1), np.arange(num_lag,0,-1)))
+#     norm = len(x_cp) - norm
+#     # norm = np.concatenate((np.arange(num_lag+1), np.arange(l,0,-1)+1))
+#     xcorr = xcorr/norm
+#     lags = np.arange(-num_lag, num_lag+1) * dt
     
-    return xcorr, lags
-
-
-def get_fft(x, fs, nbin=None, nbin_t=None, frange=None):
-    if nbin is None and nbin_t is None:
-        N = len(x)
-    elif nbin_t is not None:
-        N = int(nbin_t*fs)
-    elif nbin is not None:
-        N = nbin
-
-    yf = np.fft.fft(x, axis=0, n=N)
-    yf = 2/N * np.abs(yf[:N//2])
-    freq = np.linspace(0, 1/2*fs, N//2)
-
-    if frange is not None:
-        if frange[0] is None:
-            frange[0] = freq[0]
-        if frange[1] is None:
-            frange[1] = freq[-1]
-        idf = (freq >= frange[0]) & (freq <= frange[1])
-        yf = yf[idf]
-        freq = freq[idf]
-
-    return yf, freq
-
-
-def get_stfft(x, t, fs, mbin_t=0.1, wbin_t=1, f_range=None, buf_size=100):
-
-    wbin = int(wbin_t * fs)
-    mbin = int(mbin_t * fs)
-    window = np.hanning(wbin)
-    
-    ind = np.arange(wbin//2, len(t)-wbin//2, mbin, dtype=int)
-    psd = np.zeros([wbin//2, len(ind)])
-    
-    n_id = 0
-    while n_id < len(ind):
-        n_buf = min([buf_size, len(ind)-n_id])
-        y = np.zeros([wbin, n_buf])
-
-        for i in range(n_buf):
-            n = i + n_id
-            n0 = max([0, ind[n]-wbin//2])
-            n1 = min([ind[n]+wbin//2, len(t)])
-            y[n0-(ind[n]-wbin//2):wbin-(ind[n]+wbin//2)+n1, i] = x[n0:n1]
-        y = y * window[:,np.newaxis]
-        yf, fpsd = get_fft(y, fs)
-        psd[:, n_id:n_id+n_buf] = yf
-
-        n_id += n_buf
-    
-    if f_range is not None:
-        idf = (fpsd >= f_range[0]) & (fpsd <= f_range[1])
-        psd = psd[idf, :]
-        fpsd = fpsd[idf]
-    tpsd = ind / fs
-    
-    return psd, fpsd, tpsd
-
-
-def get_network_frequency(vlfp, fs=2000):
-    from scipy.signal import find_peaks
-
-    yf, freq = get_fft(vlfp, fs)
-    idf = (freq >= 2) & (freq < 200)
-    yf = yf[idf]
-    freq = freq[idf]
-
-    inds = find_peaks(yf)[0]
-    n = np.argmax(yf[inds])
-    return freq[inds[n]]
+#     return xcorr, lags
 
 
 # Source code for loadding summarys
@@ -246,6 +175,7 @@ class SummaryLoader:
         nums_expect = 1
         for n in self.num_controls:
             nums_expect *= n
+        self.num_total = nums_expect
         
         if nums != nums_expect * self.num_overlap:
             print("Expected number of # results and exact file number are different!: %d/%d"%(nums, nums_expect*self.num_overlap))
@@ -302,7 +232,10 @@ class SummaryLoader:
         return get_id(self.num_controls, *nid)
     
     def load_detail(self, *nid):
-        n = get_id(self.num_controls, *nid)
+        if len(nid) == 1:
+            n = nid[0]
+        else:
+            n = get_id(self.num_controls, *nid)
         tag = os.path.join(self.fdir, "id%06d"%(n))
         data = {}
         data["step_spk"], _ = load_spk(tag+"_spk.dat")
@@ -343,13 +276,12 @@ class SummaryLoader:
 
 def get_id(num_xs, *nid):
     if len(nid) != len(num_xs):
-        print("The number of arguments does not match to expected #")
+        raise ValueError("The number of arguments does not match to expected #")
     num_tag = 0
     stack = 1
     for n in range(len(nid)-1, -1, -1):
         if nid[n] >= num_xs[n]:
-            print("Wrong index number typed, size", num_xs, "typed", nid)
-            return -1
+            raise ValueError("Wrong index number typed, size", num_xs, "typed", nid)
         num_tag += stack * nid[n]
         stack *= num_xs[n]
     
