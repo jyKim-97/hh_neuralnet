@@ -1,4 +1,4 @@
-/*
+/*printf("%f, %d, %f\n", var_tot, ntk_size, var_indiv_tot);
 Source code for measurement
 */
 #include "measurement2.h"
@@ -290,16 +290,18 @@ summary_t flush_measure(void){
 static void push_flct(){
     free(v1[0]);
     free(v2[0]);
-    int sz = sizeof(double) * ntk_size;
 
     if (num_check > 1){
-        v1[0] = (double*) malloc(sz);
-        v2[0] = (double*) malloc(sz);
+        v1[0] = (double*) calloc(ntk_size, sizeof(double));
+        v2[0] = (double*) calloc(ntk_size, sizeof(double));
     }
 
     for (int n=1; n<num_check; n++){
+        int sz = sizeof(double) * ntk_size;
         memcpy(v1[n-1], v1[n], sz);
         memcpy(v2[n-1], v2[n], sz);
+        v_tot1[n-1] = v_tot1[n];
+        v_tot2[n-1] = v_tot2[n];
 
         for (int id=0; id<MAX_CLASS_M; id++){
             v_avg1[n-1][id] = v_avg1[n][id];
@@ -418,8 +420,6 @@ static void calculate_flct(summary_t *obj){
     v_tot1[0] /= cum_steps[0];
     double var_tot = v_tot2[0] - v_tot1[0] * v_tot1[0];
     obj->chi[0] = sqrt(var_tot * ntk_size/var_indiv_tot);
-
-    // printf("cum steps: %d, var_tot: %f, var_indiv_tot: %f\n", cum_steps[0], var_tot, var_indiv_tot/ntk_size);
 
     // each class
     for (int id=0; id<num_class_types; id++){
