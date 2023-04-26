@@ -2,6 +2,7 @@
 import numpy as np
 import os
 import matplotlib.pyplot as plt
+import pickle as pkl
 
 
 def load_spk(fname):
@@ -187,6 +188,12 @@ class SummaryLoader:
         for k in var_names:
             self.summary[k] = []
 
+        fcache = os.path.join(self.fdir, "summary.pkl")
+        if os.path.exists(fcache):
+            with open(fcache, "rb") as fp:
+                self.summary = pkl.load(fp)
+                return
+
         for n in range(nums_expect):
 
             for i in range(self.num_overlap):
@@ -217,6 +224,13 @@ class SummaryLoader:
                 num_tmp[-1] *= self.num_overlap # last index corresponds to # of samples
             new_shape = list(num_tmp)+list(shape)
             self.summary[k] = np.reshape(self.summary[k], new_shape)
+
+        # save cache
+        self._save_cache()
+    
+    def _save_cache(self):
+        with open(os.path.join(self.fdir, "summary.pkl"), "wb") as fp:
+            pkl.dump(self.summary, fp)
 
     def check_overlap(self, fnames):
         # check overlap based on the first element

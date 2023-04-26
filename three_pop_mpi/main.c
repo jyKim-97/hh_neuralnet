@@ -29,7 +29,7 @@ int N = 2000;
 double iapp = 0;
 // double tmax = 5000;
 // double tmax = 2500;
-double tmax = 1500; // 5000
+double tmax = 5000;
 // double tmax = 10;
 double teq = 500;
 char fdir[100] = "./tmp";
@@ -43,7 +43,8 @@ int main(int argc, char **argv){
     set_seed(time(NULL) * world_size * 5 + world_rank*2);
     #else
     set_seed(20000);
-    _dt = 0.1;
+    _dt = 0.05;
+    tmax = 4000;
     #endif
 
     if (argc == 2){ sprintf(fdir, "%s", argv[1]); }
@@ -59,7 +60,7 @@ int main(int argc, char **argv){
         printf("Simulation done, total elapsed: %.3f hour\n", get_dt(tic, toc)/3600.);
     }
     #else
-    run(5738, &idxer);
+    run(701, &idxer);
     #endif
 
     end_simulation();
