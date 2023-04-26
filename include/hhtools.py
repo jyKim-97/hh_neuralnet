@@ -342,7 +342,7 @@ def read_info(info_string):
 
         if flag_type == 1 and len(info[key_p][key]) == 1:
             info[key_p][key] = info[key_p][key][0]
-        elif flag_type != 1 and len(info[key]) == 1:
+        elif flag_type == 0 and len(info[key]) == 1:
             info[key] = info[key][0]
           
     return info
