@@ -168,6 +168,7 @@ class SummaryLoader:
                 line = fid.readline()
 
     def _read_data(self):
+        # NOTE: pkl 파일 체크
         fnames = [f for f in os.listdir(self.fdir) if "id" in f and "result" in f]
         self.num_overlap = self.check_overlap(fnames)
 
@@ -272,6 +273,58 @@ class SummaryLoader:
         print("Save summary to %s"%(f))
         with open(f, "wb") as fid:
             pkl.dump(self, fid)
+
+
+def read_info(info_string):
+    import re
+
+    def isfloat(s):
+        try:
+            _ = float(s)
+            return True
+        except:
+            return False
+
+    key = None
+    info = dict()
+    for l in info_string:
+        l_split = re.split(r":|,", l[:-1])
+
+        # remove if there is any "" or " "
+        for n in range(len(l_split)-1, 0, -1):
+            l_split[n] = l_split[n].strip()
+            if l_split[n] == "":
+                l_split.pop(n)
+
+        num_split = len(l_split)
+        # get key
+        tmp_key = ''
+        nl = 0
+        flag_semi = False
+        while (nl < num_split) and not isfloat(l_split[nl]):
+            if flag_semi:
+                s = "; " + l_split[nl]
+            else:
+                s = l_split[nl]
+            tmp_key += s
+            flag_semi = True
+            nl += 1
+        
+        if tmp_key == "":
+            info[key].append([])
+            flag_2d = True
+        else:
+            key = tmp_key
+            info[key] = []
+            flag_2d = False
+
+        for i in range(nl, num_split):
+            if flag_2d:
+                info[key][-1].append(float(l_split[i]))
+            else:
+                info[key].append(float(l_split[i]))
+        
+    return info
 
 
 def get_id(num_xs, *nid):
