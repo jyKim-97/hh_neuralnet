@@ -286,6 +286,8 @@ def read_info(info_string):
             return False
 
     key = None
+    key_p = None
+    flag_type = 0
     info = dict()
     for l in info_string:
         l_split = re.split(r":|,", l[:-1])
@@ -309,21 +311,40 @@ def read_info(info_string):
             tmp_key += s
             flag_semi = True
             nl += 1
-        
-        if tmp_key == "":
-            info[key].append([])
-            flag_2d = True
-        else:
+
+        if tmp_key != "": # key is given
             key = tmp_key
-            info[key] = []
-            flag_2d = False
+            if nl < num_split:
+                if flag_type != 1:
+                    info[key] = []
+                    flag_type = 0
+                else:
+                    info[key_p][key] = []
+            else:
+                flag_type = 1
+                key_p = key
+                info[key_p] = {}
+                continue
+        else: # 2D case
+            if flag_type == 1:
+                info[key] = [[]]
+            else:
+                info[key].append([])
+            flag_type = 2
 
         for i in range(nl, num_split):
-            if flag_2d:
-                info[key][-1].append(float(l_split[i]))
-            else:
+            if flag_type == 0:
                 info[key].append(float(l_split[i]))
-        
+            elif flag_type == 1:
+                info[key_p][key].append(float(l_split[i]))
+            else:
+                info[key][-1].append(float(l_split[i]))
+
+        if flag_type == 1 and len(info[key_p][key]) == 1:
+            info[key_p][key] = info[key_p][key][0]
+        elif flag_type != 1 and len(info[key]) == 1:
+            info[key] = info[key][0]
+          
     return info
 
 
