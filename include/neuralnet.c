@@ -90,10 +90,12 @@ void build_ei_rk4(nn_info_t *info){
     }
 
     double ev_set[MAX_TYPE] = {ev_e, ev_i, ev_i, ev_i};
-    if (num_types == 4){
+    if (num_types == 1){
+        ev_set[0] = ev_i;
+    } else if (num_types == 4){
         ev_set[2] = ev_e; ev_set[3] = ev_i;
-    } else if (num_types > 4){
-        printf("num_types exceeds expected (neuralnet.c: build_ei_rk4)\n");
+    } else {
+        printf("num_types (%d) exceeds expected (neuralnet.c: build_ei_rk4)\n", num_types);
         exit(1);
     }
 
@@ -190,7 +192,10 @@ void check_multiple_input(){
 
 static void set_cell_range(void){
 
-    if (num_types == 2){
+    if (num_types == 1){
+        cell_range[0][0] = 0;
+        cell_range[0][1] = num_cells;
+    }else if (num_types == 2){
         cell_range[0][0] = 0;
         cell_range[0][1] = num_cells * cell_ratio2[0];
         cell_range[1][0] = num_cells * cell_ratio2[0];
@@ -210,7 +215,6 @@ static void set_cell_range(void){
             cell_range[n][1] = ncum + tmp_num_types[n];
             ncum += tmp_num_types[n];
         }
-
     } else {
         printf("not expected number of types (neuralnet.c: set_cell_range)\n");
         exit(1);
@@ -261,7 +265,7 @@ void write_info(nn_info_t *info, char *fname){
     fprintf(fp, "w:\n");
     fprintf2d_d(fp, info->w);
     
-    fprintf(fp, "taur, taud\n");
+    fprintf(fp, "taur, taud:\n");
     for (int n=0; n<num_types; n++){
         fprintf(fp, "%f, %f\n", info->taur[n], info->taud[n]);
     }
