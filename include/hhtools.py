@@ -256,6 +256,7 @@ class SummaryLoader:
         data["step_spk"], _ = load_spk(tag+"_spk.dat")
         data["vlfp"], fs = load_vlfp(tag+"_lfp.dat")
         data["ts"] = np.arange(len(data["vlfp"][0])) / fs
+        data["nid"] = nid
         if os.path.exists(tag+"_info.txt"):
             with open(tag+"_info.txt", "r") as fid:
                 data["info"] = fid.readlines()
