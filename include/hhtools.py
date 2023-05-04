@@ -411,13 +411,21 @@ def read_summary(fname):
 def imshow_xy(im, x=None, y=None, **kwargs):
     extent = []
     if x is not None:
-        extent = [x[0], x[-1]]
+        if len(x) != im.shape[1]:
+            raise ValueError("len(x)=%d and im.shape[1]=%d do not match"%(len(x), im.shape[1]))
+
+        dx = (x[1] - x[0])/2
+        extent = [x[0]-dx, x[-1]+dx]
     else:
-        extent = [0, np.shape(im)[1]]
+        extent = [-0.5, np.shape(im)[1]-0.5]
     if y is not None:
-        extent.extend([y[0], y[-1]])
+        if len(y) != im.shape[0]:
+            raise ValueError("len(y)=%d and im.shape[0]=%d do not match"%(len(y), im.shape[0]))
+
+        dy = (y[1] - y[0])/2
+        extent.extend([y[0]-dy, y[-1]+dy])
     else:
-        extent.extend([0, np.shape(im)[0]])
+        extent.extend([-0.5, np.shape(im)[0]-0.5])
     
     return plt.imshow(im, aspect="auto", extent=extent, origin="lower", **kwargs)
 
