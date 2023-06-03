@@ -92,8 +92,11 @@ void build_ei_rk4(nn_info_t *info){
     double ev_set[MAX_TYPE] = {ev_e, ev_i, ev_i, ev_i};
     if (num_types == 1){
         ev_set[0] = ev_i;
+    } else if (num_types == 2){
+        ev_set[0] = ev_e; 
+        ev_set[2] = ev_e; 
     } else if (num_types == 4){
-        ev_set[2] = ev_e; ev_set[3] = ev_i;
+        ev_set[2] = ev_e;
     } else {
         printf("num_types (%d) exceeds expected (neuralnet.c: build_ei_rk4)\n", num_types);
         exit(1);
