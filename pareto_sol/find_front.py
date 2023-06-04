@@ -9,14 +9,21 @@ from collections import defaultdict, OrderedDict
 import traceback
 import time
 from pymoo.core.problem import Problem
+import functools
+
 from pymoo.util.display.column import Column
 from pymoo.util.display.output import Output
+from pymoo.util.display.single import MinimumConstraintViolation, AverageConstraintViolation
+from pymoo.util.display.multi import MultiObjectiveOutput
 import argparse
+
+import signal
 
 sys.path.append("../include")
 import hhtools
 
 _debug = False
+_single_core = False
 num_parllel = 20 # Need to be controlled by arg
 
 num_type = 2
@@ -46,8 +53,8 @@ max_wait_time = 1000
 # introduce loose constraints
 eps_fr = 1
 eps_chi = 0.05
-th_fr = 8
-th_cv = 0.8
+th_fr = 10
+th_cv = 0.6
 
 # ============= Parameter setting =============
 key_names = ["ge", "gei", "gi0e", "gi1e", "gi0", "gi1", "pe", "pei", "pi0e", "pi1e", "pi0", "pi1", "tlag", "nu_ext"]
@@ -57,33 +64,66 @@ bound_param = [[1e-3, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3, 5e-2, 5e-2, 5e-2, 5e-2, 5e-2
 # ==============================================
 
 
-def solve_problem(problem, pop_size=20, n_offspring=10, n_terminal=1, seed=1):
-    from pymoo.algorithms.moo.nsga2 import NSGA2
-    from pymoo.operators.crossover.sbx import SBX
-    from pymoo.operators.mutation.pm import PM
-    from pymoo.operators.sampling.rnd import FloatRandomSampling
-    from pymoo.termination import get_termination
-    from pymoo.optimize import minimize
+from pymoo.algorithms.moo.nsga2 import NSGA2
+from pymoo.operators.crossover.sbx import SBX
+from pymoo.operators.mutation.pm import PM
+from pymoo.operators.sampling.rnd import FloatRandomSampling
+from pymoo.termination import get_termination
+from pymoo.optimize import minimize
 
 
-    algorithm = NSGA2(
-        pop_size=pop_size,
-        n_offspring=n_offspring,
-        sampling=FloatRandomSampling(),
-        crossover=SBX(prob=0.9, eta=10),
-        mutation=PM(eta=20),
-        elimiate_duplicates=True
-    )
+def solver_handler(func):
+    @functools.wraps(func)
+    def wrapper(self, problem, *args, **kwargs):
 
-    termination = get_termination("n_gen", n_terminal)
-    res = minimize(problem, algorithm, termination, seed=seed,
-                   save_history=True, verbose=True, output=PrintLog())
-    return res
+        def error_handler(sig, frame):
+            print("\nTermination...\n")
+            save_moo(None, problem, self.algorithm)
+            exit(1)
+            
+        signal.signal(signal.SIGINT, error_handler)
+
+        try:
+            return func(self, problem, *args, **kwargs)
+        
+        except Exception as e:
+            print("Exception occcured")
+            traceback.print_exception(e)
+            error_handler(None, None)
+    
+    return wrapper
 
 
-class PrintLog(Output):
+class Solver:
+    def __init__(self, pop_size=20, n_offspring=10):
+
+        self.algorithm = NSGA2(
+            pop_size=pop_size,
+            n_offspring=n_offspring,
+            sampling=FloatRandomSampling(),
+            crossover=SBX(prob=0.9, eta=10),
+            mutation=PM(eta=20),
+            elimiate_duplicates=True
+        )
+        self.problem = None
+
+    @solver_handler
+    def solve(self, problem, n_terminal=1, seed=100):
+        # signal.signal(signal.SIGINT, self._handler)
+
+        self.problem = problem
+        termination = get_termination("n_gen", n_terminal)
+        res = minimize(self.problem, self.algorithm, termination, seed=seed,
+                    save_history=True, verbose=True, output=PrintLog(),
+                    return_least_infeasible=True)
+        save_moo(res, self.problem, self.algorithm)
+        return res
+
+
+class PrintLog(MultiObjectiveOutput):
     def __init__(self):
         super().__init__()
+        # self.n_nds = Column("n_nds", width=10)
         self.chi0 = Column("mean_chi0", width=10)
         self.dchi = Column("delta_chi", width=10)
         self.fr0  = Column("mean_fr0", width=10)
@@ -93,6 +133,8 @@ class PrintLog(Output):
     
     def update(self, algorithm):
         super().update(algorithm)
+
+        # n_nds = len(algorithm.opt)
         chi0 = np.average(1 - algorithm.pop.get("F")[:, 0])
         dchi = np.average(algorithm.pop.get("G")[:, 1] + eps_chi)
         fr0 = th_fr * (1 + np.average(algorithm.pop.get("G")[:, 2]))
@@ -100,18 +142,22 @@ class PrintLog(Output):
         cv_tmp = (np.average(algorithm.pop.get("G")[:, 4]) + np.average(algorithm.pop.get("G")[:, 5]))/2
         cv = th_cv * (1 - cv_tmp)
 
+        # self.n_nds.set(n_nds)
         self.chi0.set(chi0)
         self.dchi.set(dchi)
         self.fr0.set(fr0)
         self.fr1.set(fr1)
         self.cvs.set(cv)
+        time.sleep(0.1)
 
 
 class OptTarget(Problem):
     def __init__(self, bound_lower, bound_upper):
         n_var = len(key_params)
 
-        super().__init__(n_var=n_var, n_obj=num_obj, n_ieq_constr=num_constr,
+        # super().__init__(n_var=n_var, n_obj=num_obj, n_ieq_constr=num_constr,
+        #                  xl=np.array(bound_lower), xu=np.array(bound_upper))
+        super().__init__(n_var=n_var, n_obj=num_obj, n_ieq_constr=6,
                          xl=np.array(bound_lower), xu=np.array(bound_upper))
         self.pid = 0 
     
@@ -127,18 +173,21 @@ class OptTarget(Problem):
         
         run_given_params(params, pid_set)
 
-        # evalulate
-        score_f = []
-        score_g = []
-        for pid in pid_set:
-            score = calculate_fitness(pid)
-            score_f.append(score["F"])
-            score_g.append(score["G"])
-        
-        out["F"] = np.array(score_f)
-        out["G"] = np.array(score_g)
-        # out["F"] = np.random.uniform(size=(20, 2))
-        # out["G"] = np.random.uniform(size=(20, 6))
+        if _debug:
+            pop_size = params.shape[0]
+            out["F"] = np.random.uniform(size=(pop_size, 2)) * 5
+            out["G"] = np.random.uniform(size=(pop_size, 6)) * 5
+        else:
+            score_f = []
+            score_g = []
+            for pid in pid_set:
+                score = calculate_fitness(pid)
+                score_f.append(score["F"])
+                score_g.append(score["G"])
+            
+            out["F"] = np.array(score_f)
+            out["G"] = np.array(score_g)
+
 
 
 def run_single(cmd):
@@ -147,6 +196,9 @@ def run_single(cmd):
 
 
 def run_with_mpi(cmd):
+    if _debug:
+        return
+
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy)
     ssh.connect("10.100.1.75")
@@ -179,18 +231,16 @@ def run_given_params(params, pid_set):
     start_id = pid_set[0]
     num_samples = len(pid_set) * num_type
     while num_samples > 0:
-        if _debug:
+        if _single_core:
             num_take = 1
             tic = time.time()
             cmd = "run_simul.out --start_id %d --len %d --tmax %d"%(start_id, num_take, 600) # Notion: run in Window system
             run_single(cmd)
+            print("Job id %4d Done, elapsed=%.3f s"%(start_id, time.time()-tic))
         else:
             num_take = min([num_samples, num_take])
             cmd = "/usr/lib64/mpich/bin/mpirun -np %d --hostfile %s/host %s/run_simul.out --start_id %d --len %d"%(num_take+1, fdir, fdir, start_id, num_take)
             run_with_mpi(cmd)
-
-        if _debug:
-            print("Job id %4d Done, elapsed=%.3f s"%(start_id, time.time()-tic))
 
         num_samples -= num_take
         start_id += num_take
@@ -202,7 +252,7 @@ def calculate_fitness(pid):
 
     # objective function (target to optimize, min f)
     f0 = 1-data["chi"][0]
-    f1 = data["frs_m"][0]
+    f1 = th_fr - data["frs_m"][0]
 
     # constraints, g < 0
     g0 = abs(data["frs_m"][1] - data["frs_m"][0]) - eps_fr
@@ -221,6 +271,9 @@ def calculate_fitness(pid):
 def generate_info(param, pid):
     if len(key_names) != len(param):
         raise ValueError("Size does not match betwen 'key_names' and 'param'")
+
+    if _debug:
+        return
 
     for n in range(num_type):
         fname = os.path.join(fdir_param, "param_%04d.txt"%(pid+n))
@@ -267,7 +320,7 @@ def load_result(pid):
     return data
 
 
-def save_moo(res, problem):
+def save_moo(res, problem, algorithm):
     import pickle as pkl
 
     n = 0
@@ -278,7 +331,8 @@ def save_moo(res, problem):
 
     print("Save to %s"%(fname))
     simul = {"result": res,
-             "problem": problem}
+             "problem": problem,
+             "algorithm": algorithm}
 
     with open(fname, "wb") as f:
         pkl.dump(simul, f)
@@ -291,6 +345,5 @@ if __name__ == "__main__":
 # argParser.add_argument()
 
     problem = OptTarget(bound_param[0], bound_param[1])
-    res = solve_problem(problem, pop_size=20, n_offspring=10, n_terminal=5)
-    save_moo(res, problem)
-
+    solver = Solver()
+    solver.solve(problem, n_terminal=200, seed=100)
