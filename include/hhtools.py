@@ -86,7 +86,7 @@ def draw_spk(step_spk, dt=0.01, sequence=None, xl=None, color_ranges=None, color
     if sequence is None:
         sequence = np.arange(N)
     else:
-        if len(sequence) >= N:
+        if len(sequence) > N:
             raise ValueError("Length of sequence (%d) exceeds N (%d)"%(len(sequence), N))
 
     cid = 0

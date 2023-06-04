@@ -97,7 +97,6 @@ def get_correlation(x, y, srate, max_lag=None):
     
     # cc = correlate(xn, yn, mode="full", method="fft")/std[0]/std[1]
     tlag = np.arange(-max_lag, max_lag+1/srate/10, 1/srate)
-    print(max_lag, srate)
     
     # get normalization block
     # nc = len(cc)

@@ -8,13 +8,15 @@
 #include "measurement2.h"
 
 
-#define _debug
+// #define _debug
+#define _mpi
 
 #ifdef _mpi
 #include "mpifor.h"
 extern int world_rank, world_size;
 #endif
 
+// mpicc -I../include -O2 -o ./run_simul.out ../include/mpifor.o ./run_simul.c -L../lib -lhhnet -lm
 
 int N = 1000;
 nn_info_t allocate_simulation_param(const char *fname);
@@ -24,7 +26,7 @@ double teq = 500;
 double tmax = 1500;
 int flag_eq = 0;
 // char fdir[] = "/home/jungyoung/Project/hh_neuralnet/pareto_sol";
-char fdir[20] = "./";
+char fdir[100] = "/home/jungyoung/Project/hh_neuralnet/pareto_sol";
 
 int main(int argc, char **argv){
 
@@ -56,6 +58,7 @@ int main(int argc, char **argv){
 
     int job_id = start_id + world_rank;
     char finfo[100];
+
     sprintf(finfo, "%s/params/param_%04d.txt", fdir, job_id);
     nn_info_t info = allocate_simulation_param(finfo);
 

@@ -130,20 +130,31 @@ nn_info_t allocate_setting(int job_id, index_t *idxer){
 
     double pe_f, pe_s;
     switch (rank){
-        case 0:
+
+        case 0: // low rank (f) - high rank (s)
             pe_f = plim[0][0];
+            pe_s = plim[1][1];
+            break;
+
+        case 1: // high rank (f) - low rank (s)
+            pe_f = plim[0][1];
             pe_s = plim[1][0];
             break;
+
+        // case 0:
+        //     pe_f = plim[0][0];
+        //     pe_s = plim[1][0];
+        //     break;
 
         // case 1:
         //     pe_f = (plim[0][0]+plim[0][1])/2.;
         //     pe_s = (plim[1][0]+plim[1][1])/2.;
         //     break;
 
-        case 1:
-            pe_f = plim[0][1];
-            pe_s = plim[1][1];
-            break;
+        // case 1:
+        //     pe_f = plim[0][1];
+        //     pe_s = plim[1][1];
+        //     break;
 
         // case 3: // low rank (f) - high rank (s)
         //     pe_f = plim[0][0];
