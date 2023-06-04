@@ -72,6 +72,42 @@ from pymoo.termination import get_termination
 from pymoo.optimize import minimize
 
 
+class OptTarget(Problem):
+    def __init__(self, bound_lower, bound_upper):
+        n_var = len(key_params)
+        n_ieq_constr = num_constr if not _debug else 0
+        super().__init__(n_var=n_var, n_obj=num_obj, n_ieq_constr=n_ieq_constr,
+                         xl=np.array(bound_lower), xu=np.array(bound_upper))
+        self.pid = 0 
+    
+    def _evaluate(self, params, out, *args, **kwargs):
+        if len(params.shape) != 2:
+            raise ValueError("Unexpected size of parameters, size: ", params.shape)
+
+        # run given params
+        pid_set = []
+        for _ in range(params.shape[0]):
+            pid_set.append(self.pid)
+            self.pid += num_type
+        
+        run_given_params(params, pid_set)
+
+        if _debug:
+            pop_size = params.shape[0]
+            out["F"] = np.random.uniform(size=(pop_size, 2)) * 5
+        else:
+            score_f = []
+            score_g = []
+            for pid in pid_set:
+                score = calculate_fitness(pid)
+                score_f.append(score["F"])
+                score_g.append(score["G"])
+            
+            out["F"] = np.array(score_f)
+            out["G"] = np.array(score_g)
+
+
+
 def solver_handler(func):
     @functools.wraps(func)
     def wrapper(self, problem, *args, **kwargs):
@@ -95,7 +131,7 @@ def solver_handler(func):
 
 
 class Solver:
-    def __init__(self, pop_size=20, n_offspring=10):
+    def __init__(self, pop_size=40, n_offspring=10):
 
         self.algorithm = NSGA2(
             pop_size=pop_size,
@@ -115,7 +151,7 @@ class Solver:
         termination = get_termination("n_gen", n_terminal)
         res = minimize(self.problem, self.algorithm, termination, seed=seed,
                     save_history=True, verbose=True, output=PrintLog(),
-                    return_least_infeasible=True)
+                    return_least_infeasible=True, copy_algorithm=False)
         save_moo(res, self.problem, self.algorithm)
         return res
 
@@ -133,61 +169,21 @@ class PrintLog(MultiObjectiveOutput):
     
     def update(self, algorithm):
         super().update(algorithm)
-
-        # n_nds = len(algorithm.opt)
         chi0 = np.average(1 - algorithm.pop.get("F")[:, 0])
-        dchi = np.average(algorithm.pop.get("G")[:, 1] + eps_chi)
-        fr0 = th_fr * (1 + np.average(algorithm.pop.get("G")[:, 2]))
-        fr1 = th_fr * (1 + np.average(algorithm.pop.get("G")[:, 1]))
-        cv_tmp = (np.average(algorithm.pop.get("G")[:, 4]) + np.average(algorithm.pop.get("G")[:, 5]))/2
-        cv = th_cv * (1 - cv_tmp)
+        if not _debug:
+            dchi = np.average(algorithm.pop.get("G")[:, 1] + eps_chi)
+            fr0 = th_fr * (1 + np.average(algorithm.pop.get("G")[:, 2]))
+            fr1 = th_fr * (1 + np.average(algorithm.pop.get("G")[:, 1]))
+            cv_tmp = (np.average(algorithm.pop.get("G")[:, 4]) + np.average(algorithm.pop.get("G")[:, 5]))/2
+            cv = th_cv * (1 - cv_tmp)
 
-        # self.n_nds.set(n_nds)
         self.chi0.set(chi0)
-        self.dchi.set(dchi)
-        self.fr0.set(fr0)
-        self.fr1.set(fr1)
-        self.cvs.set(cv)
-        time.sleep(0.1)
-
-
-class OptTarget(Problem):
-    def __init__(self, bound_lower, bound_upper):
-        n_var = len(key_params)
-
-        # super().__init__(n_var=n_var, n_obj=num_obj, n_ieq_constr=num_constr,
-        #                  xl=np.array(bound_lower), xu=np.array(bound_upper))
-        super().__init__(n_var=n_var, n_obj=num_obj, n_ieq_constr=6,
-                         xl=np.array(bound_lower), xu=np.array(bound_upper))
-        self.pid = 0 
-    
-    def _evaluate(self, params, out, *args, **kwargs):
-        if len(params.shape) != 2:
-            raise ValueError("Unexpected size of parameters, size: ", params.shape)
-
-        # run given params
-        pid_set = []
-        for _ in range(params.shape[0]):
-            pid_set.append(self.pid)
-            self.pid += num_type
-        
-        run_given_params(params, pid_set)
-
-        if _debug:
-            pop_size = params.shape[0]
-            out["F"] = np.random.uniform(size=(pop_size, 2)) * 5
-            out["G"] = np.random.uniform(size=(pop_size, 6)) * 5
-        else:
-            score_f = []
-            score_g = []
-            for pid in pid_set:
-                score = calculate_fitness(pid)
-                score_f.append(score["F"])
-                score_g.append(score["G"])
-            
-            out["F"] = np.array(score_f)
-            out["G"] = np.array(score_g)
-
+        if not _debug:
+            self.dchi.set(dchi)
+            self.fr0.set(fr0)
+            self.fr1.set(fr1)
+            self.cvs.set(cv)
+        time.sleep(0.01)
 
 
 def run_single(cmd):
@@ -264,6 +260,8 @@ def calculate_fitness(pid):
 
     fit = {"F": [f0, f1],
            "G": [g0, g1, g2, g3, g4, g5]}
+    if _debug:
+        fit = {"F": [f0, f1]}
     
     return fit
 
@@ -336,14 +334,40 @@ def save_moo(res, problem, algorithm):
 
     with open(fname, "wb") as f:
         pkl.dump(simul, f)
-    
 
-if __name__ == "__main__":
 
-    # Add parser
-#     argParser = argparse.ArgumentParser()
-# argParser.add_argument()
+def main():
+    global _debug, num_parllel
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--num_core", type=int, default=20)
+    parser.add_argument("--num_parent", type=int, default=40)
+    parser.add_argument("--num_offspring", type=int, default=10)
+    parser.add_argument("--num_epoch", type=int, default=100)
+    parser.add_argument("--seed", type=int, default=100)
+    parser.add_argument("--debug_mod", action=argparse.BooleanOptionalAction, default=False)
+    args = parser.parse_args()
+
+    num_parllel = args.num_core
+    num_parent = args.num_parent
+    num_offspring = args.num_offspring
+    num_terminal = args.num_epoch
+    seed = args.seed
+    _debug = args.debug_mod
 
     problem = OptTarget(bound_param[0], bound_param[1])
-    solver = Solver()
-    solver.solve(problem, n_terminal=200, seed=100)
+    solver = Solver(pop_size=num_parent, n_offspring=num_offspring)
+    res = solver.solve(problem, n_terminal=num_terminal, seed=seed)
+    print(res.F)
+
+
+if __name__ == "__main__":
+    main()
+
+    # # Add parser
+    # argParser = argparse.ArgumentParser()
+    # argParser.add_argument()
+
+    # problem = OptTarget(bound_param[0], bound_param[1])
+    # solver = Solver()
+    # res = solver.solve(problem, n_terminal=200, seed=100)
