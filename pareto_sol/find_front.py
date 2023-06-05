@@ -60,7 +60,7 @@ th_cv = 0.6
 key_names = ["ge", "gei", "gi0e", "gi1e", "gi0", "gi1", "pe", "pei", "pi0e", "pi1e", "pi0", "pi1", "tlag", "nu_ext"]
 key_index = OrderedDict({k: n for k, n in zip(key_names, np.arange(len(key_names)))})
 bound_param = [[1e-3, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3, 5e-2, 5e-2, 5e-2, 5e-2, 5e-2, 5e-2, 0, 1e3], # lower
-               [   1,    1,    1,    1,    1,    1, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95, 1, 2e4]] # upper
+               [ 0.1,  0.1,  0.1,  0.1,  0.1,  0.1, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95, 1, 2e4]] # upper
 # ==============================================
 
 
@@ -247,7 +247,7 @@ def calculate_fitness(pid):
     data = load_result(pid)
 
     # objective function (target to optimize, min f)
-    f0 = 1-data["chi"][0]
+    f0 = data["chi"][0]
     f1 = th_fr - data["frs_m"][0]
 
     # constraints, g < 0

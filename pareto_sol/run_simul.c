@@ -9,14 +9,16 @@
 
 
 // #define _debug
-#define _mpi
 
+
+#define _mpi
 #ifdef _mpi
 #include "mpifor.h"
 extern int world_rank, world_size;
 #endif
 
-// mpicc -I../include -O2 -o ./run_simul.out ../include/mpifor.o ./run_simul.c -L../lib -lhhnet -lm
+// mpicc -D_mpi -I../include -O2 -o ./run_simul.out ../include/mpifor.o ./run_simul.c -L../lib -lhhnet -lm
+// gcc -D_debug -I../include -O2 -o ./run_simul_debug.out ./run_simul.c -L../lib -lhhnet -lm
 
 int N = 1000;
 nn_info_t allocate_simulation_param(const char *fname);
@@ -57,6 +59,11 @@ int main(int argc, char **argv){
     }
 
     int job_id = start_id + world_rank;
+    #ifdef _debug
+    printf("Job id: %d\n", job_id);
+    #endif
+
+
     char finfo[100];
 
     sprintf(finfo, "%s/params/param_%04d.txt", fdir, job_id);
@@ -86,6 +93,11 @@ void run(const char *out_name, nn_info_t *nn_info){
     #ifdef _debug
     progbar_t bar = {0,};
     init_progressbar(&bar, nmax);
+    FILE *fp_v = open_file_wdir(fdir, "v_out.dat", "wb");
+    write_info(nn_info, "./info.txt");
+
+    printf("pe: %f, we: %f, input: %f\n", nn_info->p_out[0][0], nn_info->w[0][0], nn_info->nu_ext_mu);
+
     #endif
 
 
@@ -102,11 +114,17 @@ void run(const char *out_name, nn_info_t *nn_info){
 
         #ifdef _debug
         progressbar(&bar, nstep);
-       #endif
+        save(N, nstep, neuron.vs, fp_v);
+        #endif
     }
-
     summary_t obj = flush_measure();
+
+    #ifdef _debug
+    fclose(fp_v);
+    #else
     export_result(&obj, out_name);
+    #endif
+
     destroy_neuralnet();
     destroy_measure();
 }

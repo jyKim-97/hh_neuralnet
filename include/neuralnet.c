@@ -297,6 +297,8 @@ void write_info(nn_info_t *info, char *fname){
 }
 
 
+extern int flag_nan; // monitor nan value
+
 void update_rk4(int nstep, double iapp){
 
     double *v_prev = (double*) malloc(sizeof(double) * num_cells);
@@ -343,6 +345,11 @@ void update_rk4(int nstep, double iapp){
     check_fire(&neuron, v_prev);
     add_spike_total_syns(nstep);
     free(v_prev);
+
+    if (flag_nan == 1){
+        printf("Nan deteced in simulation. Terminate the process\n");
+        exit(1);
+    }
 }
 
 
