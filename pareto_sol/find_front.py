@@ -137,7 +137,7 @@ class Solver:
             pop_size=pop_size,
             n_offspring=n_offspring,
             sampling=FloatRandomSampling(),
-            crossover=SBX(prob=0.9, eta=10),
+            crossover=SBX(prob=0.5, eta=20),
             mutation=PM(eta=20),
             elimiate_duplicates=True
         )
