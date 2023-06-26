@@ -525,3 +525,40 @@ def regress_differ(cids, prods, row_names, nshow=2):
     plt.xlabel("Cluster id", fontsize=14)
     
     return models
+
+
+def show_sample_cases(target_cluster_id, cluster_id, silhouette_vals, col_names, case="best", nshow=2, save=False):
+    if case not in ("best", "intermediate", "worst"):
+        raise ValueError("input 'case' must be in ('best', 'intermediate', 'worst')")
+    
+    in_target = target_cluster_id == cluster_id
+    id_sort = np.argsort(silhouette_vals[in_target]) # ascending way
+    id_target = np.where(in_target)[0][id_sort].astype(int)
+    
+    if case == "best":
+        nid = id_target[-nshow:]
+    elif case == "intermediate":
+        nhalf = len(id_target)//2
+        n0 = nhalf-nshow//2
+        n1 = nhalf+nshow//2
+        if n1-n0+1 > nshow:
+            n0 += 1
+        nid = id_target[n0:n1]
+    else: # "worst"
+        nid = id_target[:nshow]
+        
+    tags = [col_names[n] for n in nid]
+    
+    for i, tag in enumerate(tags):
+        nrow, ncol = tag[1], tag[2]
+        nr = int(tag[0][2])
+        nw = int(tag[0][5])
+        
+        fname = None
+        if save:
+            fname = "./sample_figs/cid%d_%s(%d).png"%(target_cluster_id, case, i)
+
+        data_sub = obj.load_detail(nrow, ncol, nr, nw, 0)
+        draw_quadratic_summary(data_sub, fname=fname)
+    
+    return tags
