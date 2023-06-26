@@ -527,7 +527,7 @@ def regress_differ(cids, prods, row_names, nshow=2):
     return models
 
 
-def show_sample_cases(target_cluster_id, cluster_id, silhouette_vals, col_names, case="best", nshow=2, save=False):
+def show_sample_cases(obj, target_cluster_id, cluster_id, silhouette_vals, col_names, case="best", nshow=2, save=False):
     if case not in ("best", "intermediate", "worst"):
         raise ValueError("input 'case' must be in ('best', 'intermediate', 'worst')")
     
