@@ -646,7 +646,9 @@ def draw_quadratic_summary(data, fname=None, xl_raster=(1500, 2500), nsamples=20
 
 
 
-def show_sample_cases(obj, target_cluster_id, cluster_id, silhouette_vals, col_names, case="best", nshow=2, save=False):
+def show_sample_cases(obj, target_cluster_id, cluster_id, silhouette_vals, col_names, case="best", nshow=2, save=False, fdir="./sample_figs"):
+    import os
+
     if case not in ("best", "intermediate", "worst"):
         raise ValueError("input 'case' must be in ('best', 'intermediate', 'worst')")
     
@@ -662,7 +664,7 @@ def show_sample_cases(obj, target_cluster_id, cluster_id, silhouette_vals, col_n
         n1 = nhalf+nshow//2
         if n1-n0+1 > nshow:
             n0 += 1
-        nid = id_target[n0:n1]
+        nid = id_target[n0:n1+1]
     else: # "worst"
         nid = id_target[:nshow]
         
@@ -675,7 +677,7 @@ def show_sample_cases(obj, target_cluster_id, cluster_id, silhouette_vals, col_n
         
         fname = None
         if save:
-            fname = "./sample_figs/cid%d_%s(%d).png"%(target_cluster_id, case, i)
+            fname = os.path.join(fdir, "cid%d_%s(%d).png"%(target_cluster_id, case, i))
 
         data_sub = obj.load_detail(nrow, ncol, nr, nw, 0)
         draw_quadratic_summary(data_sub, fname=fname)
