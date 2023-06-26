@@ -1,13 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pickle as pkl
-import sys
 
 curr_dir = "~/jungyoung/Project/hh_neuralnet/three_pop_mpi"
 
-sys.path.append("../../include/")
-import hhtools
-import hhsignal
 import hhclustering as hc
 
 def load_obj():

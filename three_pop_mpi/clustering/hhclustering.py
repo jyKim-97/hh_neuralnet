@@ -532,6 +532,11 @@ def draw_quadratic_summary(data, fname=None, xl_raster=(1500, 2500), nsamples=20
     
     from tqdm.notebook import tqdm
     from scipy.ndimage import gaussian_filter1d
+
+    import sys
+    sys.path.append("../../include/")
+    import hhtools
+    import hhsignal
     
     teq = 0.5
     
