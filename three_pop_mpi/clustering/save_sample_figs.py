@@ -6,6 +6,10 @@ curr_dir = "~/jungyoung/Project/hh_neuralnet/three_pop_mpi"
 
 import hhclustering as hc
 
+import sys
+sys.path.append("../../include/")
+import hhtools
+
 def load_obj():
     obj = hhtools.SummaryLoader("../asym_link_full/")
     # correction
