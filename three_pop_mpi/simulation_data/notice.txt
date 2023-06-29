@@ -1,0 +1,4 @@
+# Last updated 06-27-23
+1. for rank=0/1, need to make "chi" as nan for total(0) populations, 24-48, recommend to remove the points with obj.summary > 1
+2. for rank=0.5, currently itr=3, but elongated to 9 to fit with rank=0/1 case
+

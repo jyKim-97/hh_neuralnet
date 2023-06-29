@@ -100,6 +100,16 @@ def nnmf_simple(data, n_features=2, nre=5, nitr=50, n_repeat=10, tol=1e-4):
 # ================================================================================================
 # Clustering
 # ================================================================================================
+def kmeans_specific_seed(K, data, seed):
+    np.random.seed(seed)
+    
+    km_obj = KMeans(n_clusters=K, init="k-means++", n_init="auto")
+    km_obj.fit(data.T)
+    id_cluster = km_obj.predict(data.T)
+    sval, scoeff = get_silhouette_scores(data, id_cluster)
+    
+    return km_obj, sval, scoeff
+
 
 def get_silhouette_scores(data, cluster_labels):
     # get distance between abitrary points
@@ -405,7 +415,7 @@ def extract_mean_val(data, cluster_id):
     return prods_avg, prods_std
 
 
-def realign_cluster(cluster_id, col_names, num_r=2, num_w=7, ld=15, denoise=True):
+def realign_cluster(cluster_id, col_names, num_r=2, num_w=7, ld=15, denoise=True, nth_remain=3):
     num_k = np.max(cluster_id) + 1
     rcluster_id = np.zeros_like(cluster_id)
     nid2r = np.zeros(num_k).astype(int)
@@ -418,7 +428,7 @@ def realign_cluster(cluster_id, col_names, num_r=2, num_w=7, ld=15, denoise=True
             # denoise
             if denoise:
                 sq_cid = denoise_square_cluster(sq_cid)
-                sq_cid = remove_cluster_island(sq_cid)
+                sq_cid = remove_cluster_island(sq_cid, nth=nth_remain)
 
             # reorder
             re_cid, changed_id = reorder_sq_cluster_id(sq_cid, start_id=1)

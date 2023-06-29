@@ -7,6 +7,15 @@ def set_seed(seed):
 
 # mapping label function
 def mapping(row_names):
+
+    def replace_number(key):
+        for n in range(3):
+            nid = key.find("(%d)"%(n))
+            if nid > -1:
+                key = key[::-1].replace("%d"%(n), key2number[n], 1)[::-1]
+                return key
+        return key
+
     # map
     key2lb = {"frs_m": "z",
               "chi": "\chi",
@@ -18,6 +27,8 @@ def mapping(row_names):
               "leading_ratio": "\eta",
               "leading_ratio(abs)": "|\eta|",
               "dphi": "\Delta \phi"}
+
+    key2number = {0: "T", 1: "F", 2: "S"}
     
     labels = row_names.copy()
     key2lb_list = list(key2lb.keys())
@@ -30,13 +41,13 @@ def mapping(row_names):
                 labels[n] = labels[n].replace(km, key2lb[km])
                 break
         
+        # change number
+        labels[n] = replace_number(labels[n])
         if "_std" in key:
             labels[n] = labels[n].replace("_std", "")
             labels[n] = "\\sigma[%s]"%(labels[n])
-            # labels[n] = labels[n]
 
         labels[n] = "$%s$"%(labels[n])
-
     return labels
 
 
@@ -197,7 +208,7 @@ def get_palette(cmap="jet"):
     return get_cmap(cmap)
 
 
-def save_fig(fig_name, fdir="./fig"):
+def save_fig(fig_name, fdir="./fig", dpi=100):
     import matplotlib.pyplot as plt
     # figname: don't type expander
     from datetime import datetime
@@ -208,4 +219,16 @@ def save_fig(fig_name, fdir="./fig"):
     fname = os.path.join(fdir, fig_name)
     fname = fname + "_%d%d%d.png"%(now.year, now.month, now.day)
     print("save to %s"%fname)
-    plt.savefig(fname)
+    plt.savefig(fname, dpi=dpi)
+
+
+def draw_categorical_colorbar(n_category, dn=2, ax=None, cax=None, label=None, label_fontsize=None, **kwargs):
+    import matplotlib.pyplot as plt
+    
+    cbar = plt.colorbar(ax=ax, cax=cax, **kwargs)
+    ct = np.arange(1, n_category+1, dn).astype(int)
+    ct_x = 0.5 + ct / n_category * (n_category-1)
+    cbar.set_ticks(ct_x, labels=["%d"%(n) for n in ct])
+    if label is not None:
+        cbar.set_label(label, fontsize=label_fontsize)
+    return cbar
