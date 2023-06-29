@@ -474,13 +474,15 @@ def reorder_data(data, id_cluster, sval=None):
     return data2, id_sort, bds
 
 
-def show_sq_cluster(sq_cluster, x=None, y=None, cmap="jet", cth=None):
-    if x is None:
-        x = np.arange(sq_cluster.shape[1])
-    if y is None:
-        y = np.arange(sq_cluster.shape[0])
-    
-    plt.imshow(sq_cluster, origin="lower", cmap=cmap)
+def show_sq_cluster(sq_cluster, x=None, y=None, cmap="jet", cth=None, vmin=None, vmax=None):
+
+    x = np.arange(sq_cluster.shape[1]) if x is None else x
+    y = np.arange(sq_cluster.shape[0]) if y is None else y
+    vmin = np.min(sq_cluster) if vmin is None else vmin
+    vmax = np.max(sq_cluster) if vmax is None else vmax
+
+    cax = plt.imshow(sq_cluster, origin="lower", cmap=cmap, vmin=vmin, vmax=vmax,
+                    extent=[x[0], x[-1], y[0], y[-1]])
     cids = np.unique(sq_cluster).astype(int)
     cth = (max(cids)+min(cids))/2 if cth is None else cth
     for cid in cids:
@@ -489,6 +491,8 @@ def show_sq_cluster(sq_cluster, x=None, y=None, cmap="jet", cth=None):
         yc = np.average(y[nr])
         c = "k" if cid > cth else "w"
         plt.text(xc, yc, "%d"%(cid), fontsize=14, c=c)
+
+    return cax
 
 
 def print_largest_differ(cid0, cid1, prods, row_names, nprint=2):
