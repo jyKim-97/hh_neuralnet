@@ -75,20 +75,20 @@ double b_set[2] = {3, 2.5};
 double c = 0.01;
 double d_set[2] = {14142.14, 15450.58};
 double plim[][2] = {{0.051, 0.234},
-                    {0.028, 0.105}};
+                    {0.028, 0.105}}; // 1st ind: F/S, 2nd ind: boundary (from rank 0 to 1)
 /* === Default parameters === */
 
 void set_control_parameters(){
 
     int nitr = 3;
-    int max_len[] = {15, 15, 2, 7, nitr};
+    int max_len[] = {15, 15, 1, 7, nitr};
     int num_controls = GetIntSize(max_len);
     set_index_obj(&idxer, num_controls, max_len);
 
     alpha_set = linspace(0, 2, max_len[0]);
     beta_set  = linspace(0, 1, max_len[1]);
     // id_rank = linspace(0, 4, max_len[2]);
-    id_rank = linspace(0, 1, max_len[2]);
+    id_rank = linspace(0.5, 0.5, max_len[2]);
     p_ratio_set = linspace(0.1, 1, max_len[3]);
     
 
@@ -102,7 +102,7 @@ void set_control_parameters(){
         print_arr(fp, "alpha_set", max_len[0], alpha_set);
         print_arr(fp, "beta_set", max_len[1], beta_set);
         print_arr(fp, "id_rank", max_len[2], id_rank);
-        print_arr(fp, "p_ratio_set", max_len[2], p_ratio_set);
+        print_arr(fp, "p_ratio_set", max_len[3], p_ratio_set);
         fclose(fp);
     }
 }
@@ -125,52 +125,17 @@ nn_info_t allocate_setting(int job_id, index_t *idxer){
     nn_info_t info = set_info();
     double alpha = alpha_set[idxer->id[0]];
     double beta  = beta_set[idxer->id[1]];
-    int rank = id_rank[idxer->id[2]];
+    double rank = id_rank[idxer->id[2]]; 
     double p_ratio = p_ratio_set[idxer->id[3]];
 
-    double pe_f, pe_s;
-    switch (rank){
-
-        case 0: // low rank (f) - high rank (s)
-            pe_f = plim[0][0];
-            pe_s = plim[1][1];
-            break;
-
-        case 1: // high rank (f) - low rank (s)
-            pe_f = plim[0][1];
-            pe_s = plim[1][0];
-            break;
-
-        // case 0:
-        //     pe_f = plim[0][0];
-        //     pe_s = plim[1][0];
-        //     break;
-
-        // case 1:
-        //     pe_f = (plim[0][0]+plim[0][1])/2.;
-        //     pe_s = (plim[1][0]+plim[1][1])/2.;
-        //     break;
-
-        // case 1:
-        //     pe_f = plim[0][1];
-        //     pe_s = plim[1][1];
-        //     break;
-
-        // case 3: // low rank (f) - high rank (s)
-        //     pe_f = plim[0][0];
-        //     pe_s = plim[1][1];
-        //     break;
-
-        // case 4: // high rank (f) - low rank (s)
-        //     pe_f = plim[0][1];
-        //     pe_s = plim[1][0];
-        //     break;
-
-        default:
-            printf("Unexpected rank %d\n", rank);
-            exit(1);
-            break;
+    // rank must be in [0, 1]
+    if ((rank < 0) || (rank > 1)){
+        printf("Rank must be in [0, 1], typped %.2f\n", rank);
+        exit(-1);
     }
+
+    double pe_f = (plim[0][0]*rank + plim[0][1]*(1-rank));
+    double pe_s = (plim[1][0]*rank + plim[1][1]*(1-rank));
 
     info.p_out[0][0] = pe_f;
     info.p_out[0][1] = pe_f;
