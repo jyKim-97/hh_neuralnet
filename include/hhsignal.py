@@ -57,7 +57,8 @@ def get_stfft(x, t, fs, mbin_t=0.1, wbin_t=1, frange=None, buf_size=100):
         idf = (fpsd >= frange[0]) & (fpsd <= frange[1])
         psd = psd[idf, :]
         fpsd = fpsd[idf]
-    tpsd = ind / fs
+    # tpsd = ind / fs
+    tpsd = t[ind]
     
     return psd, fpsd, tpsd
 

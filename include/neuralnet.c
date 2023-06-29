@@ -64,7 +64,14 @@ nn_info_t init_build_info(int N, int _num_types){
 
 void build_ei_rk4(nn_info_t *info){
 
-    // verify the information
+    if (num_cells <= 0){
+        if (info->N <= 0){
+            printf("Invalid N: %d\n", info->N);
+            exit(-1);
+        }
+        num_cells = info->N;
+        num_types = info->num_types;
+    }
 
     // generate empty synapse (+ external poisson input)
     init_wbneuron(num_cells, &neuron);
