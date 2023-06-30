@@ -196,7 +196,9 @@ void read_params_line(FILE *fp, nn_info_t *info){
     // default parameters
     info->taur[0] = 0.3; info->taud[0] = 1;   // -> E
     info->taur[1] = 0.5; info->taud[1] = 2.5; // -> I_F
-    info->taur[2] = 1;   info->taud[2] = 8;   // -> I_S
+    info->taur[2] = 0.3; info->taud[2] = 1;   // -> E
+    info->taur[3] = 1;   info->taud[3] = 8;   // -> I_S
+    
     info->num_ext_types = 2;
     info->w_ext_multi[0] = 0.002;
     info->w_ext_multi[1] = 0.002;

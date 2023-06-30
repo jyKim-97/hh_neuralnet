@@ -43,7 +43,7 @@ def write_cluster_info(cluster_info, fdir_out, seed):
     fname = os.path.join(fdir_out, "picked_cluster.txt")
     print("Cluster info written to %s"%(fname))
     with open(fname, "w") as fp:
-        fp.write("cluster_id, nth best point, init_seed=%d\n"%(seed))
+        fp.write("cluster_id(starts from 1), nth best point, init_seed=%d\n"%(seed))
         for cid in cluster_info:
             fp.write("%d,%d\n"%(cid[0], cid[1]))
 
@@ -133,6 +133,7 @@ def cvt_ind2params(sample_inds):
         ]
         
         params.append(param_sub)
+
     return params
 
 
@@ -140,5 +141,5 @@ if __name__ == "__main__":
     main(fname_cinfo="../three_pop_mpi/clustering/data/cluster_repr_points_rank3.pkl",
         nbest=10, nsamples_for_each=100, run_c=True,
         fname_out="./params_to_run.txt", fdir_out="./data", init_seed=100,
-        mpi_num_core=100, tmax=5500)
+        mpi_num_core=100, tmax=10500)
     
