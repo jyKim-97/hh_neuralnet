@@ -87,8 +87,17 @@ void run(int job_id, void *nullarg){
         if ((flag_eq == 0) && (nstep == neq)){
             flush_measure();
             flag_eq = 1;
-
+            
+            add_checkpoint(nstep); // for monitoring
             add_checkpoint(nstep);
+        } 
+
+        if (nstep == 2*neq){
+            summary_t obj = flush_measure();
+            char fname_res[100];
+            sprintf(fname_res, "id%06d_result(monitor).txt", job_id);
+            path_join(fbuf, fdir_out, fname_res);
+            export_result(&obj, fbuf);
         }
 
         update_rk4(nstep, 0);
