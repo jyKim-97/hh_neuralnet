@@ -134,8 +134,8 @@ nn_info_t allocate_setting(int job_id, index_t *idxer){
         exit(-1);
     }
 
-    double pe_f = (plim[0][0]*rank + plim[0][1]*(1-rank));
-    double pe_s = (plim[1][0]*rank + plim[1][1]*(1-rank));
+    double pe_f = (plim[0][0]*(1-rank) + plim[0][1]*rank);
+    double pe_s = (plim[1][0]*(1-rank) + plim[1][1]*rank);
 
     info.p_out[0][0] = pe_f;
     info.p_out[0][1] = pe_f;
@@ -190,18 +190,6 @@ nn_info_t allocate_setting(int job_id, index_t *idxer){
     info.w[3][1] = wi_s;
     info.w[3][2] = wi_s;
     info.w[3][3] = wi_s;
-
-    info.taur[0] = 0.3;
-    info.taud[0] = 1;
-
-    info.taur[1] = 0.5;
-    info.taud[1] = 2.5;
-
-    info.taur[2] = 0.3;
-    info.taud[2] = 1;
-
-    info.taur[3] = 1;
-    info.taud[3] = 8;
 
     info.t_lag = 0.;
     info.const_current = false;
@@ -310,12 +298,16 @@ nn_info_t set_info(void){
 
     // synaptic time constant
     info.taur[0] = 0.3;
-    info.taur[1] = 0.5;
-    info.taur[2] = 1;
-
     info.taud[0] = 1;
+
+    info.taur[1] = 0.5;
     info.taud[1] = 2.5;
-    info.taud[2] = 8;
+
+    info.taur[2] = 0.3;
+    info.taud[2] = 1;
+
+    info.taur[3] = 1;
+    info.taud[3] = 8;
 
     info.t_lag = 0.;
     info.const_current = false;
