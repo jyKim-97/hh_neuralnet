@@ -19,7 +19,7 @@ extern int world_size, world_rank;
 
 
 int N = 2000;
-double tmax = 5500;
+double tmax = 10500;
 double teq = 500;
 nn_info_t *nn_info_set = NULL;
 
@@ -71,21 +71,6 @@ void run(int job_id, void *nullarg){
     sprintf(fname_info, "id%06d_info.txt", job_id);
     path_join(fbuf, fdir_out, fname_info);
     write_info(&info, fbuf);
-
-    // print all info
-    printf("%d-%d\n", info.N, info.num_types);
-    printf("%d\n", info.num_ext_types);
-    for (int i=0;i<4; i++){
-        printf("%d\n", info.type_range[i]);
-    }
-
-    printf("p_out\n");
-    for (int i=0; i<4; i++){
-        for (int j=0; j<4; j++){
-            printf("%f-%f, ", info.w[i][j], info.p_out[i][j]);
-        }
-        printf("\n");
-    }
 
     build_ei_rk4(&info);
     allocate_multiple_ext(&info);
@@ -146,6 +131,8 @@ void read_args(int argc, char **argv){
     while (n < argc){
         if (strcmp(argv[n], "-n") == 0){
             nsamples = atoi(argv[n+1]); n++;
+        } else if (strcmp(argv[n], "-t") == 0){
+            tmax = atof(argv[n+1]); n++;
         } else if (strcmp(argv[n], "--fparam") == 0){
             strcpy(fname_params, argv[n+1]); n++;
         } else if (strcmp(argv[n], "--fdir_out") == 0){
@@ -178,6 +165,7 @@ void read_params(int nline, char *fname){
     }
 
     MPI_Bcast((void*) nn_info_set, nline*sizeof(nn_info_t), MPI_BYTE, 0, MPI_COMM_WORLD);
+    init_nn(nn_info_set[0].N, nn_info_set[0].num_types);
 }
 
 

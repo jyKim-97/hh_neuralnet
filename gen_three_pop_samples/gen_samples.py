@@ -4,19 +4,24 @@ import subprocess
 
 
 def main(fname_cinfo=None, nbest=10, nsamples_for_each=100, run_c=False,
-         fname_out="./params_to_run.txt", fdir_out="./data"):
+         fname_out="./params_to_run.txt", fdir_out="./data", init_seed=None,
+         tmax=10500, mpi_num_core=100):
+
+    np.random.seed(init_seed)
+
     # get params
-    params, cluster_info = pick_cluster_points(fname=fname_cinfo, nbest=nbest,
-                                               nsamples_for_each=nsamples_for_each)
+    params, cluster_info, K = pick_cluster_points(fname=fname_cinfo, nbest=nbest,
+                                                  nsamples_for_each=nsamples_for_each)
 
     # export
-    print("Selected %d samples"%(len(params)))
+    print("Selected total %d samples"%(len(params)))
     write_params(params, fname_out)
-    write_cluster_info(cluster_info, fdir_out)
+    write_cluster_info(cluster_info, fdir_out, init_seed)
+    write_control_params(K, nsamples_for_each, fdir_out)
 
     # run
     if run_c:
-        cmd = "mpirun -np 110 ./main.out -n %d --fparam %s --fdir_out %s > exec.txt"%(len(params), fname_out, fdir_out)
+        cmd = "mpirun -np %d ./main.out -n %d -t %d --fparam %s --fdir_out %s > exec.txt"%(mpi_num_core, len(params), tmax, fname_out, fdir_out)
         print("execute command: %s"%(cmd))
         res = subprocess.run(cmd, shell=True)
 
@@ -34,9 +39,11 @@ def load_best_cluster_points(fname=None):
         return pkl.load(fp) # key: loc_points, sval_points
 
 
-def write_cluster_info(cluster_info, fdir_out):
-    with open(os.path.join(fdir_out, "picked_cluster.txt"), "w") as fp:
-        fp.write("cluster_id, nth best point")
+def write_cluster_info(cluster_info, fdir_out, seed):
+    fname = os.path.join(fdir_out, "picked_cluster.txt")
+    print("Cluster info written to %s"%(fname))
+    with open(fname, "w") as fp:
+        fp.write("cluster_id, nth best point, init_seed=%d\n"%(seed))
         for cid in cluster_info:
             fp.write("%d,%d\n"%(cid[0], cid[1]))
 
@@ -48,6 +55,15 @@ def write_params(params, fname_out="./params_to_run.txt"):
             for p in pset:
                 fp.write("%f,"%(p))
             fp.write("\n")
+
+
+def write_control_params(K, nsamples_for_each, fdir_out):
+    fname = os.path.join(fdir_out, "control_params.txt")
+    with open(fname, "w") as fp:
+        fp.write("%d,%d,\ncluster_id:"%(K, nsamples_for_each))
+        for n in range(K):
+            fp.write("%.1f,"%(n))
+        fp.write("\n")
 
 
 def pick_cluster_points(fname=None, nbest=10, nsamples_for_each=100):
@@ -70,7 +86,7 @@ def pick_cluster_points(fname=None, nbest=10, nsamples_for_each=100):
 
     params = cvt_ind2params(samples)
 
-    return params, selected_id
+    return params, selected_id, K
         
 
 def cvt_ind2params(sample_inds):
@@ -100,18 +116,18 @@ def cvt_ind2params(sample_inds):
         rank  = rank_set[nrank]
         w     = w_set[nw]
 
-        pe_fs = [plim[i][0]*rank + plim[i][1]*(1-rank) for i in range(2)]
+        pe_fs = [plim[i][0]*(1-rank) + plim[i][1]*rank for i in range(2)]
         pi_fs = [b_set[i] * pe_fs[i] for i in range(2)]
         
         we_fs = [c * np.sqrt(0.01) / np.sqrt(pe) for pe in pe_fs]
-        wi_fs = [c * np.sqrt(0.01) / np.sqrt(pi) for pi in pi_fs]
+        wi_fs = [a_set[n] * we_fs[n] for n in range(2)]
         
         param_sub = [
             we_fs[0], wi_fs[0], we_fs[1], wi_fs[1],
             pe_fs[0], pe_fs[0], w*alpha*pe_fs[0], w*alpha*pe_fs[0],
             pi_fs[0], pi_fs[0], w*beta*pi_fs[0],  w*beta*pi_fs[0],
-            pe_fs[1], pe_fs[1], alpha*pe_fs[1],   alpha*pe_fs[1],
-            pe_fs[1], pe_fs[1], beta*pe_fs[1],    beta*pe_fs[1],
+            alpha*pe_fs[1], alpha*pe_fs[1], pe_fs[1],  pe_fs[1],
+             beta*pi_fs[1],  beta*pi_fs[1], pi_fs[1],  pi_fs[1], 
             d_set[0]*np.sqrt(pe_fs[0]),
             d_set[1]*np.sqrt(pe_fs[1])
         ]
@@ -121,9 +137,8 @@ def cvt_ind2params(sample_inds):
 
 
 if __name__ == "__main__":
-    seed = 1000
-    np.random.seed(seed)
     main(fname_cinfo="../three_pop_mpi/clustering/data/cluster_repr_points_rank3.pkl",
         nbest=10, nsamples_for_each=100, run_c=True,
-        fname_out="./params_to_run.txt", fdir_out="./data")
+        fname_out="./params_to_run.txt", fdir_out="./data", init_seed=100,
+        mpi_num_core=100, tmax=5500)
     

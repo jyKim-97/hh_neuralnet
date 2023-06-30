@@ -31,16 +31,25 @@ static void fill_connection_prob(nn_info_t *info);
 static void set_cell_range(void);
 
 
-nn_info_t init_build_info(int N, int _num_types){
+void init_nn(int N, int _num_types){
+    if (N <= 0){
+        printf("Invalid N: %d\n", N);
+        exit(-1);
+    }
 
     num_cells = N;
     num_types = _num_types;
+    set_cell_range();
+}
 
+
+nn_info_t init_build_info(int N, int _num_types){
+
+    init_nn(N, _num_types);
     nn_info_t info = {0,};
 
     info.N = N;
     info.num_types = num_types;
-    set_cell_range();
 
     for (int i=0; i<MAX_TYPE; i++){
         info.type_range[i] = cell_range[i][1];
@@ -63,15 +72,6 @@ nn_info_t init_build_info(int N, int _num_types){
 
 
 void build_ei_rk4(nn_info_t *info){
-
-    if (num_cells <= 0){
-        if (info->N <= 0){
-            printf("Invalid N: %d\n", info->N);
-            exit(-1);
-        }
-        num_cells = info->N;
-        num_types = info->num_types;
-    }
 
     // generate empty synapse (+ external poisson input)
     init_wbneuron(num_cells, &neuron);
@@ -261,10 +261,11 @@ static void set_cell_range(void){
 
 
 void write_info(nn_info_t *info, char *fname){
+
     fill_connection_prob(info);
 
     FILE *fp = open_file(fname, "w");
-    fprintf(fp, "Size: %d\n", info->N);
+    fprintf(fp, "Size: %d\n", num_cells);
     fprintf(fp, "ntypes: %d\n", num_types);
     fprintf(fp, "type_range: ");
     for (int n=0; n<num_types; n++){
@@ -287,13 +288,13 @@ void write_info(nn_info_t *info, char *fname){
 
     fprintf(fp, "t_lag: %f\n", info->t_lag);
 
-    if (num_ext_types == 1){
+    if (info->num_ext_types == 1){
         fprintf(fp, "nu_pos_mu: %f\n", info->nu_ext_mu);
         fprintf(fp, "nu_pos_sd: %f\n", info->nu_ext_sd);
         fprintf(fp, "w_pos_mu: %f\n", info->w_ext_mu);
         fprintf(fp, "w_pos_sd: %f\n", info->w_ext_sd);
     } else {
-        for (int n=0; n<num_ext_types; n++){
+        for (int n=0; n<info->num_ext_types; n++){
             fprintf(fp, "poisson type %d (sd=0)\n", n);
             fprintf(fp, "nu_pos_mu: %f\n", info->nu_ext_multi[n]);
             fprintf(fp, "w_pos_mu: %f\n", info->w_ext_multi[n]);

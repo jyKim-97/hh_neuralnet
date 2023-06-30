@@ -28,7 +28,7 @@ typedef struct _neuralnet_info_t{
     int num_ext_types;
 } nn_info_t;
 
-// nn_info_t get_empty_info(int N, int _num_types);
+void init_nn(int N, int _num_types);
 nn_info_t init_build_info(int N, int _num_types);
 void build_ei_rk4(nn_info_t *info);
 void write_info(nn_info_t *info, char *fname);
