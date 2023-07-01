@@ -66,6 +66,7 @@ def extract_burst_attrib(psd, fpsd, im_class):
     num_class = len(np.unique(im_class)) - 1
     burst_f = np.zeros(num_class)
     burst_range = np.zeros([num_class, 2])
+    burst_amp = np.zeros(num_class)
     for cid in range(num_class):
         id_row, id_col = np.where(im_class == cid)
 
@@ -79,8 +80,9 @@ def extract_burst_attrib(psd, fpsd, im_class):
             fc += psd[nr, nc] * fpsd[nr]
             sum_amp += psd[nr, nc]
         burst_f[cid] = fc / sum_amp
+        burst_amp[cid] = sum_amp / len(id_row)
         
-    return burst_f, burst_range
+    return burst_f, burst_range, burst_amp
 
 
 @jit(nopython=True)

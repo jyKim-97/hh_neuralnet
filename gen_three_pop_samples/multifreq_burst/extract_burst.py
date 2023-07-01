@@ -17,6 +17,13 @@ wbin_t = 1
 flim = (10, 100)
 
 
+def build_argument_parser() -> ArgumentParser:
+    parser = ArgumentParser()
+    parser.add_argument("--fname_th", required=True)
+    parser.add_argument("--fout", required=True)
+    return parser
+
+
 def load_psd_threshold(fname):
     with open(fname, "rb") as fp:
         th_obj = pkl.load(fp)
@@ -34,6 +41,7 @@ def extract_burst(fname_th):
 
     burst_info = {"burst_f": [],
                   "burst_range": [],
+                  "burst_amp": [],
                   "cluster_id": [],
                   "pop_type": []}
 
@@ -48,23 +56,24 @@ def extract_burst(fname_th):
                                                  mbin_t=mbin_t, wbin_t=wbin_t, frange=flim)
             im_bin = psd >= th_psd[n, i]
             im_class = bt.find_blob(im_bin)
-            burst_f, burst_range = bt.extract_burst_attrib(psd, fpsd, im_class)
+            burst_f, burst_range, burst_amp = bt.extract_burst_attrib(psd, fpsd, im_class)
 
             burst_info["burst_f"].append(burst_f)
             burst_info["burst_range"].append(tpsd[burst_range.astype(int)])
+            burst_info["burst_amp"].append(burst_amp)
             burst_info["cluster_id"].append(nc)
             burst_info["pop_type"].append(i)
 
     return burst_info
     
 
-def main(fname_th, fname_out):
+def main(fname_th, fout):
     burst_info = extract_burst(fname_th)
     
-    print("Export burst info to %s"%(fname_out))
-    with open(fname_out, "wb") as fp:
+    print("Export burst info to %s"%(fout))
+    with open(fout, "wb") as fp:
         pkl.dump(burst_info, fp)
 
 
 if __name__ == "__main__":
-    main("./th_tmp.pkl", "./burst_info_tmp.pkl")
+    main(**vars(build_argument_parser().parse_args()))
