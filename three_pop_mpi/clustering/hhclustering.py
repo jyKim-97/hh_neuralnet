@@ -554,7 +554,7 @@ def draw_quadratic_summary(data, fname=None, xl_raster=(1500, 2500), nsamples=20
     
     teq = 0.5
     
-    plt.figure(dpi=100, figsize=(9, 12))
+    fig = plt.figure(dpi=100, figsize=(9, 12))
     plt.axes([0.1, 0.8, 0.8, 0.15])
     
     seq = np.arange(len(data["step_spk"]))
@@ -656,7 +656,7 @@ def draw_quadratic_summary(data, fname=None, xl_raster=(1500, 2500), nsamples=20
     if fname is not None:
         plt.savefig(fname, dpi=150)
     
-    plt.show()
+    return fig
 
 
 
@@ -694,6 +694,7 @@ def show_sample_cases(obj, target_cluster_id, cluster_id, silhouette_vals, col_n
             fname = os.path.join(fdir, "cid%d_%s(%d).png"%(target_cluster_id, case, i))
 
         data_sub = obj.load_detail(nrow, ncol, nr, nw, 0)
-        draw_quadratic_summary(data_sub, fname=fname)
+        fig = draw_quadratic_summary(data_sub, fname=fname)
+        fig.close()
     
     return tags
