@@ -133,7 +133,7 @@ void read_args(int argc, char **argv){
     // get blank typed_args_t & set default values
     // NOTE: hard fix the args
 
-    strcpy(fname_params, "./params_to_run.txt");
+    // strcpy(fname_params, "./data/params_to_run.txt");
     strcpy(fdir_out, "./data/");
 
     int n = 1;
@@ -152,6 +152,8 @@ void read_args(int argc, char **argv){
         }
         n++;
     }
+
+    sprintf(fname_params, "%s/params_to_run.txt", fdir_out);
 }
 
 

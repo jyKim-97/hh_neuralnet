@@ -15,7 +15,7 @@ def main(fname_cinfo=None, nbest=10, nsamples_for_each=100, run_c=False,
 
     # export
     print("Selected total %d samples"%(len(params)))
-    write_params(params, fname_out)
+    write_params(params, fdir_out)
     write_cluster_info(cluster_info, fdir_out, init_seed)
     write_control_params(K, nsamples_for_each, fdir_out)
 
@@ -43,12 +43,14 @@ def write_cluster_info(cluster_info, fdir_out, seed):
     fname = os.path.join(fdir_out, "picked_cluster.txt")
     print("Cluster info written to %s"%(fname))
     with open(fname, "w") as fp:
-        fp.write("cluster_id(starts from 1), nth best point, init_seed=%d\n"%(seed))
+        # Write rank id
+        fp.write("cluster_id(starts from 1), nth best point, nrank, init_seed=%d\n"%(seed))
         for cid in cluster_info:
-            fp.write("%d,%d\n"%(cid[0], cid[1]))
+            fp.write("%d,%d,%d,\n"%(cid[0], cid[1], cid[2]))
 
     
-def write_params(params, fname_out="./params_to_run.txt"):
+def write_params(params, fdir_out):
+    fname_out = os.path.join(fdir_out, "params_to_run.txt")
     print("Write parametes to %s"%(fname_out))
     with open(fname_out, "w") as fp:
         for pset in params:
@@ -81,7 +83,9 @@ def pick_cluster_points(fname=None, nbest=10, nsamples_for_each=100):
         p /= np.sum(p)
 
         nid_select = np.random.choice(nbest+1, size=nsamples_for_each, p=p)
-        selected_id.extend([[n+1, i] for i in nid_select])
+        # ADD rank id
+        nrank_set =  [cluster_info["loc_points"][n][i][2] for i in nid_select]
+        selected_id.extend([[n+1, nid, nrank_set[i]] for i, nid in enumerate(nid_select)])
         samples.extend([cluster_info["loc_points"][n][i] for i in nid_select])
 
     params = cvt_ind2params(samples)
@@ -139,7 +143,7 @@ def cvt_ind2params(sample_inds):
 
 if __name__ == "__main__":
     main(fname_cinfo="../three_pop_mpi/clustering/data/cluster_repr_points_rank3.pkl",
-        nbest=10, nsamples_for_each=100, run_c=True,
-        fname_out="./params_to_run.txt", fdir_out="./data", init_seed=100,
+        nbest=10, nsamples_for_each=200, run_c=False,
+        fname_out="./params_to_run.txt", fdir_out="./data_cat", init_seed=200,
         mpi_num_core=100, tmax=10500)
     
