@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import sys
 from numba import jit
 from numba.typed import List
+import pandas as pd
 
 sys.path.append("/home/jungyoung/Project/hh_neuralnet/include/")
 import hhtools
@@ -146,7 +147,7 @@ def find_blob_filtration(psd, psd_th_m, psd_th_s,
             burst_map[is_cid] = num_burst + 1
             num_burst += 1
 
-    return burst_map
+    return burst_map.astype(int)
 
 
 @jit(nopython=True)
@@ -222,3 +223,26 @@ def search_blob(nr0, nc0, cid, im_class, im_binary):
             points.append((nr_new, nc_new))
     
     return flag
+
+
+def align_burst(burst_info):
+    data = []
+    col_names = ["burst_f", "burst_range", "burst_amp"]
+    for n in range(len(burst_info["burst_f"])):
+        for i in range(len(burst_info["burst_f"][n])):
+            data_sub = [
+                burst_info["burst_f"][n][i],
+                burst_info["burst_amp"][n][i],
+                burst_info["burst_range"][n][i][0],
+                burst_info["burst_range"][n][i][1],
+                # burst_info["burst_range"][n][i][1] - burst_info["burst_range"][n][i][0],
+                burst_info["cluster_id"][n],
+                burst_info["pop_type"][n]
+            ]
+            data.append(data_sub)
+    df_burst = pd.DataFrame(data, columns=["burst_f", "burst_amp", "burst_t0", "burst_t1", "cluster_id", "pop_type"])
+    df_burst["burst_duration"] = df_burst["burst_t1"] - df_burst["burst_t0"]
+    if df_burst["cluster_id"].min() == 0:
+        df_burst["cluster_id"] += 1
+    
+    return df_burst

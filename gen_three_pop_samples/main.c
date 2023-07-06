@@ -25,7 +25,7 @@ nn_info_t *nn_info_set = NULL;
 
 // global var, can be controllled with input args
 int nsamples = 0;
-char fname_params[100] = "./";
+char fname_params[200] = "./";
 char fdir_out[100] = "./tmp";
 
 

@@ -72,7 +72,7 @@ def convert_in2outdeg(ntk_in, N=None):
     return ntk_out
 
 
-def draw_spk(step_spk, dt=0.01, sequence=None, xl=None, color_ranges=None, colors=None, ms=1):
+def draw_spk(step_spk, dt=0.01, sequence=None, xl=None, color_ranges=None, colors=None, ms=1, **kwargs):
     if color_ranges is not None:
         if colors is None:
             print("Type the colors")
@@ -101,7 +101,7 @@ def draw_spk(step_spk, dt=0.01, sequence=None, xl=None, color_ranges=None, color
         else:
             c = 'k'
 
-        plt.plot(t_spk, np.ones_like(t_spk)*n, '.', ms=ms, c=c)
+        plt.scatter(t_spk, np.ones_like(t_spk)*n, s=ms, c=c, **kwargs)
     plt.xlim(xl)
     plt.ylim([0, len(sequence)])
 
@@ -148,12 +148,13 @@ def draw_spk(step_spk, dt=0.01, sequence=None, xl=None, color_ranges=None, color
 
 # Source code for loadding summarys
 class SummaryLoader:
-    def __init__(self, fdir):
+    def __init__(self, fdir, load_only_control=False):
         # read control param infos
         self.fdir = fdir
         # self.num_overlap = num_overlap
         self._load_controls()
-        self._read_data()
+        if not load_only_control:
+            self._read_data()
     
     def _load_controls(self):
         with open(os.path.join(self.fdir, "control_params.txt"), "r") as fid:

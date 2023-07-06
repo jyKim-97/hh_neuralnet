@@ -105,10 +105,9 @@ def pick_sample_data(data):
 
 def get_ac2_peak(x, prominence=0.01):
     # Need to return 2nd peak lag, mag
-    cc, tlag = hhsignal.get_correlation(x, x, srate, max_lag=0.2)
-    idp_1st, idp_large = hhsignal.detect_peak(cc, prominence=prominence, mode=3)
-    
-    return cc[idp_large[1]], tlag[idp_large[1]], cc[idp_1st[1]], tlag[idp_1st[1]]
+    ac, tlag = hhsignal.get_correlation(x, x, srate, max_lag=0.2)
+    idp_1st, idp_large = hhsignal.detect_peak(ac, prominence=prominence, mode=3)
+    return ac[idp_large[1]], tlag[idp_large[1]], ac[idp_1st[1]], tlag[idp_1st[1]]
 
 
 def get_cc_peak(x, y, prominence=0.01):

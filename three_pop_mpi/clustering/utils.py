@@ -51,7 +51,7 @@ def mapping(row_names):
     return labels
 
 
-def concat_data(post_data, key_to_rm=["cv"], include_std=False, show_mm_scale=False):
+def concat_data(post_data, key_to_rm=["cv"], include_std=False, show_mm_scale=False, norm_mm=True):
     import matplotlib.pyplot as plt
 
     """ Load data & concat """
@@ -169,14 +169,6 @@ def concat_data(post_data, key_to_rm=["cv"], include_std=False, show_mm_scale=Fa
     for n in key_inds:
         row_names[n] = row_names[n].replace("1/", "")
     
-    # print("inversing target keys:", [row_names[n] for n in key_inds])
-    
-
-#     for n in key_inds:
-#         align_data[n, :] = 1/align_data[n, :]
-#         row_names[n] = "1/%s"%(row_names[n])
-
-#     # Post processing: min-max scaling
     xmin = np.min(align_data, axis=1)
     xmax = np.max(align_data, axis=1)
 
@@ -188,7 +180,8 @@ def concat_data(post_data, key_to_rm=["cv"], include_std=False, show_mm_scale=Fa
         plt.xlabel("features", fontsize=14)
         plt.show()
 
-    align_data = (align_data - xmin[:, np.newaxis]) / (xmax - xmin)[:, np.newaxis]
+    if norm_mm:
+        align_data = (align_data - xmin[:, np.newaxis]) / (xmax - xmin)[:, np.newaxis]
 
     return align_data, row_names, col_names
 

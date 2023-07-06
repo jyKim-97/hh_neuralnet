@@ -143,7 +143,7 @@ def cvt_ind2params(sample_inds):
 
 if __name__ == "__main__":
     main(fname_cinfo="../three_pop_mpi/clustering/data/cluster_repr_points_rank3.pkl",
-        nbest=10, nsamples_for_each=200, run_c=False,
-        fname_out="./params_to_run.txt", fdir_out="./data_cat", init_seed=200,
+        nbest=10, nsamples_for_each=100, run_c=True,
+        fname_out="./params_to_run.txt", fdir_out="./data3", init_seed=1023,
         mpi_num_core=100, tmax=10500)
     
