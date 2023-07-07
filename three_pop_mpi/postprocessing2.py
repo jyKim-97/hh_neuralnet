@@ -79,39 +79,36 @@ def find_nn_ind(x, xtarget):
 
 def extract_single_result(data):
     # nid: simulation number
-    keys = ("ac2p_large", "ac2p_1st", "tlag_large", "tlag_1st", "cc1p", "tlag_cc", "pwr_1st", "pwr_large")
-    
-    res = xa.DataArray(np.zeros([len(keys), 2, 2]), 
-                       dims=("data", "pop_type", "momentum"),
-                       coords={"data": list(keys),
-                               "pop_type": [0, 1],
-                               "momentum": ["1st", "2nd"]})
-    
+    keys = ("ac2p_large", "tlag_large", "ac2p_1st", "tlag_1st", "pwr_1st", "pwr_large", "cc1p", "tlag_cc")
+    res = np.zeros([len(keys), 2, 2]) # key, pop_type, momentum (1/2)
     psd, fpsd, tpsd = hhsignal.get_stfft(data["vlfp"][0], data["ts"], 2000,
                                          mbin_t=mbin_t, wbin_t=wbin_t, frange=(3, 100))
 
-    for n in range(num_itr):
+    for _ in range(num_itr):
         vlfp, tr = pick_sample_data(data)
         
         psd1 = np.average(slice_t2(psd, tpsd, tr), axis=1)
         for tp in range(2):
             vals = get_ac2_peak(vlfp[tp+1], prominence=prominence)
-            for k, v in zip(("ac2p_large", "tlag_large", "ac2p_1st", "tlag_1st"), vals):
-                res.loc[k, tp, "1st"] += v
-                res.loc[k, tp, "1st"] += v**2
-
-            nf_1st   = find_nn_ind(fpsd, 1/res.loc["tlag_1st",   tp, "1st", n])
-            nf_large = find_nn_ind(fpsd, 1/res.loc["tlag_large", tp, "1st", n])
-            res.loc["pwr_1st",   tp, "1st"] = psd1[nf_1st]
-            res.loc["pwr_1st",   tp, "2nd"] = psd1[nf_1st]**2
-            res.loc["pwr_large", tp, "1st"] = psd1[nf_large]
-            res.loc["pwr_large", tp, "1st"] = psd1[nf_large]**2
+            for n, v in enumerate(vals):
+                res[n, tp, 0] += v
+                res[n, tp, 1] += v**2
             
-        c = res.loc[("cc1p", "tlag_cc"), tp, "1st", n] = get_cc_peak(vlfp[1], vlfp[2], prominence=prominence)
-        res.loc["cc1p_large", tp, "1st"] += c
-        res.loc["cc1p_large", tp, "2nd"] += c**2
+            nf_large = find_nn_ind(fpsd, 1/vals[1])
+            nf_1st   = find_nn_ind(fpsd, 1/vals[3])
+            res[4, tp, 0] += psd1[nf_1st]
+            res[4, tp, 1] += psd1[nf_1st]**2
+            res[5, tp, 0] += psd1[nf_large]
+            res[5, tp, 1] += psd1[nf_large]**2
+        
+        cc1p, cc_tlag = get_cc_peak(vlfp[1], vlfp[2], prominence=prominence)
+        res[6, 0, 0] += cc1p
+        res[6, 0, 1] += cc1p**2
+        res[7, 0, 0] += cc_tlag
+        res[7, 0, 1] += cc_tlag**2
     
-    return res, data["job_id"]
+    res /= num_itr
+    return data["job_id"], res, keys
 
 
 def extract_result(summary_obj, ncore=50):
@@ -129,23 +126,25 @@ def extract_result(summary_obj, ncore=50):
     outs = []
     for n in range(summary_obj.num_total):
         outs.append(extract_single_result(args[n]))
-    id_sort = np.argsort([o[1] for o in outs])
-    res_set = xa.concat([outs[n][0] for n in id_sort.astype(int)], dim="id")
+    id_sort = np.argsort([o[0] for o in outs])
+    res_set = np.concatenate([outs[n][1] for n in id_sort.astype(int)])
+    keys    = outs[0][2]
     
     nt = summary_obj.num_controls[-1]
+    nums = summary_obj.num_total // nt
     
-    buf = []
-    for n in range(summary_obj.num_total // nt):
-        buf.append(res_set.isel(id=slice(n*nt, (n+1)*nt)).sum("id"))
-    res_avg = xa.concat(buf, dim=np.arange(summary_obj.num_total // nt))
+    res_avg = np.zeros([nums, len(keys), 2, 2]) # data, pop_type (or from), mean / std
+    for n in range(nums):
+        res_avg[n,:,:,:] = np.average(res_set[n*nt:(n+1)*nt,:,:,:], axis=0)
+    res_avg[:,:,:,1] = np.sqrt(res_avg[:,:,:,1] - res_avg[:,:,:,0]**2)
+    res_avg = np.swapaxes(res_avg, 0, 1)
+    res_avg = np.swapaxes(res_avg, 1, 3) # data, pop_type (or from), mean / std, iter
     
-    res_avg = res_avg.expand_dims(dim={"type": ["mean", "std"]}, axis=-1)
-    res_avg.loc[{"type": "mean"}] = res_avg.loc[{"momentum": "1st"}] / (nt * num_itr)
-    res_avg.loc[{"type": "std"}]  = res_avg.loc[{"momentum": "2nd"}] / (nt * num_itr) - res_avg.loc[{"type": "mean"}]
-    res_avg.loc[{"type": "std"}]  = np.sqrt(res_avg.loc[{"type": "std"}])
-    res_avg = res_avg.drop("momentum")
+    shape = list(res_avg.shape)
+    shape = shape[:-1] + list(summary_obj.num_controls[:-1])
+    res_avg = np.reshape(res_avg, shape)
     
-    return res_avg    
+    return res_avg
     
 
 def main():
