@@ -20,28 +20,30 @@ mbin_t = 0.05
 wbin_t = 1 # s
 prominence = 0.05
 num_itr = 1
+_ncore = 10
 
 keys = ("ac2p_large", "tlag_large", "ac2p_1st", "tlag_1st", "pwr_1st", "pwr_large", "cc1p", "tlag_cc")
 
-seed = 200
 
-
-def main(prefix=None, fout="./dynamic_orders.pkl", nitr=5, ncore=50):
-    global num_itr
+def main(prefix=None, fout=None, nitr=5, ncore=50, seed=200):
+    global num_itr, _ncore
     num_itr = nitr
+    _ncore = ncore
     
+    np.random.seed(seed)
     summary_obj = hhtools.SummaryLoader(prefix, load_only_control=True)
-    df_res = extract_result(summary_obj, ncore=ncore)
+    df_res = extract_result(summary_obj)
+    df_res.attrs = {"srate": srate, "teq": teq, "mbin_t": mbin_t, "wbin_t": wbin_t, "prominence": prominence, "num_itr": num_itr}
     df_res.to_netcdf(fout)
     print("Calculation done, exported to %s"%(fout))
-
 
 def build_arg_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("--prefix", help="prefix of your simulated data", required=True)
-    parser.add_argument("--fout", help="output file name", required=True)
+    parser.add_argument("--fout", help="output file name", default="./dynamic_orders.nc")
     parser.add_argument("--nitr", help="the # of iteration", type=int)
     parser.add_argument("--ncore", help="the # of cores to use", type=int)
+    parser.add_argument("--seed", help="seed used to calcualte", default=200, type=int)
     return parser
     
 
@@ -92,7 +94,7 @@ def find_nn_ind(x, xtarget):
 
 def extract_single_result(data):
     # nid: simulation number
-    res = np.zeros([len(keys), 2, 2]) # key, pop_type, momentum (1/2)
+    res = np.zeros([len(keys), 3, 2]) # key, pop_type, momentum (1/2)
     psd, fpsd, tpsd = hhsignal.get_stfft(data["vlfp"][0], data["ts"], 2000,
                                          mbin_t=mbin_t, wbin_t=wbin_t, frange=(3, 100))
 
@@ -101,18 +103,19 @@ def extract_single_result(data):
         tr = [t0, t0 + wbin_t*srate]
         
         psd1 = np.average(slice_t2(psd, tpsd, tr), axis=1)
-        for tp in range(2):
-            vals = get_ac2_peak(vlfp[tp+1], prominence=prominence)
+        for tp in range(3):
+            vals = get_ac2_peak(vlfp[tp], prominence=prominence)
             for n, v in enumerate(vals):
                 res[n, tp, 0] += v
                 res[n, tp, 1] += v**2
             
-            nf_large = find_nn_ind(fpsd, 1/vals[1])
-            nf_1st   = find_nn_ind(fpsd, 1/vals[3])
-            res[4, tp, 0] += psd1[nf_1st]
-            res[4, tp, 1] += psd1[nf_1st]**2
-            res[5, tp, 0] += psd1[nf_large]
-            res[5, tp, 1] += psd1[nf_large]**2
+            if tp != 0:
+                nf_large = find_nn_ind(fpsd, 1/vals[1])
+                nf_1st   = find_nn_ind(fpsd, 1/vals[3])
+                res[4, tp, 0] += psd1[nf_1st]
+                res[4, tp, 1] += psd1[nf_1st]**2
+                res[5, tp, 0] += psd1[nf_large]
+                res[5, tp, 1] += psd1[nf_large]**2
         
         cc1p, cc_tlag = get_cc_peak(vlfp[1], vlfp[2], prominence=prominence)
         res[6, 0, 0] += cc1p
@@ -124,30 +127,62 @@ def extract_single_result(data):
     return data["job_id"], res
 
 
-def extract_result(summary_obj, ncore=50) ->xr.DataArray:
+def construct_args(summary_obj, desc=None):
     
-    args = []
-    for nt in range(summary_obj.num_total):
+    global _load_single
+    def _load_single(nt):
         data = summary_obj.load_detail(nt)
         data["job_id"] = nt
         del(data["step_spk"])
-        args.append(data)
-        
-    with Pool(ncore) as p:
-        outs = p.map(extract_single_result, args)
+        return nt, data
+
+    dataset = parrun(_load_single, np.arange(summary_obj.num_total, dtype=int), desc=desc)
+
+    # dataset = []
     
+    # p = Pool(_ncore)
+    # for n in tqdm(range(summary_obj.num_total)):
+        # _, data = p.imap(_load_single, )
+    
+    # p.close()
+    # p.join()
+    
+    # for n in tqdm(range(summary_obj.num_total)):
+    #     _, data = _load_single(n)
+    #     dataset.append(data)
+    return dataset
+
+
+def parrun(func, args, desc=None):
+    
+    outs = []
+    p = Pool(_ncore)
+    with tqdm(total=len(args), desc=desc) as pbar:
+        for n, res in enumerate(p.imap(func, args)):
+            outs.append(res)
+            pbar.update()
+            
     id_sort = np.argsort([o[0] for o in outs])
-    res_set = np.stack([outs[n][1] for n in id_sort.astype(int)])
+    res = [outs[i][1] for i in id_sort]
+    p.close()
+    p.join()
+    
+    return res
+
+
+def extract_result(summary_obj) ->xr.DataArray:
+    
+    dataset = construct_args(summary_obj, desc="Load Dataset...")
+    res_set = np.stack(parrun(extract_single_result, dataset, desc="Calculating...."))
     
     nt = summary_obj.num_controls[-1]
     nums = summary_obj.num_total // nt
     
-    res_avg = np.zeros([nums, len(keys), 2, 2]) # data, pop_type (or from), mean / std
+    res_avg = np.zeros([len(keys), 3, 2, nums]) # data, pop_type (or from), mean / std
     for n in range(nums):
-        res_avg[n,:,:,:] = np.average(res_set[n*nt:(n+1)*nt,:,:,:], axis=0)
-    res_avg[:,:,:,1] = np.sqrt(res_avg[:,:,:,1] - res_avg[:,:,:,0]**2)
-    res_avg = np.swapaxes(res_avg, 0, 1)
-    res_avg = np.swapaxes(res_avg, 1, 3) # data, pop_type (or from), mean / std, iter
+        res_avg[:,:,:,n] = np.average(res_set[n*nt:(n+1)*nt,:,:,:], axis=0)
+    res_avg[:,:,1,:] = np.sqrt(res_avg[:,:,1,:] - res_avg[:,:,0,:]**2) # data, pop_type (or from), mean / std, iter
+    print(res_avg.shape)
     
     shape = list(res_avg.shape)
     shape = shape[:-1] + list(summary_obj.num_controls[:-1])
@@ -156,7 +191,7 @@ def extract_result(summary_obj, ncore=50) ->xr.DataArray:
     df = xr.DataArray(res_avg,
                       dims=("key", "pop", "type", "alpha", "beta", "rank", "w"),
                       coords={"key": list(keys),
-                              "pop": ["F", "S"],
+                              "pop": ["T", "F", "S"],
                               "type": ["mean", "std"],
                               "alpha": summary_obj.controls["alpha_set"],
                               "beta": summary_obj.controls["beta_set"],

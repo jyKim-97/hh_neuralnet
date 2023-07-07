@@ -6,7 +6,15 @@ from tqdm import tqdm
 
 import utils
 import hhclustering as hc
+import argparse
 
+
+def build_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--fout", required=True, help="output file name")
+    parser.add_argument("--fdata", required=True, help="input data file name")
+    parser.add_argument("-K", required=True, type=int, help="size of clusters")
+    return parser
 
 
 def load_saved(fname):
@@ -16,7 +24,6 @@ def load_saved(fname):
     fdir = "../simulation_data"
     with open(os.path.join(fdir, fname), "rb") as fp:
         return pkl.load(fp)
-
 
 
 def kmeans_multi(K, data, seed):
@@ -30,10 +37,10 @@ def kmeans_multi(K, data, seed):
     return km_obj, sval, scoeff
 
 
-def main(K=15):
+def main(fout=None, fdata=None, K=None):
     nitr = 1000
 
-    pdata = load_saved("purified_data.pkl")
+    pdata = load_saved(fdata)
 
     np.random.seed(100) # gen random seeds
     seeds = np.random.randint(low=1, high=10000, size=nitr)
@@ -60,7 +67,7 @@ def main(K=15):
         scoeffs.append(sc)
     same_prob /= nitr
 
-    with open("./clustering.pkl", "wb") as fp:
+    with open(fout, "wb") as fp:
         pkl.dump({"km_objs": km_objs,
                 "same_prob": same_prob,
                 "svals": svals,
@@ -69,4 +76,4 @@ def main(K=15):
 
 
 if __name__ == "__main__":
-    main(K=15)
+    main(**vars(build_args().parse_args()))

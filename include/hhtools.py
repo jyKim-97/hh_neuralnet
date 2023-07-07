@@ -168,6 +168,10 @@ class SummaryLoader:
                 self.control_names.append(tmp[0])
                 self.controls[tmp[0]] = [float(x) for x in tmp[1].split(",")[:-1]]
                 line = fid.readline()
+        nums_expect = 1
+        for n in self.num_controls:
+            nums_expect *= n
+        self.num_total = nums_expect
 
     def _read_data(self):
         # NOTE: pkl 파일 체크
@@ -175,16 +179,12 @@ class SummaryLoader:
         self.num_overlap = self.check_overlap(fnames)
 
         nums = len(fnames)
-        nums_expect = 1
-        for n in self.num_controls:
-            nums_expect *= n
-        self.num_total = nums_expect
         
-        if nums != nums_expect * self.num_overlap:
-            print("Expected number of # results and exact file number are different!: %d/%d"%(nums, nums_expect*self.num_overlap))
+        if nums != self.num_total * self.num_overlap:
+            print("Expected number of # results and exact file number are different!: %d/%d"%(nums, self.num_total*self.num_overlap))
         
         self.summary = {}
-        self.load_success = np.ones(nums_expect)
+        self.load_success = np.ones(self.num_total)
         var_names = ["chi", "cv", "frs_m", "frs_s"]
         for k in var_names:
             self.summary[k] = []
@@ -195,7 +195,7 @@ class SummaryLoader:
                 self.summary = pkl.load(fp)
                 return
 
-        for n in range(nums_expect):
+        for n in range(self.num_total):
 
             for i in range(self.num_overlap):
                 if self.num_overlap == 1:

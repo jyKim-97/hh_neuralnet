@@ -101,6 +101,7 @@ def nnmf_simple(data, n_features=2, nre=5, nitr=50, n_repeat=10, tol=1e-4):
 # Clustering
 # ================================================================================================
 def kmeans_specific_seed(K, data, seed):
+    # data (features, sample_points)
     np.random.seed(seed)
     
     km_obj = KMeans(n_clusters=K, init="k-means++", n_init="auto")
@@ -474,15 +475,18 @@ def reorder_data(data, id_cluster, sval=None):
     return data2, id_sort, bds
 
 
-def show_sq_cluster(sq_cluster, x=None, y=None, cmap="jet", cth=None, vmin=None, vmax=None):
+def show_sq_cluster(sq_cluster, x=None, y=None, cmap="jet", cth=None, vmin=None, vmax=None, fontsize=14, aspect=None):
 
     x = np.arange(sq_cluster.shape[1]) if x is None else x
     y = np.arange(sq_cluster.shape[0]) if y is None else y
     vmin = np.min(sq_cluster) if vmin is None else vmin
     vmax = np.max(sq_cluster) if vmax is None else vmax
 
+    dx = x[1] - x[0]; dy = y[1] - y[0]
     cax = plt.imshow(sq_cluster, origin="lower", cmap=cmap, vmin=vmin, vmax=vmax,
-                    extent=[x[0], x[-1], y[0], y[-1]])
+                    extent=[x[0]-dx/2, x[-1]+dx/2, y[0]-dy/2, y[-1]+dy/2],
+                    aspect=aspect)
+    
     cids = np.unique(sq_cluster).astype(int)
     cth = (max(cids)+min(cids))/2 if cth is None else cth
     for cid in cids:
@@ -490,7 +494,7 @@ def show_sq_cluster(sq_cluster, x=None, y=None, cmap="jet", cth=None, vmin=None,
         xc = np.average(x[nc])
         yc = np.average(y[nr])
         c = "k" if cid > cth else "w"
-        plt.text(xc, yc, "%d"%(cid), fontsize=14, c=c)
+        plt.text(xc, yc, "%d"%(cid), fontsize=fontsize, c=c)
 
     return cax
 

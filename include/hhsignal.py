@@ -95,15 +95,7 @@ def get_correlation(x, y, srate, max_lag=None):
     pad = np.zeros(int(max_pad))
     xn = np.concatenate((pad, xn, pad))
     cc = correlate(xn, yn, mode="valid", method="fft")/std[0]/std[1]
-    
-    # cc = correlate(xn, yn, mode="full", method="fft")/std[0]/std[1]
     tlag = np.arange(-max_lag, max_lag+1/srate/10, 1/srate)
-    
-    # get normalization block
-    # nc = len(cc)
-    # num_use = np.zeros(nc)
-    # num_use[:nc//2+1] = len(yn) - np.arange(0, nc//2+1)[::-1]
-    # num_use[nc//2:] = len(yn) - np.arange(0, nc//2+1)
     
     num_use = len(yn)
     cc = cc/num_use
