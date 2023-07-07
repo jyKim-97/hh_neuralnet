@@ -3,7 +3,7 @@
 import numpy as np
 import sys
 from tqdm import tqdm
-import xarray as xa
+import xarray as xr
 import pandas as pd
 
 # Add custom modules
@@ -21,14 +21,27 @@ wbin_t = 1 # s
 prominence = 0.05
 num_itr = 1
 
+keys = ("ac2p_large", "tlag_large", "ac2p_1st", "tlag_1st", "pwr_1st", "pwr_large", "cc1p", "tlag_cc")
+
 seed = 200
+
+
+def main(prefix=None, fout="./dynamic_orders.pkl", nitr=5, ncore=50):
+    global num_itr
+    num_itr = nitr
+    
+    summary_obj = hhtools.SummaryLoader(prefix, load_only_control=True)
+    df_res = extract_result(summary_obj, ncore=ncore)
+    df_res.to_netcdf(fout)
+    print("Calculation done, exported to %s"%(fout))
 
 
 def build_arg_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("--prefix", help="prefix of your simulated data", required=True)
     parser.add_argument("--fout", help="output file name", required=True)
-    parser.add_argument("-n", help="the # of iteration", type=int)
+    parser.add_argument("--nitr", help="the # of iteration", type=int)
+    parser.add_argument("--ncore", help="the # of cores to use", type=int)
     return parser
     
 
@@ -79,13 +92,13 @@ def find_nn_ind(x, xtarget):
 
 def extract_single_result(data):
     # nid: simulation number
-    keys = ("ac2p_large", "tlag_large", "ac2p_1st", "tlag_1st", "pwr_1st", "pwr_large", "cc1p", "tlag_cc")
     res = np.zeros([len(keys), 2, 2]) # key, pop_type, momentum (1/2)
     psd, fpsd, tpsd = hhsignal.get_stfft(data["vlfp"][0], data["ts"], 2000,
                                          mbin_t=mbin_t, wbin_t=wbin_t, frange=(3, 100))
 
     for _ in range(num_itr):
-        vlfp, tr = pick_sample_data(data)
+        vlfp, t0 = pick_sample_data(data)
+        tr = [t0, t0 + wbin_t*srate]
         
         psd1 = np.average(slice_t2(psd, tpsd, tr), axis=1)
         for tp in range(2):
@@ -108,10 +121,10 @@ def extract_single_result(data):
         res[7, 0, 1] += cc_tlag**2
     
     res /= num_itr
-    return data["job_id"], res, keys
+    return data["job_id"], res
 
 
-def extract_result(summary_obj, ncore=50):
+def extract_result(summary_obj, ncore=50) ->xr.DataArray:
     
     args = []
     for nt in range(summary_obj.num_total):
@@ -120,15 +133,11 @@ def extract_result(summary_obj, ncore=50):
         del(data["step_spk"])
         args.append(data)
         
-    # with Pool(ncore=ncore) as p:
-        # outs = p.map(extract_single_result, args)
+    with Pool(ncore) as p:
+        outs = p.map(extract_single_result, args)
     
-    outs = []
-    for n in range(summary_obj.num_total):
-        outs.append(extract_single_result(args[n]))
     id_sort = np.argsort([o[0] for o in outs])
-    res_set = np.concatenate([outs[n][1] for n in id_sort.astype(int)])
-    keys    = outs[0][2]
+    res_set = np.stack([outs[n][1] for n in id_sort.astype(int)])
     
     nt = summary_obj.num_controls[-1]
     nums = summary_obj.num_total // nt
@@ -144,8 +153,19 @@ def extract_result(summary_obj, ncore=50):
     shape = shape[:-1] + list(summary_obj.num_controls[:-1])
     res_avg = np.reshape(res_avg, shape)
     
-    return res_avg
+    df = xr.DataArray(res_avg,
+                      dims=("key", "pop", "type", "alpha", "beta", "rank", "w"),
+                      coords={"key": list(keys),
+                              "pop": ["F", "S"],
+                              "type": ["mean", "std"],
+                              "alpha": summary_obj.controls["alpha_set"],
+                              "beta": summary_obj.controls["beta_set"],
+                              "rank": summary_obj.controls["rank_set"],
+                              "w": summary_obj.controls["p_ratio_set"]}
+                      )
     
+    return df
 
-def main():
-    pass
+
+if __name__ == "__main__":
+    main(**vars(build_arg_parser().parse_args()))
