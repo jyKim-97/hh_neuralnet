@@ -487,7 +487,7 @@ def show_sq_cluster(sq_cluster, x=None, y=None, cmap="jet", cth=None, vmin=None,
                     extent=[x[0]-dx/2, x[-1]+dx/2, y[0]-dy/2, y[-1]+dy/2],
                     aspect=aspect)
     
-    cids = np.unique(sq_cluster).astype(int)
+    cids = [c for c in np.unique(sq_cluster).astype(int) if c > 0]
     cth = (max(cids)+min(cids))/2 if cth is None else cth
     for cid in cids:
         nr, nc = np.where(sq_cluster == cid)

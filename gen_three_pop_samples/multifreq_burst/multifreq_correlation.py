@@ -23,8 +23,7 @@ std_min = -1
 std_max = -1
 std_step = -1
 nmin_width = -1
-arange = (0, 0)
-da = -1
+amp_ranges = (0, 0)
 
 
 @dataclass
@@ -36,8 +35,7 @@ class mfoConfig:
     std_max: float = 8
     std_step: float = 0.1
     nmin_width: float = -1
-    arange: Tuple[float, float] = (0.1, 2.1)
-    da: float = 0.4
+    amp_ranges: Tuple[float, float] = (0.1, 1.1, 2.1)
     fdir: str = ""
 
 
@@ -48,11 +46,30 @@ def config_params(config: mfoConfig):
 
 def check_params(key):
     print(globals()[key])
+    
+    
+def build_argument_parser() -> ArgumentParser:
+    
+    def _tuple_type(strings):
+        if ((strings[0] != "(") or (strings[-1] != ")")):
+            raise ValueError("Input must be the tuple")
+        return tuple(map(float, strings[1:-1].split(",")))
+    
+    parser = ArgumentParser()
+    parser.add_argument("--fname_th", required=True)
+    parser.add_argument("--fout", required=True)
+    parser.add_argument("--std_min", default=3.3, type=float)
+    parser.add_argument("--std_max", default=8, type=float)
+    parser.add_argument("--std_step", default=0.1, type=float)
+    parser.add_argument("--nmin_width", default=-1, type=int)
+    parser.add_argument("--amp_ranges", default=(0,1, 2.1), type=_tuple_type)
+    parser.add_argument("--ncore", default=10, type=int)
+    return parser
 
 
-def main(fname_th=None, 
+def main(fname_th=None, fout=None, 
          std_min=3.3, std_max=8, std_step=0.1, nmin_width=-1,
-         arange=(0.1, 2.1), da=0.4, ncore=20):
+         amp_ranges=(0.1, 1.1, 2.1), ncore=20):
 
     th_psd, fdir_data = load_psd_threshold(fname_th)
     # configuration
@@ -60,7 +77,7 @@ def main(fname_th=None,
     config = mfoConfig(fdir=fdir_data,
                        std_min=std_min, std_max=std_max, std_step=std_step,
                        nmin_width=nmin_width,
-                       arange=arange, da=da,
+                       amp_ranges=amp_ranges,
                        **th_psd["psd_params"])
     config_params(config)
 
@@ -70,29 +87,21 @@ def main(fname_th=None,
     bcorr_maps = []
     num_detected = []
     for cid in trange(1, summary_obj.num_controls[0]+1):
-        pmaps, bmaps, amp_edges, nd = get_corr_map_cluster(summary_obj, cid, th_psd, ncore=ncore)
+        pmaps, bmaps, nd, fpsd = get_corr_map_cluster(summary_obj, cid, th_psd, ncore=ncore)
         pcorr_maps.append(pmaps)
         bcorr_maps.append(bmaps)
         num_detected.append(nd)
     
-    with open("./corr_maps.pkl", "wb") as fp:
+    with open(fout, "wb") as fp:
         pkl.dump({
-            "pcorr_maps": pcorr_maps,
-            "bcorr_maps": bcorr_maps,
+            "pcorr_maps": np.array(pcorr_maps),
+            "bcorr_maps": np.array(bcorr_maps),
             "num_detected": num_detected,
-            "amp_edges": amp_edges
+            "amp_ranges": amp_ranges,
+            "desc": ("fast-fast", "fast-slow", "slow-fast", "slow-slow"),
+            "fpsd": fpsd,
+            "params": vars(config),
         }, fp)
-
-
-def build_argument_parser() -> ArgumentParser:
-    parser = ArgumentParser()
-    parser.add_argument("--fname_th", required=True)
-    parser.add_argument("--fout", required=True)
-    parser.add_argument("--std_min", default=3.3, type=float)
-    parser.add_argument("--std_max", default=8, type=float)
-    parser.add_argument("--std_step", default=0.1, type=float)
-    parser.add_argument("--nmin_width", default=-1, type=int)
-    return parser
 
 
 def load_psd_threshold(fname):
@@ -120,7 +129,7 @@ def _get_psd_corr(psd_set):
 
 
 def _get_burst_corr(burst_maps):
-    bsets = [(b > 1).astype(int) for b in burst_maps]
+    bsets = [(b > 0).astype(int) for b in burst_maps]
     p_burst_corr = _get_corr(bsets)
     # get indep prob
     p_indep = [np.sum(b, axis=1)[:, np.newaxis]/b.shape[1] for b in bsets]
@@ -181,17 +190,13 @@ def get_corr_map(psd_set, fpsd,
     psd_corr_map = _get_psd_corr(psd_set)
 
     bmaps, _, _, burst_amps = _get_bmap(psd_set, fpsd, th_psd_m, th_psd_s)
-    edges = np.arange(arange[0], arange[1]+da/2, da)
-    if len(edges) == 1:
-        edges = arange
     
     b_corr_map = []
-    for na in range(len(edges)-1):
-        b_corr_map.append(_get_bcorr_with_amp(bmaps, burst_amps, edges[na:na+2]))
-
+    for na in range(len(amp_ranges)-1):
+        b_corr_map.append(_get_bcorr_with_amp(bmaps, burst_amps, amp_ranges[na:na+2]))
     b_corr_map = np.array(b_corr_map) 
 
-    return psd_corr_map, b_corr_map, edges, burst_amps
+    return psd_corr_map, b_corr_map, burst_amps, fpsd
 
 
 def get_corr_map_cluster(summary_obj, cid, th_buf, ncore=10):
@@ -230,10 +235,11 @@ def get_corr_map_cluster(summary_obj, cid, th_buf, ncore=10):
 
     psd_corr_map = np.average([r[0] for r in res], axis=0)
     b_corr_map   = np.average([r[1] for r in res], axis=0)
-    amp_edges = res[0][2]
+    num_detected = np.sum([[len(r[2][0]), len(r[2][1])] for r in res], axis=0)
+    fpsd = np.array(res[0][3])
 
-    num_detected = np.sum([[len(r[3][0]), len(r[3][1])] for r in res], axis=0)
-    print(num_detected)
-    return psd_corr_map, b_corr_map, amp_edges, num_detected
+    return psd_corr_map, b_corr_map, num_detected, fpsd
     
 
+if __name__ == "__main__":
+    main(**vars(build_argument_parser().parse_args()))

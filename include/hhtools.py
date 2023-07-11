@@ -90,6 +90,12 @@ def draw_spk(step_spk, dt=0.01, sequence=None, xl=None, color_ranges=None, color
             raise ValueError("Length of sequence (%d) exceeds N (%d)"%(len(sequence), N))
 
     cid = 0
+    
+    _MAX_BUF_SIZE = 10000
+    xs = []
+    ys = []
+    cs = []
+    
     for n, nid in enumerate(sequence):
         t_spk = np.array(step_spk[nid]) * dt
         if xl is not None:
@@ -100,8 +106,16 @@ def draw_spk(step_spk, dt=0.01, sequence=None, xl=None, color_ranges=None, color
             c = colors[cid]
         else:
             c = 'k'
+        
+        xs.extend(t_spk)
+        ys.extend(np.ones_like(t_spk)*n)
+        cs.extend([c for _ in range(len(t_spk))])
+        
+        if len(xs) > _MAX_BUF_SIZE or nid == sequence[-1]:
+            plt.scatter(xs, ys, s=ms, c=cs, **kwargs)
+            xs = []; ys = []; cs = []
 
-        plt.scatter(t_spk, np.ones_like(t_spk)*n, s=ms, c=c, **kwargs)
+        # plt.scatter(t_spk, np.ones_like(t_spk)*n, s=ms, c=c, **kwargs)
     plt.xlim(xl)
     plt.ylim([0, len(sequence)])
 

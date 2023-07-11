@@ -9,6 +9,8 @@ import sys
 sys.path.append("/home/jungyoung/Project/hh_neuralnet/include")
 import hhtools
 import hhsignal
+import parrun
+from functools import partial
 
 
 # hard fix parameters
@@ -19,7 +21,7 @@ flim = (10, 100)
 
 def build_argument_parser() -> ArgumentParser:
     parser = ArgumentParser()
-    parser.add_argument("--method", default="absolute", choices=("absolute", "relateive"))
+    parser.add_argument("--method", default="absolute", choices=("absolute", "absolute_c", "relateive"))
     parser.add_argument("--fdir_data", required=True)
     parser.add_argument("--fout", required=True)
     parser.add_argument("--std_ratio", default=3.29, type=float)
@@ -41,26 +43,47 @@ def load_cluster_info(fdir_data):
     return cinfo
 
 
-def get_attrib_psd(summary_obj):
+def _get_psd_m12(fs, mbin_t, wbin_t, flim, vlfp_set, ts):
+        
+        psd_m = np.zeros(2)
+        psd_m2 = np.zeros(2)
+        for i in range(2):
+            psd, fpsd, tpsd = hhsignal.get_stfft(vlfp_set[i], ts, fs,
+                                                    mbin_t=mbin_t, wbin_t=wbin_t, frange=flim)
+            psd_m[i]  = np.average(psd)
+            psd_m2[i] = np.average(psd**2)
+            
+        return psd_m, psd_m2
 
-    def cut_start(signal, t_sig):
+
+def get_attrib_psd(summary_obj):
+    
+    def _cut_signal(vlfp_set, t_sig):
         idt = t_sig >= 0.5 # t_sig (s)
-        return signal[idt], t_sig[idt]
+        return [v[idt] for v in vlfp_set], t_sig[idt]
+    
+    # explore if psd_m exist
+    fname = os.path.join(summary_obj.fdir, "./psd_attrib.pkl")
+    if os.path.exists(fname):
+        with open(fname, "rb") as fp:
+            buf = pkl.load(fp)
+        return buf["psd_m"], buf["psd_m2"]
 
     # get mean & std for each case
     psd_m = np.zeros([summary_obj.num_total, 2])
     psd_m2 = np.zeros([summary_obj.num_total, 2])
+    
+    global _arg_func
+    _arg_func = partial(_get_psd_m12, fs, mbin_t, wbin_t, flim)
 
-    for n in trange(summary_obj.num_total):
+    for n in trange(summary_obj.num_total, desc="put..."):
         detail_data = summary_obj.load_detail(n)
-
-        for i in range(2):
-            vlfp, t = cut_start(detail_data["vlfp"][i+1], detail_data["ts"])
-            psd, fpsd, tpsd = hhsignal.get_stfft(vlfp, t, fs,
-                                                 mbin_t=mbin_t, wbin_t=wbin_t, frange=flim)
-            psd_m[n, i] = np.average(psd)
-            psd_m2[n, i] = np.average(psd**2)
-
+        vlfp_set, ts = _cut_signal(detail_data["vlfp"][1:], detail_data["ts"])
+        psd_m[n, :], psd_m2[n, :] = _arg_func(vlfp_set, ts)
+        
+    with open(fname, "wb") as fp:
+        pkl.dump({"psd_m": psd_m, "psd_m2": psd_m2}, fp)
+    
     return psd_m, psd_m2
 
 
@@ -72,8 +95,8 @@ def get_th_abs(psd_m, psd_m2, cluster_info):
     nrank_set = np.array(cluster_info["nrank"]).astype(int)
     for nrank in range(3): # NOTE: take care with different rank size
         is_r = nrank_set == nrank
-        m1 = np.average(psd_m[is_r, :])
-        m2 = np.average(psd_m2[is_r, :])
+        m1 = np.average(psd_m[is_r, :],  axis=0)
+        m2 = np.average(psd_m2[is_r, :], axis=0)
         s = np.sqrt(m2 - m1**2)
 
         th_m[is_r, :] = m1
@@ -90,8 +113,8 @@ def get_th_abs_cluster(psd_m, psd_m2, cluster_info):
     clsuter_id_set = np.unique(cluster_info["cluster_id"])
     for nc in clsuter_id_set:
         is_c = cluster_info["cluster_id"] == nc
-        m1 = np.average(psd_m[is_c, :])
-        m2 = np.average(psd_m2[is_c, :])
+        m1 = np.average(psd_m[is_c, :],  axis=0)
+        m2 = np.average(psd_m2[is_c, :], axis=0)
         s = np.sqrt(m2 - m1**2)
 
         th_m[is_c, :] = m1
@@ -104,6 +127,7 @@ def get_th_rel(psd_m, psd_m2):
     th_m = psd_m
     th_s = np.sqrt(psd_m2 - psd_m**2)
     return th_m, th_s
+
 
 
 def main(std_ratio=0, fdir_data=None, fout=None, method=None):

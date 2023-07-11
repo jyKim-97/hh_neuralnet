@@ -4,7 +4,7 @@ from scipy.signal import correlate
 
 
 # Fourier transform
-def get_fft(x, fs, nbin=None, nbin_t=None, frange=None):
+def get_fft(x, fs, nbin=None, nbin_t=None, frange=None, real=True):
     if nbin is None and nbin_t is None:
         N = len(x)
     elif nbin_t is not None:
@@ -13,7 +13,9 @@ def get_fft(x, fs, nbin=None, nbin_t=None, frange=None):
         N = nbin
 
     yf = np.fft.fft(x, axis=0, n=N)
-    yf = 2/N * np.abs(yf[:N//2])
+    yf = 2/N * yf[:N//2]
+    if real:
+        yf = np.abs(yf)
     freq = np.linspace(0, 1/2*fs, N//2)
 
     if frange is not None:
@@ -28,14 +30,14 @@ def get_fft(x, fs, nbin=None, nbin_t=None, frange=None):
     return yf, freq
 
 
-def get_stfft(x, t, fs, mbin_t=0.1, wbin_t=1, frange=None, buf_size=100):
+def get_stfft(x, t, fs, mbin_t=0.1, wbin_t=1, frange=None, buf_size=100, real=True):
 
     wbin = int(wbin_t * fs)
     mbin = int(mbin_t * fs)
     window = np.hanning(wbin)
     
     ind = np.arange(wbin//2, len(t)-wbin//2, mbin, dtype=int)
-    psd = np.zeros([wbin//2, len(ind)])
+    psd = np.zeros([wbin//2, len(ind)], dtype=float if real else complex)
     
     n_id = 0
     while n_id < len(ind):
@@ -48,7 +50,7 @@ def get_stfft(x, t, fs, mbin_t=0.1, wbin_t=1, frange=None, buf_size=100):
             n1 = min([ind[n]+wbin//2, len(t)])
             y[n0-(ind[n]-wbin//2):wbin-(ind[n]+wbin//2)+n1, i] = x[n0:n1]
         y = y * window[:,np.newaxis]
-        yf, fpsd = get_fft(y, fs)
+        yf, fpsd = get_fft(y, fs, real=real)
         psd[:, n_id:n_id+n_buf] = yf
 
         n_id += n_buf
