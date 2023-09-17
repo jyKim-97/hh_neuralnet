@@ -379,8 +379,10 @@ def read_info(info_string):
 
 
 def get_id(num_xs, *nid):
+    
     if len(nid) != len(num_xs):
         raise ValueError("The number of arguments does not match to expected #")
+    
     num_tag = 0
     stack = 1
     for n in range(len(nid)-1, -1, -1):
@@ -423,7 +425,7 @@ def read_summary(fname):
     return summary
 
 
-def imshow_xy(im, x=None, y=None, **kwargs):
+def imshow_xy(im, x=None, y=None, scale="linear", vmin=None, vmax=None, **kwargs):
     extent = []
     if x is not None:
         if len(x) != im.shape[1]:
@@ -441,8 +443,17 @@ def imshow_xy(im, x=None, y=None, **kwargs):
         extent.extend([y[0]-dy, y[-1]+dy])
     else:
         extent.extend([-0.5, np.shape(im)[0]-0.5])
+        
+    im_ = im
+    if scale == "log10":
+        im_ = np.log10(im)
+
+    vmin_ = np.percentile(im_, 1) if vmin is None else vmin
+    vmax_ = np.percentile(im_, 99) if vmax is None else vmax
     
-    return plt.imshow(im, aspect="auto", extent=extent, origin="lower", **kwargs)
+    return plt.imshow(im_, aspect="auto", extent=extent, origin="lower",
+                      vmin=vmin_, vmax=vmax_,
+                      **kwargs)
 
 
 def plot_sub(x, y, xl=None, *args, **kwargs):
