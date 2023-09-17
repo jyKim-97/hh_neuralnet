@@ -101,7 +101,7 @@ void set_control_parameters(){
 
         print_arr(fp, "alpha_set", max_len[0], alpha_set);
         print_arr(fp, "beta_set", max_len[1], beta_set);
-        print_arr(fp, "id_rank", max_len[2], id_rank);
+        print_arr(fp, "rank_set", max_len[2], id_rank);
         print_arr(fp, "p_ratio_set", max_len[3], p_ratio_set);
         fclose(fp);
     }

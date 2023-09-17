@@ -22,7 +22,11 @@ prominence = 0.05
 num_itr = 1
 _ncore = 10
 
-keys = ("ac2p_large", "tlag_large", "ac2p_1st", "tlag_1st", "pwr_1st", "pwr_large", "cc1p", "tlag_cc")
+keys_dyna = ("ac2p_large", "tlag_large", "ac2p_1st", "tlag_1st",
+             "pwr_large_ft", "tlag_large_ft", "pwr_1st_ft", "tlag_1st_ft",
+             "cc1p", "tlag_cc", "leading_ratio", "leading_ratio(abs)", "dphi")
+
+keys_order = ("chi", "cv", "frs_m")
 
 
 def main(prefix=None, fout=None, nitr=5, ncore=50, seed=200):
@@ -31,11 +35,22 @@ def main(prefix=None, fout=None, nitr=5, ncore=50, seed=200):
     _ncore = ncore
     
     np.random.seed(seed)
-    summary_obj = hhtools.SummaryLoader(prefix, load_only_control=True)
+    summary_obj = hhtools.SummaryLoader(prefix)
+    summary_obj.summary["chi"][summary_obj.summary["chi"] > 1] = np.nan
     df_res = extract_result(summary_obj)
-    df_res.attrs = {"srate": srate, "teq": teq, "mbin_t": mbin_t, "wbin_t": wbin_t, "prominence": prominence, "num_itr": num_itr}
+    df_res.attrs = {"srate": srate, "teq": teq, "mbin_t": mbin_t, "wbin_t": wbin_t,
+                    "prominence": prominence, "num_itr": num_itr, "seed": seed,
+                    "date": read_date()}
     df_res.to_netcdf(fout)
     print("Calculation done, exported to %s"%(fout))
+
+
+def read_date():
+    from datetime import datetime
+    
+    date_now = datetime.now()
+    return "%d-%d-%d"%(date_now.year, date_now.month, date_now.day)
+
 
 def build_arg_parser():
     parser = argparse.ArgumentParser()
@@ -70,60 +85,113 @@ def get_cc_peak(x, y, prominence=0.01):
     # Need to return 1nd peak lag, mag
     cc, tlag = hhsignal.get_correlation(x, y, srate, max_lag=0.2)
     idp = hhsignal.detect_peak(cc, prominence=prominence, mode=0)
-    return cc[idp[0]], tlag[idp[0]]
+    
+    idp3 = idp[np.argsort(np.abs(tlag[idp]))[:3]] # use first 3 points
+    if np.abs(idp3[0]) < 1e-5:
+        idp3 = idp3[:2]
+    
+    npeak = idp3[np.argmax(cc[idp3])]
+    
+    return cc[npeak], tlag[npeak]
 
 
-def get_pwr(vlfp_t, ts, f_targets):
-    # f_targets: (4,)
-    psd, fpsd, tpsd = hhsignal.get_stfft(vlfp_t, ts, srate, mbin_t=mbin_t, wbin_t=wbin_t, frange=(3, 100))
-    pwrs = np.zeros_like(f_targets)
-    for n, ft in enumerate(f_targets):
-        nf = np.argmin(np.abs(fpsd - ft))
-        pwrs[n] = pwrs[nf]
-    return pwrs
+def find_peak2(sig):
+    from scipy.signal import find_peaks
+    idp = find_peaks(sig)[0]
+    id_sort = np.argsort(sig[idp])[::-1]
+    idp = idp[id_sort]
+    
+    n0 = idp[0]
+    n = 1
+    while np.abs(n0 - idp[n]) < 5:
+        n += 1
+    
+    n1 = idp[n]
+    if sig[idp[n]] < sig[n0]/3:
+        n1 = n0
+
+    return n0, n1
 
 
-def slice_t2(data2, t, trange):
-    idt = (t >= trange[0]) & (t < trange[1])
-    return data2[:, idt]
-
-
-def find_nn_ind(x, xtarget):
-    return np.argmin(np.abs(x - xtarget))
+def get_fft_peak(x):
+    ac, tlag = hhsignal.get_correlation(x, x, srate, max_lag=0.2)
+    yf, freq = hhsignal.get_fft(ac, srate, frange=(1, 120))
+    n0, n1 = find_peak2(yf)
+    
+    return yf[n0], 1/freq[n0], yf[n1], 1/freq[n1]
 
 
 def extract_single_result(data):
     # nid: simulation number
-    res = np.zeros([len(keys), 3, 2]) # key, pop_type, momentum (1/2)
-    psd, fpsd, tpsd = hhsignal.get_stfft(data["vlfp"][0], data["ts"], 2000,
-                                         mbin_t=mbin_t, wbin_t=wbin_t, frange=(3, 100))
+    res = np.zeros([len(keys_dyna), 3, 2]) # key, pop_type, momentum (1/2)
+    # psd, fpsd, tpsd = hhsignal.get_stfft(data["vlfp"][0], data["ts"], 2000,
+    #                                      mbin_t=mbin_t, wbin_t=wbin_t, frange=(3, 100))
+    
+    tau_ac_peaks = np.zeros([num_itr, 2]) # two subpopulations (F: ac1, S: ac_large)
+    tau_cc_peaks = np.zeros(num_itr)
+    num_lead = 0
 
-    for _ in range(num_itr):
+    for nid in range(num_itr):
         vlfp, t0 = pick_sample_data(data)
-        tr = [t0, t0 + wbin_t*srate]
         
-        psd1 = np.average(slice_t2(psd, tpsd, tr), axis=1)
         for tp in range(3):
-            vals = get_ac2_peak(vlfp[tp], prominence=prominence)
-            for n, v in enumerate(vals):
-                res[n, tp, 0] += v
-                res[n, tp, 1] += v**2
+            vals_ac2 = get_ac2_peak(vlfp[tp], prominence=prominence) # detect peak based on auto-correlation
+            vals_ft = get_fft_peak(vlfp[tp]) # detect peak based on FT
             
-            if tp != 0:
-                nf_large = find_nn_ind(fpsd, 1/vals[1])
-                nf_1st   = find_nn_ind(fpsd, 1/vals[3])
-                res[4, tp, 0] += psd1[nf_1st]
-                res[4, tp, 1] += psd1[nf_1st]**2
-                res[5, tp, 0] += psd1[nf_large]
-                res[5, tp, 1] += psd1[nf_large]**2
+            for n in range(4): # of vals_ac2, vals_ft
+                res[n, tp, 0] += vals_ac2[n]
+                res[n, tp, 1] += vals_ac2[n]**2
+                res[n+4, tp, 0] += vals_ft[n]
+                res[n+4, tp, 1] += vals_ft[n]**2
+            
+            if tp > 0:
+                tau_ac_peaks[nid, tp-1] = vals_ft[1]
         
         cc1p, cc_tlag = get_cc_peak(vlfp[1], vlfp[2], prominence=prominence)
-        res[6, 0, 0] += cc1p
-        res[6, 0, 1] += cc1p**2
-        res[7, 0, 0] += cc_tlag
-        res[7, 0, 1] += cc_tlag**2
-    
+        res[8, 1, 0] += cc1p
+        res[8, 1, 1] += cc1p**2
+        res[9, 1, 0] += cc_tlag # tlag
+        res[9, 1, 1] += cc_tlag**2
+        
+        tau_cc_peaks[nid] = cc_tlag
+        if abs(cc_tlag) > 1e-3:
+            num_lead += 1
+            
     res /= num_itr
+    
+    # calculate lead-lag ratio
+    pos_lead = num_lead / num_itr
+    if (pos_lead > 0.1):
+        res[10, 1, 0] = (np.sum(tau_cc_peaks > 0) - np.sum(tau_ac_peaks < 0)) / num_itr
+        res[11, 1, 0] = num_lead / num_itr
+        
+        exp_sum = 0
+        for nid in range(num_itr):
+            if tau_cc_peaks[nid] <= 0:
+                # if tau_cc < 0: 'fast subpop' lead
+                T = tau_ac_peaks[nid, 0]
+                tau_cc = -tau_cc_peaks[nid]
+            else:
+                # if tau_cc > 0: 'slow subpop' lead
+                T = tau_ac_peaks[nid, 1]
+                tau_cc = tau_cc_peaks[nid]
+            
+            dphi = 2*np.pi*tau_cc % T
+            # print("[%4d] dphi: %.3f, cc_lag: %.3f, T: %.2f"%(data["job_id"], dphi, tau_cc, T))
+            exp_sum += np.exp(1j * dphi)
+        
+        dphi_avg = np.angle(exp_sum)
+        res[12, 1, 0] = dphi_avg
+        
+        exp_avg = exp_sum / num_itr
+        r2 = np.real(exp_avg * np.conj(exp_avg))
+        res[12, 1, 1] = 1 - r2
+    
+    # print("dphi_avg: %.4f, dphi_var: %.4f"%(res[12, 1, 0], res[12, 1, 1]))
+    
+    # copy data to subpop
+    res[8:, 2, :] = res[8:, 1, :]
+    
     return data["job_id"], res
 
 
@@ -158,9 +226,14 @@ def parrun(func, args, desc=None):
     outs = []
     p = Pool(_ncore)
     with tqdm(total=len(args), desc=desc) as pbar:
-        for n, res in enumerate(p.imap(func, args)):
-            outs.append(res)
-            pbar.update()
+        if _ncore == 1:
+            for res in args:
+                outs.append(func(res))
+                pbar.update() 
+        else:
+            for n, res in enumerate(p.imap(func, args)):
+                outs.append(res)
+                pbar.update()
             
     id_sort = np.argsort([o[0] for o in outs])
     res = [outs[i][1] for i in id_sort]
@@ -170,7 +243,19 @@ def parrun(func, args, desc=None):
     return res
 
 
-def extract_result(summary_obj) ->xr.DataArray:
+def align_order(summary_obj):
+    res_order = np.zeros([len(keys_order), 3, 2] + list(summary_obj.num_controls[:-1]))
+    
+    for i, key in enumerate(keys_order):
+        for nf, func in enumerate((np.nanmean, np.nanstd)):
+            tmp = func(summary_obj.summary[key], axis=4) # na, nb, nc, nw, pop_type
+            for tp in range(3):
+                res_order[i, tp, nf] = tmp[:, :, :, :, tp]
+    
+    return res_order
+
+
+def extract_result(summary_obj) -> xr.DataArray:
     
     dataset = construct_args(summary_obj, desc="Load Dataset...")
     res_set = np.stack(parrun(extract_single_result, dataset, desc="Calculating...."))
@@ -178,21 +263,27 @@ def extract_result(summary_obj) ->xr.DataArray:
     nt = summary_obj.num_controls[-1]
     nums = summary_obj.num_total // nt
     
-    res_avg = np.zeros([len(keys), 3, 2, nums]) # data, pop_type (or from), mean / std
-    for n in range(nums):
-        res_avg[:,:,:,n] = np.average(res_set[n*nt:(n+1)*nt,:,:,:], axis=0)
-    res_avg[:,:,1,:] = np.sqrt(res_avg[:,:,1,:] - res_avg[:,:,0,:]**2) # data, pop_type (or from), mean / std, iter
-    print(res_avg.shape)
+    res_dyna = np.zeros([len(keys_dyna), 3, 2, nums]) # data, pop_type (or from), mean / std
+    # calculate leading_ratio
     
-    shape = list(res_avg.shape)
+    for n in range(nums):
+        res_dyna[:,:,:,n] = np.average(res_set[n*nt:(n+1)*nt,:,:,:], axis=0)
+    res_dyna[:-1,:,1,:] = res_dyna[:-1,:,1,:] - res_dyna[:-1,:,0,:]**2 # data, pop_type (or from), mean / var, iter
+    
+    shape = list(res_dyna.shape)
     shape = shape[:-1] + list(summary_obj.num_controls[:-1])
-    res_avg = np.reshape(res_avg, shape)
+    res_dyna = np.reshape(res_dyna, shape)
+    
+    res_order = align_order(summary_obj)
+    
+    res_avg = np.concatenate((res_order, res_dyna))
+    keys = list(keys_order) + list(keys_dyna)
     
     df = xr.DataArray(res_avg,
                       dims=("key", "pop", "type", "alpha", "beta", "rank", "w"),
                       coords={"key": list(keys),
                               "pop": ["T", "F", "S"],
-                              "type": ["mean", "std"],
+                              "type": ["mean", "var"],
                               "alpha": summary_obj.controls["alpha_set"],
                               "beta": summary_obj.controls["beta_set"],
                               "rank": summary_obj.controls["rank_set"],
