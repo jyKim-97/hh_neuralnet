@@ -39,8 +39,8 @@ def main(prefix=None, fout=None, nitr=5, ncore=50, seed=200):
     summary_obj.summary["chi"][summary_obj.summary["chi"] > 1] = np.nan
     df_res = extract_result(summary_obj)
     df_res.attrs = {"srate": srate, "teq": teq, "mbin_t": mbin_t, "wbin_t": wbin_t,
-                    "prominence": prominence, "num_itr": num_itr, "seed": seed,
-                    "date": read_date()}
+                    "prominence": prominence, "num_itr": num_itr, "prefix": prefix,
+                    "seed": seed, "date": read_date()}
     df_res.to_netcdf(fout)
     print("Calculation done, exported to %s"%(fout))
 

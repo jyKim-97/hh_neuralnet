@@ -7,7 +7,7 @@ import utils
 import hhclustering as hc
 from multiprocessing import Pool
 
-_ncore = 4
+_ncore = 3
 
 def load_data(fdata):    
     with open(fdata, "rb") as fp:
@@ -54,7 +54,10 @@ def run_kmeans(args):
 def main(fdata=None, fout="./kmeans_out.pkl", seed=100, nitr=100):
     # get seed
     np.random.seed(seed)
-    seeds = np.random.randint(low=1, high=10000, size=nitr).astype(int)
+    
+    seed_pool = np.arange(1, 10001, dtype=int)
+    seeds = np.random.choice(seed_pool, nitr, replace=False)
+    # seeds = np.random.randint(low=1, high=10000, size=nitr).astype(int)
 
     # get cluster 
     pdata = load_data(fdata)
@@ -79,11 +82,14 @@ def main(fdata=None, fout="./kmeans_out.pkl", seed=100, nitr=100):
     # save
     print("save to %s"%(fout))
     with open(fout, "wb") as fp:
-        pkl.dump({"cid_sets": cid_sets,
-                  "kcoeff_sets": kcoeff_sets,
-                  "scoeff_sets": scoeff_sets,
-                  "seeds": seeds,
-                  "date": utils.get_date_string()},
+        pkl.dump({
+            "num_clusters": num_clusters,
+            "cid_sets": cid_sets,
+            "kcoeff_sets": kcoeff_sets,
+            "scoeff_sets": scoeff_sets,
+            "fdata": fdata,
+            "seeds": seeds,
+            "date": utils.get_date_string()},
                   fp)
 
 
