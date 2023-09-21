@@ -130,7 +130,7 @@ def extract_single_result(data):
     tau_ac_peaks = np.zeros([num_itr, 2]) # two subpopulations (F: ac1, S: ac_large)
     tau_cc_peaks = np.zeros(num_itr)
     num_lead = 0
-
+    
     for nid in range(num_itr):
         vlfp, t0 = pick_sample_data(data)
         
@@ -158,11 +158,11 @@ def extract_single_result(data):
             num_lead += 1
             
     res /= num_itr
-    
+        
     # calculate lead-lag ratio
     pos_lead = num_lead / num_itr
     if (pos_lead > 0.1):
-        res[10, 1, 0] = (np.sum(tau_cc_peaks > 0) - np.sum(tau_ac_peaks < 0)) / num_itr
+        res[10, 1, 0] = (np.sum(tau_cc_peaks > 0) - np.sum(tau_cc_peaks < 0)) / num_itr
         res[11, 1, 0] = num_lead / num_itr
         
         exp_sum = 0
@@ -222,7 +222,6 @@ def construct_args(summary_obj, desc=None):
 
 
 def parrun(func, args, desc=None):
-    
     outs = []
     p = Pool(_ncore)
     with tqdm(total=len(args), desc=desc) as pbar:
