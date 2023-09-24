@@ -369,10 +369,16 @@ def remove_cluster_island(sq_cluster_id_, nth=3):
 
                     if not is_in(nr1, nc1):
                         continue
+                    
+                    if sq_cluster_id_[nr1, nc1] == sq_cluster_id_[nr, nc]:
+                        continue
 
                     nn_id[sq_cluster_id_[nr1, nc1]] += 1
             
             # flip
+            if len(list(nn_id.values())) == 0:
+                return sq_cluster_id, cid
+            
             nid = np.argmax(list(nn_id.values()))
             nn_max = list(nn_id.keys())[nid]
 
