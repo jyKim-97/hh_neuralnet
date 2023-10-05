@@ -49,11 +49,13 @@ int main(int argc, char **argv){
 
     if (argc == 2){ sprintf(fdir, "%s", argv[1]); }
 
+    if (world_rank == 0) fprintf(stderr, "Start simulation settting...");
     set_control_parameters();
 
     #ifndef _debug
     struct timeval tic, toc;
     gettimeofday(&tic, NULL);
+    if (world_rank == 0) fprintf(stderr, "Done, start simulation\n");
     for_mpi(idxer.len, run, &idxer);
     if (world_rank == 0){
         gettimeofday(&toc, NULL);
@@ -67,7 +69,8 @@ int main(int argc, char **argv){
 }
 
 
-double *alpha_set, *beta_set, *id_rank, *p_ratio_set; // alpha_set: pE->?, beta_set: pI->?, w_ratio_set is for the correction
+double *alpha_set, *beta_set, *id_rank; //, *p_ratio_set; // alpha_set: pE->?, beta_set: pI->?, w_ratio_set is for the correction
+double *w_set;
 
 /* === Default parameters === */
 double a_set[2] = {9.4, 4.5};
@@ -80,17 +83,29 @@ double plim[][2] = {{0.051, 0.234},
 
 void set_control_parameters(){
 
-    int nitr = 3;
-    int max_len[] = {15, 15, 1, 7, nitr};
+    int nitr = 9;
+    int max_len[] = {15, 15, 3, 9, nitr};
     int num_controls = GetIntSize(max_len);
     set_index_obj(&idxer, num_controls, max_len);
 
     alpha_set = linspace(0, 2, max_len[0]);
     beta_set  = linspace(0, 1, max_len[1]);
-    // id_rank = linspace(0, 4, max_len[2]);
-    id_rank = linspace(0.5, 0.5, max_len[2]);
-    p_ratio_set = linspace(0.1, 1, max_len[3]);
-    
+    id_rank = linspace(0, 1, max_len[2]);
+    // id_rank = linspace(0.5, 0.5, max_len[2]);
+    // p_ratio_set = linspace(0.1, 1, max_len[3]);
+    // p_rel_ratio_set = linspace(0, 1, max_len[3]);
+    // p_ratio_set = linspace(-1, -0.1, max_len[3]);
+    w_set = linspace(-1, 0., max_len[3]);
+    w_set[0] = -1; // in here, -1 means no projection from slow to fast (submissive case)
+    w_set[1] = -0.9;
+    w_set[2] = -0.7;
+    w_set[3] = -0.5;
+    w_set[4] = -0.3;
+    w_set[5] = -0.1;
+    w_set[6] = 0.85;
+    w_set[7] = 0.95;
+    w_set[8] = 1; // means no projection from fast to slow
+
 
     if (world_rank == 0){
         FILE *fp = open_file_wdir(fdir, "control_params.txt", "w");
@@ -102,7 +117,8 @@ void set_control_parameters(){
         print_arr(fp, "alpha_set", max_len[0], alpha_set);
         print_arr(fp, "beta_set", max_len[1], beta_set);
         print_arr(fp, "rank_set", max_len[2], id_rank);
-        print_arr(fp, "p_ratio_set", max_len[3], p_ratio_set);
+        // print_arr(fp, "p_ratio_set", max_len[3], p_ratio_set);
+        print_arr(fp, "w_set", max_len[3], w_set);
         fclose(fp);
     }
 }
@@ -112,7 +128,8 @@ void end_simulation(){
     free(alpha_set);
     free(beta_set);
     free(id_rank);
-    free(p_ratio_set);
+    // free(p_ratio_set);
+    free(w_set);
     #ifndef _debug
     end_mpi();
     #endif
@@ -126,7 +143,22 @@ nn_info_t allocate_setting(int job_id, index_t *idxer){
     double alpha = alpha_set[idxer->id[0]];
     double beta  = beta_set[idxer->id[1]];
     double rank = id_rank[idxer->id[2]]; 
-    double p_ratio = p_ratio_set[idxer->id[3]];
+    // double p_ratio = p_ratio_set[idxer->id[3]];
+    // double p_ratio_f=1, p_ratio_s=1;
+    // if (p_ratio >= 0){
+    //     p_ratio_f = p_ratio;
+    // } else {
+    //     p_ratio_s = -p_ratio;
+    // }
+
+    double wx = w_set[idxer->id[3]];
+
+    double w_slow=1, w_fast=1;
+    if (wx > 0){
+        w_fast = 1 - wx;
+    } else if (wx < 0){
+        w_slow = 1 + wx;
+    }
 
     // rank must be in [0, 1]
     if ((rank < 0) || (rank > 1)){
@@ -139,23 +171,23 @@ nn_info_t allocate_setting(int job_id, index_t *idxer){
 
     info.p_out[0][0] = pe_f;
     info.p_out[0][1] = pe_f;
-    info.p_out[0][2] = alpha * pe_f * p_ratio;
-    info.p_out[0][3] = alpha * pe_f * p_ratio;
+    info.p_out[0][2] = alpha * pe_f * w_fast;
+    info.p_out[0][3] = alpha * pe_f * w_fast;
 
     double pi_f = b_set[0] * pe_f;
     info.p_out[1][0] = pi_f;
     info.p_out[1][1] = pi_f;
-    info.p_out[1][2] = beta * pi_f * p_ratio;
-    info.p_out[1][3] = beta * pi_f * p_ratio;
+    info.p_out[1][2] = beta * pi_f * w_fast;
+    info.p_out[1][3] = beta * pi_f * w_fast;
 
-    info.p_out[2][0] = alpha * pe_s;
-    info.p_out[2][1] = alpha * pe_s;
+    info.p_out[2][0] = alpha * pe_s * w_slow;
+    info.p_out[2][1] = alpha * pe_s * w_slow;
     info.p_out[2][2] = pe_s;
     info.p_out[2][3] = pe_s;
 
     double pi_s = b_set[1] * pe_s;
-    info.p_out[3][0] = beta * pi_s;
-    info.p_out[3][1] = beta * pi_s;
+    info.p_out[3][0] = beta * pi_s * w_slow;
+    info.p_out[3][1] = beta * pi_s * w_slow;
     info.p_out[3][2] = pi_s;
     info.p_out[3][3] = pi_s;
 
