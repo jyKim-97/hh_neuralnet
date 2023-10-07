@@ -162,11 +162,12 @@ def draw_spk(step_spk, dt=0.01, sequence=None, xl=None, color_ranges=None, color
 
 # Source code for loadding summarys
 class SummaryLoader:
-    def __init__(self, fdir, load_only_control=False):
+    def __init__(self, fdir, load_only_control=False, read_cache=True):
         # read control param infos
         self.fdir = fdir
         # self.num_overlap = num_overlap
         self._load_controls()
+        self.read_cache = read_cache
         if not load_only_control:
             self._read_data()
     
@@ -186,17 +187,20 @@ class SummaryLoader:
         for n in self.num_controls:
             nums_expect *= n
         self.num_total = nums_expect
-
-    def _read_data(self):
-        # NOTE: pkl 파일 체크
+        
+        # validation
         fnames = [f for f in os.listdir(self.fdir) if "id" in f and "result" in f]
         self.num_overlap = self.check_overlap(fnames)
-
         nums = len(fnames)
-        
         if nums != self.num_total * self.num_overlap:
             print("Expected number of # results and exact file number are different!: %d/%d"%(nums, self.num_total*self.num_overlap))
+
+    def _read_data(self):
         
+        self._load_cache()
+        if len(self.summary) > 0:
+            return
+                
         self.summary = {}
         self.load_success = np.ones(self.num_total)
         var_names = ["chi", "cv", "frs_m", "frs_s"]
@@ -210,7 +214,6 @@ class SummaryLoader:
                 return
 
         for n in range(self.num_total):
-
             for i in range(self.num_overlap):
                 if self.num_overlap == 1:
                     fname = os.path.join(self.fdir, "id%06d_result.txt"%(n))    
@@ -242,6 +245,17 @@ class SummaryLoader:
 
         # save cache
         self._save_cache()
+        
+    def _load_cache(self):
+        fname = os.path.join(self.fdir, "summary.pkl")
+        if self.read_cache and os.path.exists(fname):
+            print("Load cache file")
+            with open(fname, "rb") as fp:
+                self.summary = pkl.load(fp)
+        else:
+            self.summary = {}
+            
+        return
     
     def _save_cache(self):
         with open(os.path.join(self.fdir, "summary.pkl"), "wb") as fp:
