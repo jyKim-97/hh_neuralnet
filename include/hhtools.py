@@ -275,23 +275,31 @@ class SummaryLoader:
     def get_id(self, *nid):
         return get_id(self.num_controls, *nid)
     
-    def load_detail(self, *nid):
+    def load_detail(self, *nid, load_now=True):
         if len(nid) == 1:
             n = nid[0]
         else:
             n = get_id(self.num_controls, *nid)
-        tag = os.path.join(self.fdir, "id%06d"%(n))
-        data = {}
-        data["step_spk"], _ = load_spk(tag+"_spk.dat")
-        data["vlfp"], fs = load_vlfp(tag+"_lfp.dat")
-        data["ts"] = np.arange(len(data["vlfp"][0])) / fs
-        data["nid"] = nid
-        if os.path.exists(tag+"_info.txt"):
-            with open(tag+"_info.txt", "r") as fid:
-                data["info"] = fid.readlines()
+            
+        sample = sampleLoader(self.fdir, n, read=load_now)
+        if load_now:
+            return sample.data
         else:
-            data["info"] = None
-        return data
+            return sample
+        
+    
+        # tag = os.path.join(self.fdir, "id%06d"%(n))
+        # data = {}
+        # data["step_spk"], _ = load_spk(tag+"_spk.dat")
+        # data["vlfp"], fs = load_vlfp(tag+"_lfp.dat")
+        # data["ts"] = np.arange(len(data["vlfp"][0])) / fs
+        # data["nid"] = nid
+        # if os.path.exists(tag+"_info.txt"):
+        #     with open(tag+"_info.txt", "r") as fid:
+        #         data["info"] = fid.readlines()
+        # else:
+        #     data["info"] = None
+        # return data
 
     def print_params(self, *nid):
         # check
@@ -318,6 +326,29 @@ class SummaryLoader:
         with open(f, "wb") as fid:
             pkl.dump(self, fid)
 
+
+class sampleLoader:
+    def __init__(self, fdir, nsample, read=False):
+        self.tag = os.path.join(fdir, "id%06d"%(nsample))
+        self.nsample = nsample
+        
+        self.data = {}
+        if read:
+            self.data = self.load()
+            
+    def load(self):
+        data = {}
+        data["step_spk"], _ = load_spk(self.tag+"_spk.dat")
+        data["vlfp"], fs = load_vlfp(self.tag+"_lfp.dat")
+        data["ts"] = np.arange(len(data["vlfp"][0])) / fs
+        data["nid"] = self.nsample
+        if os.path.exists(self.tag+"_info.txt"):
+            with open(self.tag+"_info.txt", "r") as fid:
+                data["info"] = fid.readlines()
+        else:
+            data["info"] = None
+        return data
+    
 
 def read_info(info_string):
     import re

@@ -121,8 +121,9 @@ def get_fft_peak(x):
     return yf[n0], 1/freq[n0], yf[n1], 1/freq[n1]
 
 
-def extract_single_result(data):
+def extract_single_result(sample):
     # nid: simulation number
+    data = sample.load()
     res = np.zeros([len(keys_dyna), 3, 2]) # key, pop_type, momentum (1/2)
     # psd, fpsd, tpsd = hhsignal.get_stfft(data["vlfp"][0], data["ts"], 2000,
     #                                      mbin_t=mbin_t, wbin_t=wbin_t, frange=(3, 100))
@@ -192,16 +193,17 @@ def extract_single_result(data):
     # copy data to subpop
     res[8:, 2, :] = res[8:, 1, :]
     
-    return data["job_id"], res
+    nid = data["nid"]
+    del data
+    
+    return nid, res
 
 
 def construct_args(summary_obj, desc=None):
     
     global _load_single
     def _load_single(nt):
-        data = summary_obj.load_detail(nt)
-        data["job_id"] = nt
-        del(data["step_spk"])
+        data = summary_obj.load_detail(nt, load_now=False)
         return nt, data
 
     dataset = parrun(_load_single, np.arange(summary_obj.num_total, dtype=int), desc=desc)
