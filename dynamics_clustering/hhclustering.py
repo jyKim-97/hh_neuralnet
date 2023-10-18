@@ -10,6 +10,133 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import NMF
 
 
+# ---- hierarchical clustering
+from sklearn.cluster import AgglomerativeClustering 
+from numba import jit
+
+
+class SLHC:
+    # TODO: N 설정 버그있음 수정 필요
+    def __init__(self, metric="precomputed", method="complete"):
+        # complete: maximal distance betweent farthest points
+        self.model = AgglomerativeClustering(n_clusters=None, metric=metric, linkage=method, distance_threshold=0)
+        
+        self.N = -1
+        self.linkmat = None        
+        self.cluster_id = None
+    
+    def fit(self, dmat):
+        dist_mat = dmat.copy()
+        if np.all(np.diag(dmat) == 1):
+            print("convert to distance metric")
+            dist_mat = 1 - dist_mat
+            
+        self.N = dist_mat.shape[0]
+        self.model.fit(dist_mat)
+        
+        self.linkmat = np.column_stack(
+            [self.model.children_, self.model.distances_, self._count_branch()]
+        )
+        
+    def _count_branch(self):
+        counts = np.zeros(self.model.children_.shape[0])
+        n_samples = len(self.model.labels_)
+        for i, merge in enumerate(self.model.children_):
+            current_count = 0
+            for child_idx in merge:
+                if child_idx < n_samples:
+                    current_count += 1  # leaf node
+                else:
+                    current_count += counts[child_idx - n_samples]
+            counts[i] = current_count
+        
+        return counts
+    
+    def draw_dend(self, no_labels=True):
+        from scipy.cluster.hierarchy import dendrogram
+        dendrogram(self.linkmat, no_labels=no_labels)
+    
+    def cut_dend(self, dth=None, N=None):
+        if dth is None and N is not None:
+            if N < 2 or N > self.N-1:
+                raise ValueError("N must be larger than 1 and smaller than the # of data points (%d) - 1"%(self.N))
+            
+            dth = (self.linkmat[-N, 2] + self.linkmat[-N+1, 2])/2
+        elif dth is not None and N is None:
+            dth = dth
+        else:
+            raise ValueError("Either N or dth must be given")
+        
+        is_in = self.model.distances_ < dth
+        cluster_id_tmp = _allocate_cluster_id(self.N, self.linkmat[is_in, :])
+        
+        cluster_id = np.zeros(self.N, dtype=int)
+        nstack = 0
+        for n, cid in enumerate(cluster_id_tmp):
+            if cid == -1 or cluster_id[n] > 0:
+                continue
+            
+            cluster_id[cluster_id_tmp==cid] = nstack
+            nstack += 1
+
+        for n, cid in enumerate(cluster_id):
+            if cid == -1:
+                cluster_id[n] = nstack
+                nstack += 1
+        
+        return cluster_id
+    
+    def sort_dmat(self, dist_mat):
+        return sort_matrix(dist_mat, self.linkmat)
+    
+    
+def sort_matrix(dist_mat, linkage_mat):
+    
+    def _seriation(N, linkage_data, cur_index):
+        if cur_index < N:
+            return [cur_index]
+        else:
+            left = int(linkage_data[cur_index-N, 0])
+            right = int(linkage_data[cur_index-N, 1])
+            return (_seriation(N, linkage_data, left) + _seriation(N, linkage_data, right))
+    
+    N = dist_mat.shape[0]
+    res_order = _seriation(N, linkage_mat, 2*N-2)
+    
+    sort_mat = dist_mat.copy()
+    sort_mat = sort_mat[res_order, :]
+    sort_mat = sort_mat[:, res_order]
+    
+    return sort_mat, res_order
+        
+    
+@jit(nopython=True)
+def _allocate_cluster_id(N, linkmat):
+    use_id = 0
+    cluster_id = np.zeros(2*N) - 1
+    for n in range(linkmat.shape[0]):
+        new_id = n + N
+        n0, n1 = linkmat[n, :2]
+        
+        n0 = int(n0)
+        n1 = int(n1)
+        
+        cid = cluster_id[n0]
+        if cid == -1:
+            cid = use_id
+            cluster_id[n0] = cid
+            use_id += 1
+        
+        cluster_id[new_id] = cid
+        if cluster_id[n1] == -1:
+            cluster_id[n1] = cid
+        else:
+            old_id = cluster_id[n1]
+            cluster_id[cluster_id == old_id] = cid
+            
+    return cluster_id[:N]
+
+
 # ================================================================================================
 # Dimension reduction
 # ================================================================================================
@@ -219,7 +346,7 @@ def hsmooth(arr, wsize=10, fo=2):
 
 
 # denoise image
-def denoise_square_cluster(sq_cluster_id):
+def denoise_square_cluster(sq_cluster_id, sq_sval=None):
     sq_cluster_id = np.array(sq_cluster_id).copy()
     nr = sq_cluster_id.shape[0]
     nc = sq_cluster_id.shape[1]
@@ -231,6 +358,7 @@ def denoise_square_cluster(sq_cluster_id):
         for j in range(nc):
             cid = sq_cluster_id[i, j]
             cid_exist = np.zeros(cmax+1)
+            nn_sq = np.zeros(cmax+1)
             flag_r = True
             
             for d in dirs:
@@ -244,11 +372,22 @@ def denoise_square_cluster(sq_cluster_id):
                     flag_r = False
                     break
                 
+                if sq_sval is not None:
+                    nn_sq[int(cid_nn)] += max([sq_sval[i1, j1], 0])
                 cid_exist[int(cid_nn)] += 1
             
             # alter the cluster_id
             if flag_r:
-                sq_cluster_id[i, j] = np.argmax(cid_exist)
+                if sq_sval is not None:
+                    nid = np.where(nn_sq == np.max(nn_sq))[0]
+                    if len(nid) > 1:
+                        n = np.argmax(cid_exist[nid])
+                        cn = nid[n]
+                    else:
+                        cn = nid[0]
+                else:
+                    cn = np.argmax(cid_exist) 
+                sq_cluster_id[i, j] = cn
             
     return sq_cluster_id
 
@@ -522,7 +661,7 @@ def show_sq_cluster(sq_cluster, x=None, y=None, cmap="jet", cth=None, vmin=None,
                     extent=[x[0]-dx/2, x[-1]+dx/2, y[0]-dy/2, y[-1]+dy/2],
                     aspect=aspect)
     
-    cids = [c for c in np.unique(sq_cluster).astype(int) if c > 0]
+    cids = [c.astype(int) for c in np.unique(sq_cluster) if c > 0]
     cth = (max(cids)+min(cids))/2 if cth is None else cth
     for cid in cids:
         nr, nc = np.where(sq_cluster == cid)

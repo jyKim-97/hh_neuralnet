@@ -1,13 +1,17 @@
 import numpy as np
 import pickle as pkl
 from tqdm import tqdm
+import os
 
 import argparse
 import utils
 import hhclustering as hc
 from multiprocessing import Pool
 
-_ncore = 3
+_ncore = 1
+_data  = None
+_fdir_tmp  = None
+
 
 def load_data(fdata):    
     with open(fdata, "rb") as fp:
@@ -26,42 +30,76 @@ def build_arg_parser():
 def parrun(func, args, desc=None):
     
     outs = []
-    p = Pool(_ncore)
     with tqdm(total=len(args), desc=desc) as pbar:
         if _ncore == 1:
             for res in args:
-                outs.append(func(res))
+                func(res)
                 pbar.update() 
         else:
+            p = Pool(_ncore)
             for n, res in enumerate(p.imap(func, args)):
-                outs.append(res)
+                func(res)
                 pbar.update()
+                
+            p.close()
+            p.join()
             
-    id_sort = np.argsort([o[0] for o in outs])
-    res = [outs[i][1:] for i in id_sort]
-    p.close()
-    p.join()
+    # collect dataset
+    return reload_temporal_result(len(args))
+
+
+def reload_temporal_result(num):
     
+    res = []
+    for n in range(num):
+        fname = os.path.join(_fdir_tmp, "tmp%d.pkl"%(n))
+        with open(fname, "rb") as fp:
+            tmp_data = pkl.load(fp)
+            res.append([tmp_data["cid"], tmp_data["kcoef"], tmp_data["scoef"]])
+            
+        os.remove(fname)
+
     return res
 
 
 def run_kmeans(args):
-    kobj, _, scoeff = hc.kmeans_specific_seed(args["nc"], args["data"].copy(), args["seed"])
-    cid = kobj.predict(args["data"].T)
-        
-    return args["job_id"], cid, kobj.inertia_, scoeff
+    kobj, _, scoeff = hc.kmeans_specific_seed(args["nc"], _data.copy(), args["seed"])
+    cid = kobj.predict(_data.T)
+    
+    with open(os.path.join(_fdir_tmp, "tmp%d.pkl"%(args["job_id"])), "wb") as fp:
+        pkl.dump(dict(
+            cid=cid, kcoef=kobj.inertia_, scoef=scoeff
+        ), fp)
+    
+    del kobj
+    return
+
+
+def gen_temporal_dir():
+    if os.path.exists(_fdir_tmp):
+        raise ValueError("temporal path %s is already occupied"%(_fdir_tmp))
+    os.mkdir(_fdir_tmp)
+    
+
+def rm_temporal_dir():
+    os.rmdir(_fdir_tmp)
+
 
 def main(fdata=None, fout="./kmeans_out.pkl", seed=100, nitr=100):
+    global _data, _fdir_tmp
+    
+    _fdir_tmp = os.path.splitext(fout)[0]
+    gen_temporal_dir()
+    
     # get seed
     np.random.seed(seed)
     
-    seed_pool = np.arange(1, 10001, dtype=int)
+    seed_pool = np.arange(1, 20001, dtype=int)
     seeds = np.random.choice(seed_pool, nitr, replace=False)
-    # seeds = np.random.randint(low=1, high=10000, size=nitr).astype(int)
 
     # get cluster 
-    pdata = load_data(fdata)
-    num_clusters = np.arange(2, 20)
+    _data = load_data(fdata)["data"]
+    num_clusters = np.arange(3, 20)
     
     args = []
     num = len(num_clusters) * nitr
@@ -70,7 +108,7 @@ def main(fdata=None, fout="./kmeans_out.pkl", seed=100, nitr=100):
         nc = num_clusters[n]
         seed = seeds[nid % nitr]
         
-        args.append(dict(job_id=nid, data=pdata["data"], seed=seed, nc=nc))
+        args.append(dict(job_id=nid, seed=seed, nc=nc))
         
     res = parrun(run_kmeans, args, desc="run_kmeans")
     
@@ -87,11 +125,15 @@ def main(fdata=None, fout="./kmeans_out.pkl", seed=100, nitr=100):
             "cid_sets": cid_sets,
             "kcoeff_sets": kcoeff_sets,
             "scoeff_sets": scoeff_sets,
-            "fdata": fdata,
-            "seeds": seeds,
-            "date": utils.get_date_string()},
-                  fp)
+            "meta": {
+                "fdata": fdata,
+                "seeds": seeds,
+                "date": utils.get_date_string()
+            }},
+                 fp)
 
+    rm_temporal_dir()
+    
 
 if __name__ == "__main__":
     main(**vars(build_arg_parser().parse_args()))
