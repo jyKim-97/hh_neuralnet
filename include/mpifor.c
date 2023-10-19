@@ -39,6 +39,13 @@ void for_mpi(int nitr, void (*f) (int, void*), void *arg){
             iterate(f, arg);
         }   
     }
+
+    mpi_barrier();
+}
+
+
+void mpi_barrier(void){
+    MPI_Barrier(MPI_COMM_WORLD);
 }
 
 
