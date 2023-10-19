@@ -499,6 +499,49 @@ def imshow_xy(im, x=None, y=None, scale="linear", vmin=None, vmax=None, **kwargs
     return plt.imshow(im_, aspect="auto", extent=extent, origin="lower",
                       vmin=vmin_, vmax=vmax_,
                       **kwargs)
+    
+    
+def imshow_sq(im, x=None, y=None, xt=None, yt=None, vmin=None, vmax=None, format="%.2f", cmap="jet", **kwargs):
+    
+    def _x2xp(_xt, _x): 
+        # original coord (x) to virtual coord (xp)
+        # xt: target points, x: full x
+        return (np.array(_xt) - _x[0]) / (_x[-1] - _x[0])
+        
+
+    def _xp2x(_xp, _x): # virtual coord (xp) to original coord (x)
+        # xp: vitual coord
+        return np.array(_xp) * (_x[-1] - _x[0]) + _x[0]
+    
+    _x = x if x is not None else np.arange(im.shape[1])
+    _y = y if y is not None else np.arange(im.shape[0])
+    
+    _vmin = np.percentile(im, 1) if vmin is None else vmin
+    _vmax = np.percentile(im, 99) if vmax is None else vmax
+    
+    extent = []
+    dx = 1 / (im.shape[1] - 1) / 2 if im.shape[1] > 1 else 1
+    dy = 1 / (im.shape[0] - 1) / 2 if im.shape[0] > 1 else 1
+    extent = [-dx, 1+dx, -dy, 1+dy]
+    
+    im_obj = plt.imshow(im, aspect="equal", origin="lower", extent=extent,
+                        vmin=_vmin, vmax=_vmax, cmap=cmap, **kwargs)
+    
+    for tt, tfull, ft in zip((xt, yt), (_x, _y), (plt.xticks, plt.yticks)):
+        if tt is None:
+            tloc = list(map(float, ft()[0]))
+            tlabels = _xp2x(tloc, tfull)
+        else:
+            tloc = _x2xp(tt, tfull)
+            tlabels = tt
+            
+        ft(tloc, [format%x for x in tlabels])
+    
+    plt.xlim(extent[:2])
+    plt.ylim(extent[2:])
+    
+    return im_obj
+    
 
 
 def plot_sub(x, y, xl=None, *args, **kwargs):
