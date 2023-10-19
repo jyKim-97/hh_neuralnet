@@ -28,9 +28,9 @@ void for_mpi(int nitr, void (*f) (int, void*), void *arg){
     if (world_size == 1){
         for (int n=0; n<nitr; n++){
             gettimeofday(&tic_sub, NULL);
-            _print_job_start(0, n, nitr);
+            // _print_job_start(0, n, nitr);
             f(n, arg);
-            _print_job_end(0, n, nitr, tic_sub);
+            // _print_job_end(0, n, nitr, tic_sub);
         }
     } else {
         if (world_rank == 0){
@@ -63,15 +63,15 @@ void control_tower(int nitr){
         } else {
             MPI_Recv(&id_done, 1, MPI_INT, MPI_ANY_SOURCE, SIG_DONE, MPI_COMM_WORLD, &status);
             id_source = status.MPI_SOURCE;
-
-            _print_job_end(id_source, id_itr, nitr, tics[id_source]);
+            _print_job_end(id_source, id_done, nitr, tics[id_source]);
         }
 
         if (id_itr < nitr){
-            _print_job_start(id_source, id_itr, nitr);
             gettimeofday(&(tics[id_source]), NULL); // press timer
+            _print_job_start(id_source, id_itr, nitr);
             MPI_Send(&id_itr, 1, MPI_INT, id_source, SIG_SEND, MPI_COMM_WORLD);
             id_itr++;
+
         } else {
             MPI_Send(&sig_end, 1, MPI_INT, id_source, SIG_SEND, MPI_COMM_WORLD);
             num_end++;
