@@ -9,6 +9,7 @@
 #include "neuralnet.h"
 #include "measurement2.h"
 #include "mpifor.h"
+#include "unistd.h"
 
 // 
 
@@ -31,19 +32,25 @@ char fdir_out[100] = "./tmp";
 
 void run(int job_id, void *nullarg);
 void read_args(int argc, char **argv);
-void read_params(int nline, char *fname);
-void read_params_line(FILE *fp, nn_info_t *info);
+void read_params(char *fname);
+int read_params_line(FILE *fp, nn_info_t *info);
 void allocate_multiple_ext(nn_info_t *info);
 
+// mpirun -np 100 --hostfile hostfile ./main.out -n 1800 -t 10500 --fdir_out ./data
 
 int main(int argc, char **argv){
 
+    /* read args & init parameters */
     init_mpi(&argc, &argv);
     set_seed(time(NULL) * world_size * 5 + world_rank*2);
 
-    /* read args & init parameters */
     read_args(argc, argv);
-    read_params(nsamples, fname_params);
+    read_params(fname_params);
+
+    mpi_barrier();
+    if (world_rank == 0){
+        printf("%d samples are found\n", nsamples);
+    }
 
     /* run simulation */
     struct timeval tic, toc;
@@ -63,9 +70,17 @@ int main(int argc, char **argv){
 
 
 void run(int job_id, void *nullarg){
-    print_job_start(job_id, nsamples);
 
     nn_info_t info = nn_info_set[job_id];
+
+    // check is file exist
+    char fname_exist[100];
+    sprintf(fname_exist, "id%06d_lfp.dat", job_id);
+    if (access(fname_exist, F_OK) == 0){
+        printf("job %d already done, skip this id\n", job_id);
+        
+    }
+
 
     char fname_info[100], fbuf[200];
     sprintf(fname_info, "id%06d_info.txt", job_id);
@@ -125,7 +140,7 @@ void run(int job_id, void *nullarg){
     destroy_neuralnet();
     destroy_measure();
 
-    print_job_end(job_id, nsamples);
+    // print_job_end(job_id, nsamples);
 }
 
 
@@ -138,9 +153,10 @@ void read_args(int argc, char **argv){
 
     int n = 1;
     while (n < argc){
-        if (strcmp(argv[n], "-n") == 0){
-            nsamples = atoi(argv[n+1]); n++;
-        } else if (strcmp(argv[n], "-t") == 0){
+        // if (strcmp(argv[n], "-n") == 0){
+        //     nsamples = atoi(argv[n+1]); n++;
+        // } else if (strcmp(argv[n], "-t") == 0){
+        if (strcmp(argv[n], "-t") == 0){
             tmax = atof(argv[n+1]); n++;
         } else if (strcmp(argv[n], "--fparam") == 0){
             strcpy(fname_params, argv[n+1]); n++;
@@ -157,9 +173,9 @@ void read_args(int argc, char **argv){
 }
 
 
-void read_params(int nline, char *fname){
+void read_params(char *fname){
 
-    nn_info_set = (nn_info_t*) malloc(sizeof(nn_info_t) * nline);
+    // nn_info_set = (nn_info_t*) malloc(sizeof(nn_info_t) * *nline);
 
     if (world_rank == 0){
         FILE *fp;
@@ -167,20 +183,29 @@ void read_params(int nline, char *fname){
             printf("file %s does not exist\n", fname);
             exit(-1);
         }
+        
+        if (fscanf(fp, "%d\n", &nsamples) < 0){
+            printf("Falied to read the number of samples. Check the parameter info file\n");
+            exit(-1);
+        }
 
-        for (int n=0; n<nline; n++){
-            read_params_line(fp, &(nn_info_set[n]));
+        nn_info_set = (nn_info_t*) malloc(sizeof(nn_info_t) * nsamples);
+        for (int n=0; n<nsamples; n++){
+            if (read_params_line(fp, &(nn_info_set[n])) == 1){
+                printf("Failed to read parameter in line %d\n", n);
+                exit(-1);
+            }
         }
 
         fclose(fp);
     }
 
-    MPI_Bcast((void*) nn_info_set, nline*sizeof(nn_info_t), MPI_BYTE, 0, MPI_COMM_WORLD);
+    MPI_Bcast((void*) nn_info_set, nsamples*sizeof(nn_info_t), MPI_BYTE, 0, MPI_COMM_WORLD);
     init_nn(nn_info_set[0].N, nn_info_set[0].num_types);
 }
 
 
-void read_params_line(FILE *fp, nn_info_t *info){
+int read_params_line(FILE *fp, nn_info_t *info){
 
     /* === Parameter input ===
      0: cluster id
@@ -210,7 +235,9 @@ void read_params_line(FILE *fp, nn_info_t *info){
     // set weight
     for (int i=0; i<ntype; i++){
         double w=0;
-        fscanf(fp, "%lf,", &w);
+        if (fscanf(fp, "%lf,", &w) < 1){
+            return 1;
+        }
         for (int j=0; j<ntype; j++){
             info->w[i][j] = w;
         }
@@ -230,6 +257,8 @@ void read_params_line(FILE *fp, nn_info_t *info){
 
     // change line
     fscanf(fp, "\n");
+
+    return 0;
 }
 
 
