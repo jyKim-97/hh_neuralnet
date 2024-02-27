@@ -189,7 +189,7 @@ class SummaryLoader:
         self.num_total = nums_expect
         
         # validation
-        fnames = [f for f in os.listdir(self.fdir) if "id" in f and "result" in f]
+        fnames = [f for f in os.listdir(self.fdir) if "id" in f and "result" in f and "monitor" not in f]
         self.num_overlap = self.check_overlap(fnames)
         nums = len(fnames)
         if nums != self.num_total * self.num_overlap:
@@ -197,9 +197,9 @@ class SummaryLoader:
 
     def _read_data(self):
         
-        self._load_cache()
-        if len(self.summary) > 0:
-            return
+        if self.read_cache:
+            if self._load_cache() == 0:
+                return
                 
         self.summary = {}
         self.load_success = np.ones(self.num_total)
@@ -248,14 +248,15 @@ class SummaryLoader:
         
     def _load_cache(self):
         fname = os.path.join(self.fdir, "summary.pkl")
-        if self.read_cache and os.path.exists(fname):
+        if os.path.exists(fname):
             print("Load cache file")
             with open(fname, "rb") as fp:
                 self.summary = pkl.load(fp)
+            return 0
         else:
+            print("Cache does not exist")
             self.summary = {}
-            
-        return
+            return -1
     
     def _save_cache(self):
         with open(os.path.join(self.fdir, "summary.pkl"), "wb") as fp:
