@@ -876,3 +876,86 @@ def show_sample_cases(obj, target_cluster_id, cluster_id, silhouette_vals, col_n
         fig.close()
     
     return tags
+
+# --------
+# Visualzie clustering result
+# -------
+
+# get lines
+def get_im_boundary(im):
+    nb = im.shape[0]
+    lines = []
+    
+    def is_out(nr, nc):
+        return (nc < 0) or (nc >=nb) or (nr < 0) or (nr >= nb)
+    
+    for i in range(nb):
+        for j in range(nb):
+            for d in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                r, c = i+d[0], j+d[1]
+                if is_out(r, c): continue
+                
+                if im[i, j] != im[r, c]:
+                    if d[1] == 0:
+                        lines.append([[j-0.5, j+0.5], [i+0.5*d[0], i+0.5*d[0]]])
+                    else:
+                        lines.append([[j+0.5*d[1], j+0.5*d[1]], [i-0.5, i+0.5]])
+    return lines
+
+
+def show_cluster_summary(cluster_id, wsets=None, max_cid=15, min_cid=1, sval=None, sth=0.2):
+    
+    num_w = 16
+    num_r = 3
+    
+    len_p = 0.95/num_w
+    len_r = 0.95/num_r
+
+    xy = np.arange(15)
+
+    lb_rank = ("Echelon 0", "Echelon 0.5", "Echelon 1")
+    # lb_w = [r"$\omega$=%.1f"%(x) for x in np.linspace(0.1, 1, 7)]
+    # lb_w = [r"$\omega$=%.1f"%(x) for x in np.linspace(0.1, 1, 7)]
+    lb_w = [r"$\omega$=%.2f"%(x) for x in wsets]
+    
+    lines_cluster = []
+    for idp in range(num_w):
+        for idr in range(num_r):
+            lines_cluster.append(get_im_boundary(cluster_id[:, :, idr, idp]))
+
+    ax_sets = []
+    # fig = plt.figure(dpi=120, figsize=(14, 6))
+    fig = plt.figure(dpi=120, figsize=(20, 4))
+    for idp in range(num_w):
+        ax_sets.append([])
+        for idr in range(num_r):
+            ax = plt.axes(position=[0.025+len_p*idp, 0.025+(2-idr)*len_r, len_p, len_r])
+            ax_sets[-1].append(ax)
+            
+            # im = cluster_data["im_stacks"][idr][idp].astype(float)
+            im = cluster_id[:, :, idr, idp].astype(float)
+            im[0, 0] = np.nan
+            
+            if sval is not None:
+                im[sval[:, :, idr, idp] < sth] = np.nan
+            
+            show_sq_cluster(im, x=xy, y=xy, cmap="turbo", cth=2, vmin=min_cid, vmax=max_cid, fontsize=12, aspect="auto")
+            for l in lines_cluster[idp*num_r+idr]:
+                plt.plot(l[0], l[1], 'w', lw=1)
+            
+            plt.xticks([0, 7, 14], labels=["", "", ""])
+            plt.yticks([0, 7, 14], labels=["", "", ""])
+            plt.xlim([-0, 14]); plt.ylim([0, 14])
+            
+            if idp == 0:
+                plt.ylabel(lb_rank[idr], fontsize=15, style="italic")
+            
+            if idr == 0:
+                plt.title(lb_w[idp], fontsize=15, style="italic")
+            
+            for n, k in enumerate(("left", "right", "bottom", "top")):
+                ax.spines[k].set_color("k")
+                ax.spines[k].set_linewidth(1.5)
+
+    # plt.show()
+    return fig, ax_sets
