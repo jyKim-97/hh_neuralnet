@@ -301,6 +301,8 @@ void write_info(nn_info_t *info, char *fname){
         }
     }
 
+    fprintf(fp, "time_step: %f\n", _dt);
+
     fclose(fp);
 }
 
