@@ -1,6 +1,6 @@
 # Signal processing library
 import numpy as np
-from scipy.signal import correlate
+from scipy.signal import correlate, butter, sosfilt
 
 
 # Fourier transform
@@ -148,6 +148,21 @@ def detect_peak(c, prominence=0.01, mode=0):
             return ind_peaks_l
         else:
             return ind_peaks[:2], ind_peaks_l
+        
+        
+def filt(sig, f1, f2, fs=2000, fo=10):
+    sos1 = butter(fo, f1, 'hp', fs=fs, output='sos')
+    filtered = sosfilt(sos1, sig)
+    
+    sos2 = butter(fo, f2, 'lp', fs=fs, output='sos')
+    filtered = sosfilt(sos2, filtered)
+    
+    return filtered
+
+
+def smooth(x, window_size, porder):
+    from scipy.signal import savgol_filter
+    return savgol_filter(x, window_size, porder)
     
 
 """ # Legacy
