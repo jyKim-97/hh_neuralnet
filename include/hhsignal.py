@@ -164,6 +164,11 @@ def smooth(x, window_size, porder):
     from scipy.signal import savgol_filter
     return savgol_filter(x, window_size, porder)
     
+    
+def downsample(x, srate, srate_new):
+    n = int(srate/srate_new)
+    return x[::n]
+    
 
 """ # Legacy
 # def detect_peak(c, srate=2000, tol_t=1e-2, tol_c=0.2, prominence=0.01, mode=0):
