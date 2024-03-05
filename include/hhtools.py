@@ -38,7 +38,7 @@ def load_vlfp(fname):
     l = (len(data)-2)//(num_types+1)
     vlfps = []
     for n in range(num_types+1):
-        vlfps.append(data[n0:n0+l])
+        vlfps.append(data[n0:n0+l]) # total, fast, slow
         n0 += l
     return vlfps, fs
 
