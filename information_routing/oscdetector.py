@@ -6,10 +6,14 @@ import hhtools
 import hhsignal
 
 
+_teq = 0.5
+
 def compute_stfft_all(data, frange=(5, 100), mbin_t=0.1, wbin_t=0.5, srate=2000):
     psd_set = []
+    t = data["ts"]
     for v in data["vlfp"]:
-        psd, fpsd, tpsd = hhsignal.get_stfft(v, data["ts"], srate, mbin_t=mbin_t, wbin_t=wbin_t, frange=frange)
+        veq, teq = hhsignal.get_eq_dynamics(v, t, _teq)
+        psd, fpsd, tpsd = hhsignal.get_stfft(veq, teq, srate, mbin_t=mbin_t, wbin_t=wbin_t, frange=frange)
         psd_set.append(psd)
     return psd_set, fpsd, tpsd
 
@@ -90,6 +94,7 @@ def compute_osc_bit(psd_set, fpsd, tpsd, amp_range, q=80, min_len=2, cat_th=2):
                 
     return align_cobit(words, 4)    
 
+
 def align_cobit(_words, digit=4):
     digit = 4
     pos, mixed = False, False
@@ -122,13 +127,13 @@ def align_cobit(_words, digit=4):
 
 
 # 
-def get_motif_boundary(words):
+def get_motif_boundary(words, tpsd):
     bd = get_boundary(words > 0)
     bd_motif = []
     for i in range(len(bd)):
         bd_motif.append(dict(
             id=words[bd[i][0]],
-            range=bd[i]
+            range=tpsd[bd[i]]
         ))
     
     return bd_motif
@@ -147,7 +152,15 @@ def count_motif(words, digit=4):
 # ---- get labels
 def get_motif_labels():
     lb = []
+    lb_f, lb_s = ["_", "f"], ["_", "s"]
+    
     for i in range(16):
         x2 = dec2bin(i, 4)
-        lb.append("%d%d%d%d"%(x2[3], x2[2], x2[1], x2[0]))
+        
+        # s = "F(%s%s)S(%s%s)"%(lb_s[x2[3]], lb_f[x2[2]], lb_s[x2[1]], lb_f[x2[0]])
+        # s = "F(%s%s)S(%s%s)"%(lb_f[x2[2]], lb_s[x2[3]], lb_f[x2[0]], lb_s[x2[1]])
+        lb.append(
+            "F(%s%s)S(%s%s)"%(lb_f[x2[2]], lb_s[x2[3]], lb_f[x2[0]], lb_s[x2[1]])
+        )
+        # lb.append("%d%d%d%d"%(x2[3], x2[2], x2[1], x2[0]))
     return lb
