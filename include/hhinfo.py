@@ -61,7 +61,7 @@ def _compute_te(x, y, nbin, nlag_max):
         hyy, hyyx = _compute_joint_h(y[nl:], y[:-nl], x[:-nl], nbin)
         te[nl] = hyy + hyx - hy - hyyx
         
-    return te
+    return te, hy
 
 
 def compute_te(xd, yd, num_bin, nlag_max):
