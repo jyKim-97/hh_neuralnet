@@ -168,7 +168,12 @@ def smooth(x, window_size, porder):
 def downsample(x, srate, srate_new):
     n = int(srate/srate_new)
     return x[::n]
-    
+
+
+def get_eq_dynamics(x, t, teq):
+    idt_eq = t >= teq
+    return x[idt_eq], t[idt_eq]
+
 
 """ # Legacy
 # def detect_peak(c, srate=2000, tol_t=1e-2, tol_c=0.2, prominence=0.01, mode=0):

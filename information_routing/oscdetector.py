@@ -2,13 +2,23 @@ import numpy as np
 
 import sys
 sys.path.append('/home/jungyoung/Project/hh_neuralnet/include/')
-import hhtools
+# import hhtools
 import hhsignal
 
 
 _teq = 0.5
 
-def compute_stfft_all(data, frange=(5, 100), mbin_t=0.1, wbin_t=0.5, srate=2000):
+
+def detect_osc_motif(detail_data: dict, amp_range: dict, mbin_t=0.01, wbin_t=0.5, srate=2000):
+    # detail_data: from summary_obj.load_detail(., .)
+    # amp_range: dict, contains 'fpop' and 'spop'
+    psd, fpsd, tpsd = compute_stfft_all(detail_data, mbin_t=mbin_t, wbin_t=wbin_t, srate=srate)
+    words = compute_osc_bit(psd[1:], fpsd, tpsd, amp_range, q=80, min_len=2, cat_th=2)
+    
+    return get_motif_boundary(words, tpsd)
+
+
+def compute_stfft_all(data, frange=(5, 100), mbin_t=0.01, wbin_t=0.5, srate=2000):
     psd_set = []
     t = data["ts"]
     for v in data["vlfp"]:
@@ -54,7 +64,7 @@ def get_boundary(bool_idx):
             bd_idx[-1].append(i-1)
             flag = True
     
-    if len(bd_idx[-1]) == 1:
+    if len(bd_idx) > 0 and len(bd_idx[-1]) == 1:
         bd_idx[-1].append(len(bool_idx)-1)
     
     return np.array(bd_idx, dtype=int)
@@ -74,10 +84,55 @@ def cat_boundary(bd_idx, th=2):
 
 
 # ----- convert oscillatory activity to code words ----- #
+def compute_osc_trit(psd_set, fpsd, tpsd, amp_range, q=80, min_len=2, cat_th=2):
+    if len(psd_set) != 2:
+        raise ValueError("Unexpected length of psd_set")
+    
+    # compute tenary bit (0/1/2): 
+    words_p = np.zeros(len(tpsd))
+    words_n = np.zeros(len(tpsd))
+    
+    for tp in range(2):
+        tp_label = "fpop" if tp == 0 else "spop"
+        psd = psd_set[tp]
+        
+        for nf, ar in enumerate(amp_range[tp_label]):
+            if len(ar) == 0:
+                words_n += 2**(2*tp+nf)
+                continue
+        
+            y = psd[(fpsd >= ar[0]) & (fpsd < ar[1]), :].mean(axis=0)
+            
+            # compute boundary when the amplitude is increased
+            bd_idy_p, _ = pick_osc(y, min_len=min_len, cat_th=cat_th, q=q)
+            for bd in bd_idy_p:
+                words_p[bd[0]:bd[1]] += 2**(2*tp+nf)
+            
+            # compute boundary when the amplitude is decreased
+            bd_idy_n, _ = pick_osc(y, min_len=min_len, cat_th=cat_th, q=100-q, reversed=True)
+            for bd in bd_idy_n:
+                words_n[bd[0]:bd[1]] += 2**(2*tp+nf)
+                
+    words_p = align_cobit(words_p)
+    words_n = align_cobit(words_n)
+    
+    bd_words = get_boundary(words_p + words_n >= 15)
+    bd_words = bd_words[(bd_words[:, 1] - bd_words[:, 0] >= min_len), :]
+    bd_words = cat_boundary(bd_words, cat_th)
+    
+    words = np.zeros_like(words_p) - 1
+    for bd in bd_words:
+        words[bd[0]:bd[1]] = words_p[bd[0]]
+    words = align_cobit(words)
+    
+    return words# , words_n
+            
+
 
 def compute_osc_bit(psd_set, fpsd, tpsd, amp_range, q=80, min_len=2, cat_th=2):
     
-    words = np.zeros(len(tpsd))
+    words_p = np.zeros(len(tpsd))
+    # words_n = np.zeros(len(tpsd))
     for tp in range(2): # fast / slow subpop
         
         tp_label = "fpop" if tp == 0 else "spop"
@@ -87,44 +142,86 @@ def compute_osc_bit(psd_set, fpsd, tpsd, amp_range, q=80, min_len=2, cat_th=2):
             if len(ar) == 0: continue
         
             y = psd[(fpsd >= ar[0]) & (fpsd < ar[1]), :].mean(axis=0)
-            bd_idy, _ = pick_osc(y, min_len=min_len, cat_th=cat_th, q=q)
+            bd_idy_p, _ = pick_osc(y, min_len=min_len, cat_th=cat_th, q=q)
+            # bd_idy_n, _ = pick_osc(y, min_len=min_len, cat_th=cat_th, q=100-q, reversed=True)
             
-            for bd in bd_idy:
-                words[bd[0]:bd[1]] += 2**(2*tp+nf)
+            for bd in bd_idy_p:
+                words_p[bd[0]:bd[1]] += 2**(2*tp+nf)
+    
+    return align_cobit(words_p)
                 
-    return align_cobit(words, 4)    
 
 
-def align_cobit(_words, digit=4):
+def align_cobit(_words, digit=4, reversed=False):
+    
     digit = 4
-    pos, mixed = False, False
+    nstack_cut = 4
     words = _words.copy()
-    for n in range(len(words)):
-        if not pos and words[n] > 0:
-            id0 = n
-            w = words[n]
-            pos = True
-            
-        if pos and words[n] != w:
-            mixed = True
+    min_words = words.min()
+    
+    nstack = 0
+    nt_start = None
+    w1 = None
+    
+    nt = 0
+    while nt < len(words):
+        if nt < 0:
+            raise ValueError("nt becomes negative")
         
-        if words[n] == 0:
-            if mixed:
-                wu = np.unique(words[id0:n])
-                cond = np.zeros(digit, dtype=bool)
-                for w in wu:
-                    cond = cond | dec2bin(w, digit)
-
-                wnew = 0
-                for i in range(digit):
-                    if cond[i]: wnew += 2**i
+        if words[nt] > min_words:
+            if w1 is None: # write w1 only at the beginning
+                # update start index
+                if nt_start is None:
+                    nt_start = nt
+                w1 = words[nt]
+                # wc = np.array(dec2bin(w1, digit))
+                nstack = 0
                 
-                words[id0:n] = wnew
+            elif words[nt] != w1:
+                nstack += 1 # count stack
+                    
+            # elif words[nt] != w1: # mixed case
+            #     wc2 = dec2bin(words[nt], digit)
+            #     if np.any(wc & wc2):
+            #         w1 = words[nt]
+            #         wc = wc | wc2
+            #         nstack = 0
+            #     else:
+            #         nstack += 1 # count stack
             
-            pos, mixed = False, False
+            else:
+                nstack = 0
+        else:
+            nstack += 1
+        
+        if nstack == nstack_cut and w1 is not None:
+            nt -= nstack_cut
+
+            w_set = np.unique(words[nt_start:nt])
+            if not reversed:
+                # cond = np.zeros(digit, dtype=bool)
+                cond = np.ones(digit, dtype=bool)
+                for w in w_set:
+                    # cond = cond | dec2bin(w, digit)
+                    cond = cond & dec2bin(w, digit)
+            else:
+                cond = np.ones(digit, dtype=bool)
+                for w in w_set:
+                    cond = cond & dec2bin(w, digit)
+            
+            wnew = 0
+            for i in range(digit):
+                if cond[i]: wnew += 2**i
+            
+            words[nt_start:nt] = wnew
+            
+            nstack = 0
+            nt_start = None
+            w1 = None
+            
+        nt += 1
             
     return words.astype(np.int16)
-
 
 # 
 def get_motif_boundary(words, tpsd):
@@ -160,7 +257,36 @@ def get_motif_labels():
         # s = "F(%s%s)S(%s%s)"%(lb_s[x2[3]], lb_f[x2[2]], lb_s[x2[1]], lb_f[x2[0]])
         # s = "F(%s%s)S(%s%s)"%(lb_f[x2[2]], lb_s[x2[3]], lb_f[x2[0]], lb_s[x2[1]])
         lb.append(
-            "F(%s%s)S(%s%s)"%(lb_f[x2[2]], lb_s[x2[3]], lb_f[x2[0]], lb_s[x2[1]])
+            # "F(%s%s)S(%s%s)"%(lb_f[x2[2]], lb_s[x2[3]], lb_f[x2[0]], lb_s[x2[1]])
+            "F(%s%s)S(%s%s)"%(lb_f[x2[1]], lb_s[x2[0]], lb_f[x2[3]], lb_s[x2[2]])
         )
         # lb.append("%d%d%d%d"%(x2[3], x2[2], x2[1], x2[0]))
     return lb
+
+
+def argsort_motif_labels():
+    # get index to sort motif labels
+    # label will be sort as
+    
+    # F(__)S(__)
+    # F(f_)S(_s)
+    # F(__)S(_s)
+    # F(_s)S(_s)
+    # F(fs)S(_s)
+    # F(f_)S(__)
+    # F(f_)S(f_)
+    # F(f_)S(fs)
+    # F(fs)S(fs)
+    # F(_s)S(f_)
+    # F(__)S(f_)
+    # F(__)S(fs)
+    # F(fs)S(f_)
+    # F(_s)S(__)
+    # F(fs)S(__)
+    # F(_s)S(fs)
+    
+    return [0, 6, # indep
+            4, 5, 7, # interaction with slow
+            2, 10, 14, # interaction with fast
+            15, # interaction with both 
+            9, 8, 12, 11, 1, 3, 13]

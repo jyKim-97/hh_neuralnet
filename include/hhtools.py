@@ -768,3 +768,50 @@ def draw_quadratic_summary(data, fname=None, xl_raster=(1500, 2500), nsamples=20
     
     plt.show()
     
+    
+# ==== Visaulization
+import matplotlib
+import matplotlib.offsetbox
+from matplotlib.lines import Line2D
+
+class AnchoredHScaleBar(matplotlib.offsetbox.AnchoredOffsetbox):
+    """ size: length of bar in data units
+        extent : height of bar ends in axes units """
+    def __init__(self, size=1, extent = 0.03, label="", loc=2, ax=None,
+                 pad=0.4, borderpad=0.5, ppad = 0, sep=2, prop=None, 
+                 frameon=True, linecolor="k",
+                 fontcolor="k", fontsize=10, fontstyle="normal", **kwargs):
+        if not ax:
+            ax = plt.gca()
+            
+        trans = ax.get_xaxis_transform()
+        size_bar = matplotlib.offsetbox.AuxTransformBox(trans)
+        line = Line2D([0,size],[0,0], color=linecolor)
+        vline1 = Line2D([0,0], [-extent/2.,extent/2.], color=linecolor)
+        vline2 = Line2D([size,size], [-extent/2.,extent/2.], color=linecolor)
+        vline3 = Line2D([size/2,size/2], [-extent/4.,extent/4.], color=linecolor)
+        size_bar.add_artist(line)
+        size_bar.add_artist(vline1)
+        size_bar.add_artist(vline2)
+        size_bar.add_artist(vline3)
+        txt = matplotlib.offsetbox.TextArea(label, textprops=dict(color=fontcolor, size=fontsize, style=fontstyle))
+        self.vpac = matplotlib.offsetbox.VPacker(children=[size_bar,txt],  
+                                 align="center", pad=ppad, sep=sep) 
+        matplotlib.offsetbox.AnchoredOffsetbox.__init__(self, loc, pad=pad, 
+                 borderpad=borderpad, child=self.vpac, prop=prop, frameon=frameon,
+                 **kwargs)
+
+def add_scalebar(barsize, label, loc="lower left", ax=None, **kwargs):
+    # Example)
+    # ob = AnchoredHScaleBar(ax=ax, size=1, label="1 s", loc="lower left", frameon=False,
+    #                    pad=0.08, sep=2, linecolor="w", fontcolor="w",
+    #                    fontsize=12, fontstyle="italic")
+    
+    if ax is None:
+        ax = plt.gca()
+        
+    ob = AnchoredHScaleBar(ax=ax, size=barsize, label=label, loc=loc, frameon=False,
+                           pad=0.08, sep=2, **kwargs)
+    ax.add_artist(ob)
+
+    
