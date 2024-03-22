@@ -22,17 +22,25 @@ prominence = 0.05
 num_itr = 1
 _ncore = 10
 
+_inv_tau = False
+
 keys_dyna = ("ac2p_large", "tlag_large", "ac2p_1st", "tlag_1st",
              "pwr_large_ft", "tlag_large_ft", "pwr_1st_ft", "tlag_1st_ft",
+             "cc1p", "tlag_cc", "leading_ratio", "leading_ratio(abs)", "dphi")
+
+keys_dyna_inv = ("ac2p_large", "fp_large", "ac2p_1st", "fp_1st",
+             "pwr_large_ft", "fp_large_ft", "pwr_1st_ft", "fp_1st_ft",
              "cc1p", "tlag_cc", "leading_ratio", "leading_ratio(abs)", "dphi")
 
 keys_order = ("chi", "cv", "frs_m")
 
 
-def main(prefix=None, fout=None, nitr=5, ncore=50, seed=200):
-    global num_itr, _ncore
+def main(prefix=None, fout=None, nitr=5, ncore=50, seed=200, inv_tau=False):
+    global num_itr, _ncore, _inv_tau
+    
     num_itr = nitr
     _ncore = ncore
+    _inv_tau = inv_tau
     
     np.random.seed(seed)
     summary_obj = hhtools.SummaryLoader(prefix)
@@ -58,6 +66,7 @@ def build_arg_parser():
     parser.add_argument("--fout", help="output file name", default="./dynamic_orders.nc")
     parser.add_argument("--nitr", help="the # of iteration", type=int)
     parser.add_argument("--ncore", help="the # of cores to use", type=int)
+    parser.add_argument("--inv_tau", help="inverse tau", type=bool, default=False)
     parser.add_argument("--seed", help="seed used to calcualte", default=200, type=int)
     return parser
     
@@ -78,8 +87,12 @@ def get_ac2_peak(x, prominence=0.01):
     # Need to return 2nd peak lag, mag
     ac, tlag = hhsignal.get_correlation(x, x, srate, max_lag=0.2)
     idp_1st, idp_large = hhsignal.detect_peak(ac, prominence=prominence, mode=3)
-    return ac[idp_large[1]], tlag[idp_large[1]], ac[idp_1st[1]], tlag[idp_1st[1]]
-
+    
+    if _inv_tau:
+        return ac[idp_large[1]], 1/tlag[idp_large[1]], ac[idp_1st[1]], 1/tlag[idp_1st[1]]
+    else:
+        return ac[idp_large[1]], tlag[idp_large[1]], ac[idp_1st[1]], tlag[idp_1st[1]]
+    
 
 def get_cc_peak(x, y, prominence=0.01):
     # Need to return 1nd peak lag, mag
@@ -93,7 +106,7 @@ def get_cc_peak(x, y, prominence=0.01):
     npeak = idp3[np.argmax(cc[idp3])]
     
     return cc[npeak], tlag[npeak]
-
+    
 
 def find_peak2(sig):
     from scipy.signal import find_peaks
@@ -113,12 +126,19 @@ def find_peak2(sig):
     return n0, n1
 
 
-def get_fft_peak(x):
-    ac, tlag = hhsignal.get_correlation(x, x, srate, max_lag=0.2)
-    yf, freq = hhsignal.get_fft(ac, srate, frange=(1, 120))
-    n0, n1 = find_peak2(yf)
+# def get_fft_peak(x):
+#     ac, tlag = hhsignal.get_correlation(x, x, srate, max_lag=0.2)
+#     yf, freq = hhsignal.get_fft(ac, srate, frange=(1, 120))
+#     n0, n1 = find_peak2(yf)
     
-    return yf[n0], 1/freq[n0], yf[n1], 1/freq[n1]
+#     if _inv_tau:
+#         return yf[n0], freq[n0], yf[n1], freq[n1]
+#     else:
+#         return yf[n0], 1/freq[n0], yf[n1], 1/freq[n1]
+
+
+def get_fft_peak(x):
+    return 0, 0, 0, 0
 
 
 def extract_single_result(sample):
@@ -149,6 +169,8 @@ def extract_single_result(sample):
                 tau_ac_peaks[nid, tp-1] = vals_ft[1]
         
         cc1p, cc_tlag = get_cc_peak(vlfp[1], vlfp[2], prominence=prominence)
+        # cc_tlag < 0: fast pop (vlfp[1]) precedes
+        # cc_tlag > 0: slow pop (vlfp[2]) precedes
         res[8, 1, 0] += cc1p
         res[8, 1, 1] += cc1p**2
         res[9, 1, 0] += cc_tlag # tlag
@@ -187,8 +209,6 @@ def extract_single_result(sample):
         exp_avg = exp_sum / num_itr
         r2 = np.real(exp_avg * np.conj(exp_avg))
         res[12, 1, 1] = 1 - r2
-    
-    # print("dphi_avg: %.4f, dphi_var: %.4f"%(res[12, 1, 0], res[12, 1, 1]))
     
     # copy data to subpop
     res[8:, 2, :] = res[8:, 1, :]
@@ -278,7 +298,11 @@ def extract_result(summary_obj) -> xr.DataArray:
     res_order = align_order(summary_obj)
     
     res_avg = np.concatenate((res_order, res_dyna))
+    
     keys = list(keys_order) + list(keys_dyna)
+    if _inv_tau:
+        keys = list(keys_order) + list(keys_dyna_inv)
+        
     
     df = xr.DataArray(res_avg,
                       dims=("key", "pop", "type", "alpha", "beta", "rank", "w"),

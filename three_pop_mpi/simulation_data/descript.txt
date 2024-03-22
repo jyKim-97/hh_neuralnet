@@ -1,11 +1,18 @@
 
-- postdata.nc
+- postdata_tmp.nc
 	computed from postprocessing2.py, xarray.DataArray object which contains all dynamic feature parameters
 
+- postdata.nc
+	computed from postprocessing2.py, xarray.DataArray object which contains all dynamic feature parameters
+	'w' is updated in here
+
 - data: main simulation result 
+! collected data_old and data_wextend 
 
 - data_wextend: simulation result with extended w
 ! w is changed: w=1 (no projection from fast to slow) / w=-1 (no projection from slow to fast)
+
+- data_old: previous dataset with w=0.1,...,1
 
 - data_w10: opposite direction
 -> p_ratio_set < 0 = projection ratio |p| from slow to fast

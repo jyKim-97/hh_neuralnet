@@ -240,7 +240,11 @@ int flag_eq = 0;
 void run(int job_id, void *idxer_void){
 
     index_t *idxer = (index_t*) idxer_void;
-    print_job_start(job_id, idxer->len);
+    // print_job_start(job_id, idxer->len);
+    // if ((job_id < 9) || (job_id > 18)){
+    //     return;
+    // }
+
     nn_info_t info = allocate_setting(job_id, idxer);
 
     char fname_info[100], fbuf[200];;
@@ -312,7 +316,7 @@ void run(int job_id, void *idxer_void){
 
     destroy_neuralnet();
     destroy_measure();
-    print_job_end(job_id, idxer->len);
+    // print_job_end(job_id, idxer->len);
 }
 
 
