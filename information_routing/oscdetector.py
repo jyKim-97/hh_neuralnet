@@ -128,11 +128,9 @@ def compute_osc_trit(psd_set, fpsd, tpsd, amp_range, q=80, min_len=2, cat_th=2):
     return words# , words_n
             
 
-
-def compute_osc_bit(psd_set, fpsd, tpsd, amp_range, q=80, min_len=2, cat_th=2):
+def compute_osc_bit(psd_set, fpsd, tpsd, amp_range, q=80, min_len=2, cat_th=2, reversed=False):
     
-    words_p = np.zeros(len(tpsd))
-    # words_n = np.zeros(len(tpsd))
+    words = np.zeros(len(tpsd))
     for tp in range(2): # fast / slow subpop
         
         tp_label = "fpop" if tp == 0 else "spop"
@@ -142,17 +140,16 @@ def compute_osc_bit(psd_set, fpsd, tpsd, amp_range, q=80, min_len=2, cat_th=2):
             if len(ar) == 0: continue
         
             y = psd[(fpsd >= ar[0]) & (fpsd < ar[1]), :].mean(axis=0)
-            bd_idy_p, _ = pick_osc(y, min_len=min_len, cat_th=cat_th, q=q)
-            # bd_idy_n, _ = pick_osc(y, min_len=min_len, cat_th=cat_th, q=100-q, reversed=True)
+            bd_idy, _ = pick_osc(y, min_len=min_len, cat_th=cat_th, q=q, reversed=reversed)
             
-            for bd in bd_idy_p:
-                words_p[bd[0]:bd[1]] += 2**(2*tp+nf)
+            for bd in bd_idy:
+                words[bd[0]:bd[1]] += 2**(2*tp+nf)
     
-    return align_cobit(words_p)
+    # return words
+    return align_cobit(words)
                 
 
-
-def align_cobit(_words, digit=4, reversed=False):
+def align_cobit(_words, digit=4):
     
     digit = 4
     nstack_cut = 4
@@ -174,76 +171,118 @@ def align_cobit(_words, digit=4, reversed=False):
                 if nt_start is None:
                     nt_start = nt
                 w1 = words[nt]
-                # wc = np.array(dec2bin(w1, digit))
+                wc = np.array(dec2bin(w1, digit))
                 nstack = 0
                 
-            elif words[nt] != w1:
-                nstack += 1 # count stack
+            elif words[nt] != w1: # mixed case
+                # nstack += 1
+                w2 = words[nt]
+                if np.any(dec2bin(w2, digit) & wc):
+                    w1 = w2
+                    nstack = 0 
+                else:
+                    nstack += 1 # count stack
                     
-            # elif words[nt] != w1: # mixed case
-            #     wc2 = dec2bin(words[nt], digit)
-            #     if np.any(wc & wc2):
-            #         w1 = words[nt]
-            #         wc = wc | wc2
-            #         nstack = 0
-            #     else:
-            #         nstack += 1 # count stack
-            
-            else:
+            else: # zero case
                 nstack = 0
+                
         else:
             nstack += 1
         
         if nstack == nstack_cut and w1 is not None:
-            nt -= nstack_cut
-
-            w_set = np.unique(words[nt_start:nt])
-            if not reversed:
-                # cond = np.zeros(digit, dtype=bool)
-                cond = np.ones(digit, dtype=bool)
-                for w in w_set:
-                    # cond = cond | dec2bin(w, digit)
-                    cond = cond & dec2bin(w, digit)
-            else:
-                cond = np.ones(digit, dtype=bool)
-                for w in w_set:
-                    cond = cond & dec2bin(w, digit)
+            nt -= nstack_cut-1
             
+            count_bit = np.zeros(digit)
+            w, wbit = None, None
+            for n in np.arange(nt_start, nt):
+                if words[n] != w:
+                    w = words[n]
+                    wbit = dec2bin(int(words[n]), digit)
+                
+                count_bit += wbit
+            
+            count = np.zeros(2**digit)
+            for w in range(1, 16):
+                wbit = dec2bin(w, digit)
+                count[w] = count_bit[wbit].min()
+            
+            wcand = np.where(count > (nt-nt_start)*0.3)[0]
+            # print(wcand)
+            cond = np.zeros(digit, dtype=bool)
+            for w in wcand:
+                cond = cond | dec2bin(w, digit)
+                
             wnew = 0
             for i in range(digit):
                 if cond[i]: wnew += 2**i
+
+            # w_set = np.unique(words[nt_start:nt])
+            # cond = np.ones(digit, dtype=bool)
+            # for w in w_set:
+            #     cond = cond | dec2bin(w, digit)
+                
+            # wnew = 0
+            # for i in range(digit):
+            #     if cond[i]: wnew += 2**i
+
+            
+            # if not reversed:
+            #     # cond = np.zeros(digit, dtype=bool)
+            #     cond = np.ones(digit, dtype=bool)
+            #     for w in w_set:
+            #         # cond = cond | dec2bin(w, digit)
+            #         cond = cond & dec2bin(w, digit)
+            # else:
+            #     cond = np.ones(digit, dtype=bool)
+            #     for w in w_set:
+            #         cond = cond & dec2bin(w, digit)
             
             words[nt_start:nt] = wnew
+            # words[nt_start:nt] = words[nt]
             
             nstack = 0
             nt_start = None
             w1 = None
             
         nt += 1
-            
-    return words.astype(np.int16)
+        
+    # remove if the length of words lower than nstack_cut
+    words_new = np.zeros_like(words)
+    for bd in get_boundary(words > 0):
+        if bd[1]-bd[0] >= nstack_cut:
+            words_new[bd[0]:bd[1]] = words[bd[0]]
+    
+    return words_new.astype(np.int16)
+    # return words.astype(np.int16)
 
 # 
 def get_motif_boundary(words, tpsd):
-    bd = get_boundary(words > 0)
-    bd_motif = []
-    for i in range(len(bd)):
-        bd_motif.append(dict(
-            id=words[bd[i][0]],
-            range=tpsd[bd[i]]
-        ))
+    bd_motif_tmp = []
+    for w in range(1, 16):
+        bd = get_boundary(words == w)
+        for i in range(len(bd)):
+            bd_motif_tmp.append(dict(id=w, range=tpsd[bd[i]]))
+    
+    # sort
+    t0 = [motif["range"][0] for motif in bd_motif_tmp]
+    id_sort = np.argsort(t0)
+    bd_motif = [bd_motif_tmp[i] for i in id_sort]
     
     return bd_motif
 
 
-# ---- count
+# # ---- count
 def count_motif(words, digit=4):
-    word_count = np.zeros(16)
-    bd_words = get_boundary(words > 0)
-    for i in range(len(bd_words)):
-        w = words[bd_words[i][0]].astype(int)
-        word_count[w] += 1
-    return word_count
+    word_counts = np.zeros(16)
+    word_length = np.zeros(16)
+    osc_motif = get_motif_boundary(words, np.arange(len(words)))
+    
+    for om in osc_motif:
+        idw = int(om["id"])
+        word_counts[idw] += 1
+        word_length[idw] += om["range"][1]-om["range"][0]
+
+    return word_counts, word_length
 
 
 # ---- get labels

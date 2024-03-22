@@ -14,6 +14,15 @@ Output: ./params_to_run.txt and ./selected_cluster_info
 
 """
 
+repr_points = ((4,  1,  0, 1),
+               (6, 10,  0,  5),
+               (9,  7,  0, 1),
+               (8, 4, 1, 8),
+               (10,  9,  2, 1),
+               (6, 9, 1, 4),
+               (5, 12,  2,  4),
+               (6, 2, 2, 8))
+
 
 def main(fname_cinfo=None, pbest=10, nsamples_for_each=100,
          fdir_out="./data", init_seed=None):
@@ -30,11 +39,16 @@ def main(fname_cinfo=None, pbest=10, nsamples_for_each=100,
     id_tot = []
     params_tot = []
     for cid in tqdm(cid_dataset.attrs["id_set"]):
-        id_select = pick_cluster_points(cid_dataset, cid, pbest=pbest, nsamples=nsamples_for_each)
-        params = cvt_ind2params(id_select, cid_dataset.coords)
+        # 상위 몇퍼
+        # id_selec퍼 = pick_cluster_points(cid_dataset, cid, pbest=pbest, nsamples=nsamples_for_each)
+        # params = cvt_ind2params(id_select, cid_dataset.coords)
+        # params_tot.extend(params)
+        # id_tot.extend([[cid] + list(id_s) for id_s in id_select])
         
-        params_tot.extend(params)
-        id_tot.extend([[cid] + list(id_s) for id_s in id_select])
+        # use repr
+        
+        for _ in nsamples_for_each:
+            id_tot.extend([[cid] + list(repr_points[cid-1])])
     
     # write parameters
     write_control_params(len(cid_dataset.attrs["id_set"]), nsamples_for_each, fdir_out)

@@ -43,6 +43,7 @@ int main(int argc, char **argv){
     /* read args & init parameters */
     init_mpi(&argc, &argv);
     set_seed(time(NULL) * world_size * 5 + world_rank*2);
+    ignore_exist_file(true);
 
     read_args(argc, argv);
     read_params(fname_params);
@@ -74,13 +75,14 @@ void run(int job_id, void *nullarg){
     nn_info_t info = nn_info_set[job_id];
 
     // check is file exist
-    char fname_exist[100];
-    sprintf(fname_exist, "id%06d_lfp.dat", job_id);
+    char fname_exist[200];
+    sprintf(fname_exist, "%s/id%06d_lfp.dat", fdir_out, job_id);
+    int res = access(fname_exist, F_OK);
+
     if (access(fname_exist, F_OK) == 0){
         printf("job %d already done, skip this id\n", job_id);
-        
+        return;
     }
-
 
     char fname_info[100], fbuf[200];
     sprintf(fname_info, "id%06d_info.txt", job_id);
@@ -200,6 +202,12 @@ void read_params(char *fname){
         fclose(fp);
     }
 
+    MPI_Bcast(&nsamples, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    if (world_rank != 0){
+        nn_info_set = (nn_info_t*) malloc(sizeof(nn_info_t) * nsamples);
+    }
+
+    mpi_barrier();
     MPI_Bcast((void*) nn_info_set, nsamples*sizeof(nn_info_t), MPI_BYTE, 0, MPI_COMM_WORLD);
     init_nn(nn_info_set[0].N, nn_info_set[0].num_types);
 }

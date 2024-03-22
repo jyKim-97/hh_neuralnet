@@ -42,4 +42,4 @@ check the covariance and variance of each dataset and export splitted data after
 - kmeans_pred_inv.pkl
     Kmeans clustering result from K = 3 to 30 with 100 iteraction for each, tau -> 1/tau
 - kmeans_pred_partial.pkl
-    Kmeans clustering result from K = 3 to 30 with 100 iteraction for each, lead-lag ratio, dphi are removed
+    Kmeans clustering result from K = 3 to 30 with 100 iteraction for each, dphi are removed
