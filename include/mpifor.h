@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <time.h>
 #include <sys/time.h>
 #include <unistd.h>
@@ -16,6 +17,7 @@ void for_mpi(int nitr, void (*f) (int, void*), void *arg);
 void control_tower(int nitr);
 void iterate(void (*f) (int, void*), void *arg);
 void end_mpi();
+void mpi_barrier();
 
 // logging
 void print_job_start(int job_id, int max_job);

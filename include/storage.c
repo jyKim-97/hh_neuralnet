@@ -7,6 +7,7 @@
 double _fs_save = 2000;
 extern double _dt;
 int _nstep_save = -1;
+bool ignore_file_check = 0;
 
 static void set_nstep();
 
@@ -32,6 +33,11 @@ int is_save_step(int nstep){
     } else {
         return 0;
     }
+}
+
+
+void ignore_exist_file(bool _ignore){
+    ignore_file_check = _ignore;
 }
 
 
@@ -78,10 +84,13 @@ void change_sampling_rate(double fs){
 FILE *open_file(const char *fname, const char *option){
 
     FILE *fp = fopen(fname, "r");
-    if (fp != NULL){
-        fprintf(stderr, "File %s exists\n", fname);
-        fclose(fp);
-        return NULL;
+
+    if (!ignore_file_check){
+        if (fp != NULL){
+            fprintf(stderr, "File %s exists\n", fname);
+            fclose(fp);
+            return NULL;
+        }
     }
 
     fp = fopen(fname, option);

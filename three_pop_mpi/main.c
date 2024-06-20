@@ -49,11 +49,13 @@ int main(int argc, char **argv){
 
     if (argc == 2){ sprintf(fdir, "%s", argv[1]); }
 
+    if (world_rank == 0) fprintf(stderr, "Start simulation settting...");
     set_control_parameters();
 
     #ifndef _debug
     struct timeval tic, toc;
     gettimeofday(&tic, NULL);
+    if (world_rank == 0) fprintf(stderr, "Done, start simulation\n");
     for_mpi(idxer.len, run, &idxer);
     if (world_rank == 0){
         gettimeofday(&toc, NULL);
@@ -67,7 +69,8 @@ int main(int argc, char **argv){
 }
 
 
-double *alpha_set, *beta_set, *id_rank, *p_ratio_set; // alpha_set: pE->?, beta_set: pI->?, w_ratio_set is for the correction
+double *alpha_set, *beta_set, *id_rank; //, *p_ratio_set; // alpha_set: pE->?, beta_set: pI->?, w_ratio_set is for the correction
+double *w_set;
 
 /* === Default parameters === */
 double a_set[2] = {9.4, 4.5};
@@ -75,22 +78,34 @@ double b_set[2] = {3, 2.5};
 double c = 0.01;
 double d_set[2] = {14142.14, 15450.58};
 double plim[][2] = {{0.051, 0.234},
-                    {0.028, 0.105}};
+                    {0.028, 0.105}}; // 1st ind: F/S, 2nd ind: boundary (from rank 0 to 1)
 /* === Default parameters === */
 
 void set_control_parameters(){
 
-    int nitr = 3;
-    int max_len[] = {15, 15, 2, 7, nitr};
+    int nitr = 9;
+    int max_len[] = {15, 15, 3, 9, nitr};
     int num_controls = GetIntSize(max_len);
     set_index_obj(&idxer, num_controls, max_len);
 
     alpha_set = linspace(0, 2, max_len[0]);
     beta_set  = linspace(0, 1, max_len[1]);
-    // id_rank = linspace(0, 4, max_len[2]);
     id_rank = linspace(0, 1, max_len[2]);
-    p_ratio_set = linspace(0.1, 1, max_len[3]);
-    
+    // id_rank = linspace(0.5, 0.5, max_len[2]);
+    // p_ratio_set = linspace(0.1, 1, max_len[3]);
+    // p_rel_ratio_set = linspace(0, 1, max_len[3]);
+    // p_ratio_set = linspace(-1, -0.1, max_len[3]);
+    w_set = linspace(-1, 0., max_len[3]);
+    w_set[0] = -1; // in here, -1 means no projection from slow to fast (submissive case)
+    w_set[1] = -0.9;
+    w_set[2] = -0.7;
+    w_set[3] = -0.5;
+    w_set[4] = -0.3;
+    w_set[5] = -0.1;
+    w_set[6] = 0.85;
+    w_set[7] = 0.95;
+    w_set[8] = 1; // means no projection from fast to slow
+
 
     if (world_rank == 0){
         FILE *fp = open_file_wdir(fdir, "control_params.txt", "w");
@@ -101,8 +116,9 @@ void set_control_parameters(){
 
         print_arr(fp, "alpha_set", max_len[0], alpha_set);
         print_arr(fp, "beta_set", max_len[1], beta_set);
-        print_arr(fp, "id_rank", max_len[2], id_rank);
-        print_arr(fp, "p_ratio_set", max_len[2], p_ratio_set);
+        print_arr(fp, "rank_set", max_len[2], id_rank);
+        // print_arr(fp, "p_ratio_set", max_len[3], p_ratio_set);
+        print_arr(fp, "w_set", max_len[3], w_set);
         fclose(fp);
     }
 }
@@ -112,7 +128,8 @@ void end_simulation(){
     free(alpha_set);
     free(beta_set);
     free(id_rank);
-    free(p_ratio_set);
+    // free(p_ratio_set);
+    free(w_set);
     #ifndef _debug
     end_mpi();
     #endif
@@ -125,61 +142,52 @@ nn_info_t allocate_setting(int job_id, index_t *idxer){
     nn_info_t info = set_info();
     double alpha = alpha_set[idxer->id[0]];
     double beta  = beta_set[idxer->id[1]];
-    int rank = id_rank[idxer->id[2]];
-    double p_ratio = p_ratio_set[idxer->id[3]];
+    double rank = id_rank[idxer->id[2]]; 
+    // double p_ratio = p_ratio_set[idxer->id[3]];
+    // double p_ratio_f=1, p_ratio_s=1;
+    // if (p_ratio >= 0){
+    //     p_ratio_f = p_ratio;
+    // } else {
+    //     p_ratio_s = -p_ratio;
+    // }
 
-    double pe_f, pe_s;
-    switch (rank){
-        case 0:
-            pe_f = plim[0][0];
-            pe_s = plim[1][0];
-            break;
+    double wx = w_set[idxer->id[3]];
 
-        // case 1:
-        //     pe_f = (plim[0][0]+plim[0][1])/2.;
-        //     pe_s = (plim[1][0]+plim[1][1])/2.;
-        //     break;
-
-        case 1:
-            pe_f = plim[0][1];
-            pe_s = plim[1][1];
-            break;
-
-        // case 3: // low rank (f) - high rank (s)
-        //     pe_f = plim[0][0];
-        //     pe_s = plim[1][1];
-        //     break;
-
-        // case 4: // high rank (f) - low rank (s)
-        //     pe_f = plim[0][1];
-        //     pe_s = plim[1][0];
-        //     break;
-
-        default:
-            printf("Unexpected rank %d\n", rank);
-            exit(1);
-            break;
+    double w_slow=1, w_fast=1;
+    if (wx > 0){
+        w_fast = 1 - wx;
+    } else if (wx < 0){
+        w_slow = 1 + wx;
     }
+
+    // rank must be in [0, 1]
+    if ((rank < 0) || (rank > 1)){
+        printf("Rank must be in [0, 1], typped %.2f\n", rank);
+        exit(-1);
+    }
+
+    double pe_f = (plim[0][0]*(1-rank) + plim[0][1]*rank);
+    double pe_s = (plim[1][0]*(1-rank) + plim[1][1]*rank);
 
     info.p_out[0][0] = pe_f;
     info.p_out[0][1] = pe_f;
-    info.p_out[0][2] = alpha * pe_f * p_ratio;
-    info.p_out[0][3] = alpha * pe_f * p_ratio;
+    info.p_out[0][2] = alpha * pe_f * w_fast;
+    info.p_out[0][3] = alpha * pe_f * w_fast;
 
     double pi_f = b_set[0] * pe_f;
     info.p_out[1][0] = pi_f;
     info.p_out[1][1] = pi_f;
-    info.p_out[1][2] = beta * pi_f * p_ratio;
-    info.p_out[1][3] = beta * pi_f * p_ratio;
+    info.p_out[1][2] = beta * pi_f * w_fast;
+    info.p_out[1][3] = beta * pi_f * w_fast;
 
-    info.p_out[2][0] = alpha * pe_s;
-    info.p_out[2][1] = alpha * pe_s;
+    info.p_out[2][0] = alpha * pe_s * w_slow;
+    info.p_out[2][1] = alpha * pe_s * w_slow;
     info.p_out[2][2] = pe_s;
     info.p_out[2][3] = pe_s;
 
     double pi_s = b_set[1] * pe_s;
-    info.p_out[3][0] = beta * pi_s;
-    info.p_out[3][1] = beta * pi_s;
+    info.p_out[3][0] = beta * pi_s * w_slow;
+    info.p_out[3][1] = beta * pi_s * w_slow;
     info.p_out[3][2] = pi_s;
     info.p_out[3][3] = pi_s;
 
@@ -215,18 +223,6 @@ nn_info_t allocate_setting(int job_id, index_t *idxer){
     info.w[3][2] = wi_s;
     info.w[3][3] = wi_s;
 
-    info.taur[0] = 0.3;
-    info.taud[0] = 1;
-
-    info.taur[1] = 0.5;
-    info.taud[1] = 2.5;
-
-    info.taur[2] = 0.3;
-    info.taud[2] = 1;
-
-    info.taur[3] = 1;
-    info.taud[3] = 8;
-
     info.t_lag = 0.;
     info.const_current = false;
 
@@ -244,7 +240,11 @@ int flag_eq = 0;
 void run(int job_id, void *idxer_void){
 
     index_t *idxer = (index_t*) idxer_void;
-    print_job_start(job_id, idxer->len);
+    // print_job_start(job_id, idxer->len);
+    // if ((job_id < 9) || (job_id > 18)){
+    //     return;
+    // }
+
     nn_info_t info = allocate_setting(job_id, idxer);
 
     char fname_info[100], fbuf[200];;
@@ -316,7 +316,7 @@ void run(int job_id, void *idxer_void){
 
     destroy_neuralnet();
     destroy_measure();
-    print_job_end(job_id, idxer->len);
+    // print_job_end(job_id, idxer->len);
 }
 
 
@@ -334,12 +334,16 @@ nn_info_t set_info(void){
 
     // synaptic time constant
     info.taur[0] = 0.3;
-    info.taur[1] = 0.5;
-    info.taur[2] = 1;
-
     info.taud[0] = 1;
+
+    info.taur[1] = 0.5;
     info.taud[1] = 2.5;
-    info.taud[2] = 8;
+
+    info.taur[2] = 0.3;
+    info.taud[2] = 1;
+
+    info.taur[3] = 1;
+    info.taud[3] = 8;
 
     info.t_lag = 0.;
     info.const_current = false;
