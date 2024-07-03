@@ -3,6 +3,7 @@
 SNNS_twopop
 .vscode/
 test/
+__pycache__/
 *.swp
 *.ipynb_checkpoints
 *.out
