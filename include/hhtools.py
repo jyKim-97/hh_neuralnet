@@ -38,7 +38,7 @@ def load_vlfp(fname):
     l = (len(data)-2)//(num_types+1)
     vlfps = []
     for n in range(num_types+1):
-        vlfps.append(data[n0:n0+l]) # total, fast, slow
+        vlfps.append(data[n0:n0+l])
         n0 += l
     return vlfps, fs
 
@@ -72,7 +72,7 @@ def convert_in2outdeg(ntk_in, N=None):
     return ntk_out
 
 
-def draw_spk(step_spk, dt=0.01, sequence=None, xl=None, color_ranges=None, colors=None, ms=1, **kwargs):
+def draw_spk(step_spk, dt=0.01, sequence=None, xl=None, color_ranges=None, colors=None, ms=1):
     if color_ranges is not None:
         if colors is None:
             print("Type the colors")
@@ -86,16 +86,10 @@ def draw_spk(step_spk, dt=0.01, sequence=None, xl=None, color_ranges=None, color
     if sequence is None:
         sequence = np.arange(N)
     else:
-        if len(sequence) > N:
+        if len(sequence) >= N:
             raise ValueError("Length of sequence (%d) exceeds N (%d)"%(len(sequence), N))
 
     cid = 0
-    
-    _MAX_BUF_SIZE = 10000
-    xs = []
-    ys = []
-    cs = []
-    
     for n, nid in enumerate(sequence):
         t_spk = np.array(step_spk[nid]) * dt
         if xl is not None:
@@ -106,16 +100,8 @@ def draw_spk(step_spk, dt=0.01, sequence=None, xl=None, color_ranges=None, color
             c = colors[cid]
         else:
             c = 'k'
-        
-        xs.extend(t_spk)
-        ys.extend(np.ones_like(t_spk)*n)
-        cs.extend([c for _ in range(len(t_spk))])
-        
-        if len(xs) > _MAX_BUF_SIZE or nid == sequence[-1]:
-            plt.scatter(xs, ys, s=ms, c=cs, **kwargs)
-            xs = []; ys = []; cs = []
 
-        # plt.scatter(t_spk, np.ones_like(t_spk)*n, s=ms, c=c, **kwargs)
+        plt.plot(t_spk, np.ones_like(t_spk)*n, '.', ms=ms, c=c)
     plt.xlim(xl)
     plt.ylim([0, len(sequence)])
 
@@ -162,12 +148,10 @@ def draw_spk(step_spk, dt=0.01, sequence=None, xl=None, color_ranges=None, color
 
 # Source code for loadding summarys
 class SummaryLoader:
-    def __init__(self, fdir, load_only_control=False, read_cache=True):
+    def __init__(self, fdir, load_only_control=False):
         # read control param infos
         self.fdir = fdir
-        # self.num_overlap = num_overlap
         self._load_controls()
-        self.read_cache = read_cache
         if not load_only_control:
             self._read_data()
     
@@ -183,26 +167,24 @@ class SummaryLoader:
                 self.control_names.append(tmp[0])
                 self.controls[tmp[0]] = [float(x) for x in tmp[1].split(",")[:-1]]
                 line = fid.readline()
+
+    def _read_data(self):
+        # NOTE: pkl 파일 체크
+        fnames = [f for f in os.listdir(self.fdir) if "id" in f and "result" in f]
+        self.num_overlap = self.check_overlap(fnames)
+        print(self.num_overlap)
+
+        nums = len(fnames)
         nums_expect = 1
         for n in self.num_controls:
             nums_expect *= n
         self.num_total = nums_expect
         
-        # validation
-        fnames = [f for f in os.listdir(self.fdir) if "id" in f and "result" in f and "monitor" not in f]
-        self.num_overlap = self.check_overlap(fnames)
-        nums = len(fnames)
-        if nums != self.num_total * self.num_overlap:
-            print("Expected number of # results and exact file number are different!: %d/%d"%(nums, self.num_total*self.num_overlap))
-
-    def _read_data(self):
+        if nums != nums_expect * self.num_overlap:
+            print("Expected number of # results and exact file number are different!: %d/%d"%(nums, nums_expect*self.num_overlap))
         
-        if self.read_cache:
-            if self._load_cache() == 0:
-                return
-                
         self.summary = {}
-        self.load_success = np.ones(self.num_total)
+        self.load_success = np.ones(nums_expect)
         var_names = ["chi", "cv", "frs_m", "frs_s"]
         for k in var_names:
             self.summary[k] = []
@@ -213,7 +195,8 @@ class SummaryLoader:
                 self.summary = pkl.load(fp)
                 return
 
-        for n in range(self.num_total):
+        for n in range(nums_expect):
+
             for i in range(self.num_overlap):
                 if self.num_overlap == 1:
                     fname = os.path.join(self.fdir, "id%06d_result.txt"%(n))    
@@ -245,18 +228,6 @@ class SummaryLoader:
 
         # save cache
         self._save_cache()
-        
-    def _load_cache(self):
-        fname = os.path.join(self.fdir, "summary.pkl")
-        if os.path.exists(fname):
-            print("Load cache file")
-            with open(fname, "rb") as fp:
-                self.summary = pkl.load(fp)
-            return 0
-        else:
-            print("Cache does not exist")
-            self.summary = {}
-            return -1
     
     def _save_cache(self):
         with open(os.path.join(self.fdir, "summary.pkl"), "wb") as fp:
@@ -276,31 +247,23 @@ class SummaryLoader:
     def get_id(self, *nid):
         return get_id(self.num_controls, *nid)
     
-    def load_detail(self, *nid, load_now=True):
+    def load_detail(self, *nid):
         if len(nid) == 1:
             n = nid[0]
         else:
             n = get_id(self.num_controls, *nid)
-            
-        sample = sampleLoader(self.fdir, n, read=load_now)
-        if load_now:
-            return sample.data
+        tag = os.path.join(self.fdir, "id%06d"%(n))
+        data = {}
+        data["step_spk"], _ = load_spk(tag+"_spk.dat")
+        data["vlfp"], fs = load_vlfp(tag+"_lfp.dat")
+        data["ts"] = np.arange(len(data["vlfp"][0])) / fs
+        data["nid"] = nid
+        if os.path.exists(tag+"_info.txt"):
+            with open(tag+"_info.txt", "r") as fid:
+                data["info"] = fid.readlines()
         else:
-            return sample
-        
-    
-        # tag = os.path.join(self.fdir, "id%06d"%(n))
-        # data = {}
-        # data["step_spk"], _ = load_spk(tag+"_spk.dat")
-        # data["vlfp"], fs = load_vlfp(tag+"_lfp.dat")
-        # data["ts"] = np.arange(len(data["vlfp"][0])) / fs
-        # data["nid"] = nid
-        # if os.path.exists(tag+"_info.txt"):
-        #     with open(tag+"_info.txt", "r") as fid:
-        #         data["info"] = fid.readlines()
-        # else:
-        #     data["info"] = None
-        # return data
+            data["info"] = None
+        return data
 
     def print_params(self, *nid):
         # check
@@ -327,29 +290,6 @@ class SummaryLoader:
         with open(f, "wb") as fid:
             pkl.dump(self, fid)
 
-
-class sampleLoader:
-    def __init__(self, fdir, nsample, read=False):
-        self.tag = os.path.join(fdir, "id%06d"%(nsample))
-        self.nsample = nsample
-        
-        self.data = {}
-        if read:
-            self.data = self.load()
-            
-    def load(self):
-        data = {}
-        data["step_spk"], _ = load_spk(self.tag+"_spk.dat")
-        data["vlfp"], fs = load_vlfp(self.tag+"_lfp.dat")
-        data["ts"] = np.arange(len(data["vlfp"][0])) / fs
-        data["nid"] = self.nsample
-        if os.path.exists(self.tag+"_info.txt"):
-            with open(self.tag+"_info.txt", "r") as fid:
-                data["info"] = fid.readlines()
-        else:
-            data["info"] = None
-        return data
-    
 
 def read_info(info_string):
     import re
@@ -425,10 +365,8 @@ def read_info(info_string):
 
 
 def get_id(num_xs, *nid):
-    
     if len(nid) != len(num_xs):
         raise ValueError("The number of arguments does not match to expected #")
-    
     num_tag = 0
     stack = 1
     for n in range(len(nid)-1, -1, -1):
@@ -471,7 +409,7 @@ def read_summary(fname):
     return summary
 
 
-def imshow_xy(im, x=None, y=None, scale="linear", vmin=None, vmax=None, **kwargs):
+def imshow_xy(im, x=None, y=None, **kwargs):
     extent = []
     if x is not None:
         if len(x) != im.shape[1]:
@@ -489,60 +427,8 @@ def imshow_xy(im, x=None, y=None, scale="linear", vmin=None, vmax=None, **kwargs
         extent.extend([y[0]-dy, y[-1]+dy])
     else:
         extent.extend([-0.5, np.shape(im)[0]-0.5])
-        
-    im_ = im
-    if scale == "log10":
-        im_ = np.log10(im)
-
-    vmin_ = np.percentile(im_, 1) if vmin is None else vmin
-    vmax_ = np.percentile(im_, 99) if vmax is None else vmax
     
-    return plt.imshow(im_, aspect="auto", extent=extent, origin="lower",
-                      vmin=vmin_, vmax=vmax_,
-                      **kwargs)
-    
-    
-def imshow_sq(im, x=None, y=None, xt=None, yt=None, vmin=None, vmax=None, format="%.2f", cmap="jet", **kwargs):
-    
-    def _x2xp(_xt, _x): 
-        # original coord (x) to virtual coord (xp)
-        # xt: target points, x: full x
-        return (np.array(_xt) - _x[0]) / (_x[-1] - _x[0])
-        
-
-    def _xp2x(_xp, _x): # virtual coord (xp) to original coord (x)
-        # xp: vitual coord
-        return np.array(_xp) * (_x[-1] - _x[0]) + _x[0]
-    
-    _x = x if x is not None else np.arange(im.shape[1])
-    _y = y if y is not None else np.arange(im.shape[0])
-    
-    _vmin = np.percentile(im, 1) if vmin is None else vmin
-    _vmax = np.percentile(im, 99) if vmax is None else vmax
-    
-    extent = []
-    dx = 1 / (im.shape[1] - 1) / 2 if im.shape[1] > 1 else 1
-    dy = 1 / (im.shape[0] - 1) / 2 if im.shape[0] > 1 else 1
-    extent = [-dx, 1+dx, -dy, 1+dy]
-    
-    im_obj = plt.imshow(im, aspect="equal", origin="lower", extent=extent,
-                        vmin=_vmin, vmax=_vmax, cmap=cmap, **kwargs)
-    
-    for tt, tfull, ft in zip((xt, yt), (_x, _y), (plt.xticks, plt.yticks)):
-        if tt is None:
-            tloc = list(map(float, ft()[0]))
-            tlabels = _xp2x(tloc, tfull)
-        else:
-            tloc = _x2xp(tt, tfull)
-            tlabels = tt
-            
-        ft(tloc, [format%x for x in tlabels])
-    
-    plt.xlim(extent[:2])
-    plt.ylim(extent[2:])
-    
-    return im_obj
-    
+    return plt.imshow(im, aspect="auto", extent=extent, origin="lower", **kwargs)
 
 
 def plot_sub(x, y, xl=None, *args, **kwargs):
@@ -651,167 +537,3 @@ def load_summary(f):
     
     return obj
 
-
-
-# =============== Visualization ================== #
-def draw_quadratic_summary(data, fname=None, xl_raster=(1500, 2500), nsamples=20, wbin_t=1, fs=2000, shuffle=False):
-    
-    import hhsignal
-    from tqdm.notebook import tqdm
-    from scipy.ndimage import gaussian_filter1d
-    
-    teq = 0.5
-    
-    plt.figure(dpi=100, figsize=(9, 12))
-    plt.axes([0.1, 0.8, 0.8, 0.15])
-    
-    seq = np.arange(len(data["step_spk"]))
-    cr = [800, 1000, 1800, 2000]
-    cs = ["r", "b", "deeppink", "navy"]
-    
-    if shuffle:
-        np.random.shuffle(seq)
-        cr = None
-        cs = None
-        
-    
-    draw_spk(data["step_spk"], color_ranges=cr, colors=cs, xl=xl_raster, sequence=seq)
-    plt.ylabel("# neuron", fontsize=14)
-    plt.xlabel("Time (s)", fontsize=14)
-    xt, _ = plt.xticks()
-    plt.xticks(xt, labels=["%.3f"%(x/1000) for x in xt])
-    
-    title = "nid: %d"%(data["nid"][0])
-    for n in data["nid"][1:]:
-        title += ",%d"%(n)
-    plt.title(title, fontsize=14)
-
-    plt.twinx()
-    t = data["ts"] * 1e3
-    plt.plot(t, data["vlfp"][0], c='k', zorder=10, label=r"$V_T$")
-    plt.plot(t, data["vlfp"][1], c='b', lw=1, label=r"$V_F$")
-    plt.plot(t, data["vlfp"][2], c='r', lw=1, label=r"$V_S$")
-    plt.legend(fontsize=14, loc="upper left", ncol=3, edgecolor="none")
-    plt.ylabel("V", fontsize=14)
-    
-    # ----------------- Generate AC for x -----------------#
-    t0_set = np.random.uniform(low=teq, high=data["ts"][-1]-wbin_t, size=nsamples)
-    cc_set = [[] for _ in range(4)]
-    for t0 in tqdm(t0_set):
-        n0 = int(t0 * fs)
-        n1 = n0 + wbin_t * fs
-
-        for i in range(4):
-            if i < 3:
-                x = data["vlfp"][i][n0:n1]
-                y = x.copy()
-            else:
-                x = data["vlfp"][1][n0:n1]
-                y = data["vlfp"][2][n0:n1]
-
-            cc, tlag = hhsignal.get_correlation(x, y, fs, max_lag=0.1)
-            cc_set[i].append(cc)
-
-    cc_set_avg = np.average(cc_set, axis=1)
-    cc_set_std = np.std(cc_set, axis=1)
-    
-    # ----------------- Draw AC for x -----------------#
-    labels = ["AC(T)", "AC(F)", "AC(S)", "CC(F, S)"]
-    yl = [-0.8, 1.1]
-
-    for n in range(4):
-        # plt.subplot(1, 4, n+1)
-        plt.axes([0.1+0.22*n, 0.6, 0.15, 0.15])
-        plt.plot([0, 0], yl, 'g--', lw=1)
-        plt.plot([-0.1, 0.1], [0, 0], 'g--', lw=1)
-        plt.plot(tlag, cc_set_avg[n], c='k')
-        plt.fill_between(tlag, cc_set_avg[n]-cc_set_std[n]/2, cc_set_avg[n]+cc_set_std[n]/2, alpha=0.5, color='k', edgecolor="none")
-        plt.xlim([-0.1, 0.1])
-        plt.xlabel(r"$\Delta t$ (s)", fontsize=14)
-        plt.title(labels[n], fontsize=14)
-        plt.ylim(yl)
-        if n == 3:
-            plt.text(-0.06, -0.7, r"$V_F$ lead", horizontalalignment="center")
-            plt.text(0.06, -0.7, r"$V_S$ lead", horizontalalignment="center")
-        
-    # ----------------- Draw figure -----------------#
-    tags = ["T", "F", "S"]
-    xt = np.arange(0.5, 4.1, 0.5)
-    fl = [20, 80]
-    
-    for nid in range(3):
-
-        psd, ff, tf = hhsignal.get_stfft(data["vlfp"][nid], data["ts"], 2000, frange=[2, 100])
-        yf, f = hhsignal.get_fft(data["vlfp"][nid], 2000, frange=[2, 100])
-
-        plt.axes([0.1, 0.4-0.17*nid, 0.7, 0.15])
-        imshow_xy(psd, x=tf, y=ff, cmap="jet", interpolation="spline16")
-        plt.ylabel("frequency (%s) (Hz)"%(tags[nid]), fontsize=14)
-        plt.ylim(fl)
-        plt.colorbar()
-
-        if nid < 2:
-            plt.xticks(xt, labels=["" for _ in xt])
-        else:
-            plt.xticks(xt)
-            plt.xlabel("Time (s)", fontsize=14)
-
-        plt.axes([0.8, 0.4-0.17*nid, 0.11, 0.15])
-        yf_s = gaussian_filter1d(yf, 3)
-        plt.plot(yf, f, c='k')
-        plt.plot(yf_s, f, c='r', lw=1.5)
-        plt.xlabel(r"FFT($V_{%s}$)"%(tags[nid]), fontsize=14)
-        plt.ylim(fl)
-        
-    if fname is not None:
-        plt.savefig(fname, dpi=150)
-    
-    plt.show()
-    
-    
-# ==== Visaulization
-import matplotlib
-import matplotlib.offsetbox
-from matplotlib.lines import Line2D
-
-class AnchoredHScaleBar(matplotlib.offsetbox.AnchoredOffsetbox):
-    """ size: length of bar in data units
-        extent : height of bar ends in axes units """
-    def __init__(self, size=1, extent = 0.03, label="", loc=2, ax=None,
-                 pad=0.4, borderpad=0.5, ppad = 0, sep=2, prop=None, 
-                 frameon=True, linecolor="k",
-                 fontcolor="k", fontsize=10, fontstyle="normal", **kwargs):
-        if not ax:
-            ax = plt.gca()
-            
-        trans = ax.get_xaxis_transform()
-        size_bar = matplotlib.offsetbox.AuxTransformBox(trans)
-        line = Line2D([0,size],[0,0], color=linecolor)
-        vline1 = Line2D([0,0], [-extent/2.,extent/2.], color=linecolor)
-        vline2 = Line2D([size,size], [-extent/2.,extent/2.], color=linecolor)
-        vline3 = Line2D([size/2,size/2], [-extent/4.,extent/4.], color=linecolor)
-        size_bar.add_artist(line)
-        size_bar.add_artist(vline1)
-        size_bar.add_artist(vline2)
-        size_bar.add_artist(vline3)
-        txt = matplotlib.offsetbox.TextArea(label, textprops=dict(color=fontcolor, size=fontsize, style=fontstyle))
-        self.vpac = matplotlib.offsetbox.VPacker(children=[size_bar,txt],  
-                                 align="center", pad=ppad, sep=sep) 
-        matplotlib.offsetbox.AnchoredOffsetbox.__init__(self, loc, pad=pad, 
-                 borderpad=borderpad, child=self.vpac, prop=prop, frameon=frameon,
-                 **kwargs)
-
-def add_scalebar(barsize, label, loc="lower left", ax=None, **kwargs):
-    # Example)
-    # ob = AnchoredHScaleBar(ax=ax, size=1, label="1 s", loc="lower left", frameon=False,
-    #                    pad=0.08, sep=2, linecolor="w", fontcolor="w",
-    #                    fontsize=12, fontstyle="italic")
-    
-    if ax is None:
-        ax = plt.gca()
-        
-    ob = AnchoredHScaleBar(ax=ax, size=barsize, label=label, loc=loc, frameon=False,
-                           pad=0.08, sep=2, **kwargs)
-    ax.add_artist(ob)
-
-    

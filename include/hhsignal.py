@@ -1,10 +1,10 @@
 # Signal processing library
 import numpy as np
-from scipy.signal import correlate, butter, sosfilt
+from scipy.signal import correlate, butter, sosfiltfilt
 
 
 # Fourier transform
-def get_fft(x, fs, nbin=None, nbin_t=None, frange=None, real=True):
+def get_fft(x, fs, nbin=None, nbin_t=None, frange=None):
     if nbin is None and nbin_t is None:
         N = len(x)
     elif nbin_t is not None:
@@ -13,9 +13,7 @@ def get_fft(x, fs, nbin=None, nbin_t=None, frange=None, real=True):
         N = nbin
 
     yf = np.fft.fft(x, axis=0, n=N)
-    yf = 2/N * yf[:N//2]
-    if real:
-        yf = np.abs(yf)
+    yf = 2/N * np.abs(yf[:N//2])
     freq = np.linspace(0, 1/2*fs, N//2)
 
     if frange is not None:
@@ -30,14 +28,14 @@ def get_fft(x, fs, nbin=None, nbin_t=None, frange=None, real=True):
     return yf, freq
 
 
-def get_stfft(x, t, fs, mbin_t=0.1, wbin_t=1, frange=None, buf_size=100, real=True):
+def get_stfft(x, t, fs, mbin_t=0.1, wbin_t=1, frange=None, buf_size=100):
 
     wbin = int(wbin_t * fs)
     mbin = int(mbin_t * fs)
     window = np.hanning(wbin)
     
     ind = np.arange(wbin//2, len(t)-wbin//2, mbin, dtype=int)
-    psd = np.zeros([wbin//2, len(ind)], dtype=float if real else complex)
+    psd = np.zeros([wbin//2, len(ind)])
     
     n_id = 0
     while n_id < len(ind):
@@ -50,7 +48,7 @@ def get_stfft(x, t, fs, mbin_t=0.1, wbin_t=1, frange=None, buf_size=100, real=Tr
             n1 = min([ind[n]+wbin//2, len(t)])
             y[n0-(ind[n]-wbin//2):wbin-(ind[n]+wbin//2)+n1, i] = x[n0:n1]
         y = y * window[:,np.newaxis]
-        yf, fpsd = get_fft(y, fs, real=real)
+        yf, fpsd = get_fft(y, fs)
         psd[:, n_id:n_id+n_buf] = yf
 
         n_id += n_buf
@@ -59,8 +57,7 @@ def get_stfft(x, t, fs, mbin_t=0.1, wbin_t=1, frange=None, buf_size=100, real=Tr
         idf = (fpsd >= frange[0]) & (fpsd <= frange[1])
         psd = psd[idf, :]
         fpsd = fpsd[idf]
-    # tpsd = ind / fs
-    tpsd = t[ind]
+    tpsd = ind / fs
     
     return psd, fpsd, tpsd
 
@@ -97,7 +94,16 @@ def get_correlation(x, y, srate, max_lag=None):
     pad = np.zeros(int(max_pad))
     xn = np.concatenate((pad, xn, pad))
     cc = correlate(xn, yn, mode="valid", method="fft")/std[0]/std[1]
+    
+    # cc = correlate(xn, yn, mode="full", method="fft")/std[0]/std[1]
     tlag = np.arange(-max_lag, max_lag+1/srate/10, 1/srate)
+    print(max_lag, srate)
+    
+    # get normalization block
+    # nc = len(cc)
+    # num_use = np.zeros(nc)
+    # num_use[:nc//2+1] = len(yn) - np.arange(0, nc//2+1)[::-1]
+    # num_use[nc//2:] = len(yn) - np.arange(0, nc//2+1)
     
     num_use = len(yn)
     cc = cc/num_use
@@ -150,15 +156,22 @@ def detect_peak(c, prominence=0.01, mode=0):
             return ind_peaks[:2], ind_peaks_l
         
         
-def filt(sig, f1, f2, fs=2000, fo=10):
-    sos1 = butter(fo, f1, 'hp', fs=fs, output='sos')
-    filtered = sosfilt(sos1, sig)
-    
-    sos2 = butter(fo, f2, 'lp', fs=fs, output='sos')
-    filtered = sosfilt(sos2, filtered)
-    
-    return filtered
+def get_sosfilter(frange: list, srate, fo=5, filter='butter'):
+    if filter == 'butter':
+        sos = butter(fo, np.array(frange)/srate*2, btype="bandpass", output="sos", analog=False)
+    elif filter == 'cheby1':
+        from scipy.signal import cheby1
+        sos = cheby1(fo, rp=2, Wn=np.array(frange)/srate*2, btype="bandpass", output="sos", analog=False)
+    return sos
 
+
+def draw_sosfilter_response(sos):
+    pass
+
+
+def filt(sig, sos):
+    return sosfiltfilt(sos, sig)
+        
 
 def smooth(x, window_size, porder):
     from scipy.signal import savgol_filter
@@ -168,12 +181,6 @@ def smooth(x, window_size, porder):
 def downsample(x, srate, srate_new):
     n = int(srate/srate_new)
     return x[::n]
-
-
-def get_eq_dynamics(x, t, teq):
-    idt_eq = t >= teq
-    return x[idt_eq], t[idt_eq]
-
 
 """ # Legacy
 # def detect_peak(c, srate=2000, tol_t=1e-2, tol_c=0.2, prominence=0.01, mode=0):
