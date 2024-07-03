@@ -59,11 +59,11 @@ int main(int argc, char **argv){
     set_index_obj(&idxer, num_var, max_len);
     int len = idxer.len;
 
-    double *cm_set  = linspace( 0.5, 1.5, max_len[0]);
-    double *gl_set  = linspace(0.01, 0.5, max_len[1]);
-    double *gk_set  = linspace(   3,  15, max_len[2]);
-    double *gna_set = linspace(  40,  70, max_len[3]);
-    double *ic_set  = linspace(   0,   2, max_len[4]);
+    double *cm_set  = linspace(  1.,  5., max_len[0]);
+    double *gl_set  = linspace(0.01,  1., max_len[1]);
+    double *gk_set  = linspace(  1., 30., max_len[2]);
+    double *gna_set = linspace( 40., 80., max_len[3]);
+    double *ic_set  = linspace(  0.,  2, max_len[4]);
 
     // save parameter
     if (world_rank == 0){
@@ -93,7 +93,7 @@ int main(int argc, char **argv){
         double fr = cell.measure_fr(tmax);
         fr_save[n] = fr;
 
-        printf("Job %4d Done\n", n);
+        printf("Job %8d/%8d Done\n", n, len);
     }
 
     printf("Rank %d Done\n", world_rank);

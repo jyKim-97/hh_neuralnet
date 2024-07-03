@@ -1,0 +1,26 @@
+
+- postdata_tmp.nc
+	computed from postprocessing2.py, xarray.DataArray object which contains all dynamic feature parameters
+
+- postdata.nc
+	computed from postprocessing2.py, xarray.DataArray object which contains all dynamic feature parameters
+	'w' is updated in here
+
+- data: main simulation result 
+! collected data_old and data_wextend 
+
+- data_wextend: simulation result with extended w
+! w is changed: w=1 (no projection from fast to slow) / w=-1 (no projection from slow to fast)
+
+- data_old: previous dataset with w=0.1,...,1
+
+- data_w10: opposite direction
+-> p_ratio_set < 0 = projection ratio |p| from slow to fast
+
+- data_prel: use relative asymmetric ratio, x
+-> p_ratio_slow = x   (assym from slow to fast)
+-> p_ratio_fast = 1-x (assym from fast to slow)
+
+# NEED to CHECK
+- for rank=0/1, need to make "chi" as nan for total(0) populations, 24-48, recommend to remove the points with obj.summary > 1
+- for rank=0.5, currently itr=3, but elongated to 9 to fit with rank=0/1 case
