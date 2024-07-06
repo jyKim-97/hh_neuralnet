@@ -77,7 +77,7 @@ def collect_chunk(cid: int, wid: int,
     if target == "lfp":
         _read_value = lambda detail_data: detail_data["vlfp"][1:]
     else: # mua
-        _read_value = lambda detail_data: get_mua(detail_data, dt=dt, st=st_mua)
+        _read_value = lambda detail_data: detail_data["mua"]
         
     if filt_range is not None:
         pre_sos = hhsignal.get_sosfilter(filt_range, srate)
