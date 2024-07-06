@@ -182,6 +182,39 @@ def downsample(x, srate, srate_new):
     n = int(srate/srate_new)
     return x[::n]
 
+
+
+def get_mua(detail, dt=0.01, st=0.001):
+    """
+    Compute MUA activity for Fast (F) and Slow (S) regions with sigma=st
+    out: mua of [F; S]
+    """
+    from scipy.ndimage import gaussian_filter1d
+
+    tmax = detail["ts"][-1]
+    nmax = int((tmax+dt) * 1e3 / dt)
+    
+    spk_array = np.zeros((2, nmax))
+    for n, n_spk in enumerate(detail["step_spk"]):
+        ntp = n // 1000
+        spk_array[ntp, n_spk] += 1
+        
+    s = int(st * 1e3 / dt)
+    spk_array[0] = gaussian_filter1d(spk_array[0], s)
+    spk_array[1] = gaussian_filter1d(spk_array[1], s)
+    
+    t = np.arange(nmax) * 1e-3 * dt
+    return _downsample(detail["ts"], t, spk_array)
+
+
+def _downsample(tq, t, y):
+    yq = [
+        np.interp(tq, t, y[0]),
+        np.interp(tq, t, y[1])
+    ]
+    return np.array(yq)
+
+
 """ # Legacy
 # def detect_peak(c, srate=2000, tol_t=1e-2, tol_c=0.2, prominence=0.01, mode=0):
 #     # mode: full(0) / largest (1) / first (2) / all (3)

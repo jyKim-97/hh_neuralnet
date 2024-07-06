@@ -144,31 +144,40 @@ def collect_chunk(cid: int, wid: int,
     return chunk
 
 
-def _downsample(tq, t, y):
-    yq = [
-        np.interp(tq, t, y[0]),
-        np.interp(tq, t, y[1])
-    ]
-    return np.array(yq)
+def export_mua(detail, dt=0.01, st=0.001):
+    mua = hhsignal.get_mua(detail, dt=dt, st=st)
+    assert mua.shape[0] == 2
+    assert mua.shape[1] == len(detail["vlfp"][0])
+    data = np.concatenate([[dt], [st], mua[0], mua[1]]).astype(np.float32)
+    prefix = detail["prefix"]
+    fname = prefix + "_mua.dat"
+    data.tofile(fname)
+
+# def _downsample(tq, t, y):
+#     yq = [
+#         np.interp(tq, t, y[0]),
+#         np.interp(tq, t, y[1])
+#     ]
+#     return np.array(yq)
 
 
-def get_mua(detail, dt=0.01, st=0.001):
-    from scipy.ndimage import gaussian_filter1d
+# def get_mua(detail, dt=0.01, st=0.001):
+#     from scipy.ndimage import gaussian_filter1d
 
-    tmax = detail["ts"][-1]
-    nmax = int((tmax+dt) * 1e3 / dt)
+#     tmax = detail["ts"][-1]
+#     nmax = int((tmax+dt) * 1e3 / dt)
     
-    spk_array = np.zeros((2, nmax))
-    for n, n_spk in enumerate(detail["step_spk"]):
-        ntp = n // 1000
-        spk_array[ntp, n_spk] += 1
+#     spk_array = np.zeros((2, nmax))
+#     for n, n_spk in enumerate(detail["step_spk"]):
+#         ntp = n // 1000
+#         spk_array[ntp, n_spk] += 1
         
-    s = int(st * 1e3 / dt)
-    spk_array[0] = gaussian_filter1d(spk_array[0], s)
-    spk_array[1] = gaussian_filter1d(spk_array[1], s)
+#     s = int(st * 1e3 / dt)
+#     spk_array[0] = gaussian_filter1d(spk_array[0], s)
+#     spk_array[1] = gaussian_filter1d(spk_array[1], s)
     
-    t = np.arange(nmax) * 1e-3 * dt
-    return _downsample(detail["ts"], t, spk_array)
+#     t = np.arange(nmax) * 1e-3 * dt
+#     return _downsample(detail["ts"], t, spk_array)
 
 
 
@@ -266,15 +275,27 @@ def load_pickle(fname):
         return pkl.load(fp)
     
 
-def reduce_te_2d(te_data_2d):
+def reduce_te_2d(te_data_2d, tcut=None):
     from copy import deepcopy
+    if tcut is None:
+        tcut = te_data_2d["tlag"][-1]
+    assert tcut > te_data_2d["tlag"][0]
+    
+    tlag = te_data_2d["tlag"]
     te_data = deepcopy(te_data_2d)
-    N = len(te_data["tlag"])
+    
+    N = int((tcut - tlag[0])/(tlag[1]-tlag[0]))+1
+    N = min([N, len(tlag)])
+    
+    te_data["tlag"] = te_data["tlag"][:N]
     te_data["te"] = np.zeros((te_data["info"]["ntrue"], 2, N))
     te_data["te_surr"] = np.zeros((te_data["info"]["nsurr"], 2, N))
 
     for ntp in range(2):
-        te_data["te"][:, ntp] = te_data_2d["te"][:,ntp,...].mean(axis=2-ntp)
-        te_data["te_surr"][:, ntp] = te_data_2d["te_surr"][:,ntp,...].mean(axis=2-ntp)
+        te_data["te"][:, ntp] = te_data_2d["te"][:,ntp,:N,:N].mean(axis=2-ntp)
+        te_data["te_surr"][:, ntp] = te_data_2d["te_surr"][:,ntp,:N,:N].mean(axis=2-ntp)
+        
+    if "info" in te_data.keys():
+        te_data["info"]["nmax_delay"] = N
 
     return te_data

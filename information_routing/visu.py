@@ -5,7 +5,8 @@ from functools import partial
 
 """ Parameters for plot """
 
-cs = ["#d10000", "#0021ea", "#ffc9c0", "#b5bcea"]
+# cs = ["#d10000", "#0021ea", "#ffc9c0", "#b5bcea"]
+cs = ["#d10000", "#0021ea", "#510404", "#193559"]
 
 
 fpeaks = [[27, 40],
@@ -42,6 +43,7 @@ def draw_with_err(t, xset, p_range=(5, 95), tl=None, linestyle="-", c='k', avg_m
     
     _t = t[idt]
     _xset = xset[:, idt]
+    N = xset.shape[0]
     
     if avg_method == "median":
         xtop = np.percentile(_xset, p_range[1], axis=0)
@@ -50,8 +52,10 @@ def draw_with_err(t, xset, p_range=(5, 95), tl=None, linestyle="-", c='k', avg_m
     else:
         x50 = np.average(_xset, axis=0)
         s = np.std(_xset, axis=0)
-        xtop = x50 + s
-        xbot = x50 - s
+        xtop = x50 + 1.65*s # 5%
+        xbot = x50 - 1.65*s # 95%
+        # xtop = x50 + 1.96*s/np.sqrt(N) # 5%
+        # xbot = x50 - 1.96*s/np.sqrt(N) # 95%
     
     # x50 = xset.mean(axis=0)
     # s = xset.std(axis=0)*1.96/np.sqrt(xset.shape[0])
@@ -89,8 +93,8 @@ def show_te_summary(te_data, figsize=(3.5, 3), dpi=120, xl=None, yl=None,
         _draw_err(te_data["tlag"], te_data[key][:,0,:]-m0, c=cs[0], label=te_labels[0]+"-"+te_labels[2])
         _draw_err(te_data["tlag"], te_data[key][:,1,:]-m1, c=cs[1], label=te_labels[1]+"-"+te_labels[3])
         
-        _draw_err(te_data["tlag"], te_data["%s_surr"%(key)][:,0,:]-m0, c='k', linestyle=None)
-        _draw_err(te_data["tlag"], te_data["%s_surr"%(key)][:,1,:]-m1, c='k', linestyle=None)
+        _draw_err(te_data["tlag"], te_data["%s_surr"%(key)][:,0,:]-m0, c=cs[2], linestyle=None)
+        _draw_err(te_data["tlag"], te_data["%s_surr"%(key)][:,1,:]-m1, c=cs[3], linestyle=None)
     
     else:
         _draw_err(te_data["tlag"], te_data[key][:,0,:], c=cs[0], label=te_labels[0])
@@ -285,6 +289,7 @@ def draw_syn_indicator(yl=None):
 def draw_cfc_indicator(cid, yl=None):
     if yl is None: yl = [0, 1]
     dp_set = (-1/2, 0, -1/4, 1/4, 1/8, 1/4, 0, 1/4) # \time \pi; \phi^S_S(V^F_f)
+    # -: Ff -> Ss / +: Ff <- Ss
     
     dt = dp_set[cid-1]/2 * 1e3/fpeaks[cid-1][0]
     if dt < 0: # f -> s

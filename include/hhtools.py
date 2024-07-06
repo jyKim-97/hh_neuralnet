@@ -43,6 +43,18 @@ def load_vlfp(fname):
     return vlfps, fs
 
 
+def load_mua(fname):
+    if not os.path.isfile(fname):
+        return
+    
+    with open(fname, "rb") as fid:
+        data = np.fromfile(fid, dtype=np.float32)
+    # dtaa[0]: dt
+    # data[1]: st
+    return np.reshape(data[2:], (2, -1))
+    
+
+
 def load_network(fname):
     ntk_in = []
     ntk_win = []
@@ -256,8 +268,11 @@ class SummaryLoader:
         data = {}
         data["step_spk"], _ = load_spk(tag+"_spk.dat")
         data["vlfp"], fs = load_vlfp(tag+"_lfp.dat")
+        data["mua"] = load_mua(tag+"_mua.dat")
         data["ts"] = np.arange(len(data["vlfp"][0])) / fs
         data["nid"] = nid
+        data["prefix"] = tag
+        
         if os.path.exists(tag+"_info.txt"):
             with open(tag+"_info.txt", "r") as fid:
                 data["info"] = fid.readlines()
