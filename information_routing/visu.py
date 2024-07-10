@@ -63,7 +63,8 @@ def draw_with_err(t, xset, p_range=(5, 95), tl=None, linestyle="-", c='k', avg_m
     # xbot = x50 - s
 
     plt.plot(_t, x50, c=c, lw=1.5, linestyle=linestyle, label=label)
-    plt.fill_between(_t, xtop, xbot, color=c, alpha=0.2, edgecolor='none')
+    plt.fill_between(_t, xtop, xbot, color=c, alpha=0.2, edgecolor=c,
+                    linewidth=0.5, linestyle="--")
     
     
 def show_te_summary(te_data, figsize=(3.5, 3), dpi=120, xl=None, yl=None,

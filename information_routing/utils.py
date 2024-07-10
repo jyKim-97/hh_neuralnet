@@ -4,7 +4,7 @@ from multiprocessing import Pool
 import pickle as pkl
 from typing import List, Tuple
 # import warnings
-# from functools import partial
+from functools import partial
 
 import os
 import sys
@@ -14,6 +14,17 @@ import hhtools
 
 default_dir = "/home/jungyoung/Project/hh_neuralnet/gen_three_pop_samples_repr/data"
 prefix_motif_dir = "/home/jungyoung/Project/hh_neuralnet/information_routing/data/osc_motif/"
+
+cw_pair = [
+    [1, 0], [1, 2], [1, 4], [1, 6],
+    [2, 0], [2, 2], [2, 8], [2, 10],
+    [3, 0], [3, 2], [3, 4], [3, 6],
+    [4, 0], [4, 2], [4, 5], [4, 7],
+    [5, 0], [5, 4], [5, 10], [5, 14],
+    [6, 0], [6, 4], [6, 10], [6, 14],
+    [7, 0], [7, 10],
+    [8, 0], [8, 2], [8, 13], [8, 15]
+]
 
 
 def par_func(f, arg_set, num_process, desc=""):
@@ -102,7 +113,7 @@ def collect_chunk(cid: int, wid: int,
     nitr_prv = -1
     
     if verbose:
-        _range = trange
+        _range = partial(trange, desc="collect %s in %d%02d"%(target, cid, wid))
     else:
         _range = range
     
@@ -126,7 +137,7 @@ def collect_chunk(cid: int, wid: int,
         if nr[1] > (detail_data["ts"][-1]+teq[1])*srate: continue
         
         if nequal_len is not None:
-            x_sub = np.zeros((2, nequal_len))
+            x_sub = np.zeros((2, nequal_len)) * np.nan
             nmax = min(nequal_len, nr[1]-nr[0])
             x_sub[:, :nmax] = np.array([
                 _norm(x1[nr[0]:nr[0]+nmax]),
@@ -292,8 +303,8 @@ def reduce_te_2d(te_data_2d, tcut=None):
     te_data["te_surr"] = np.zeros((te_data["info"]["nsurr"], 2, N))
 
     for ntp in range(2):
-        te_data["te"][:, ntp] = te_data_2d["te"][:,ntp,:N,:N].mean(axis=2-ntp)
-        te_data["te_surr"][:, ntp] = te_data_2d["te_surr"][:,ntp,:N,:N].mean(axis=2-ntp)
+        te_data["te"][:, ntp] = te_data_2d["te"][:,ntp,:N,:N].mean(axis=2) # source, receiver
+        te_data["te_surr"][:, ntp] = te_data_2d["te_surr"][:,ntp,:N,:N].mean(axis=2)
         
     if "info" in te_data.keys():
         te_data["info"]["nmax_delay"] = N
