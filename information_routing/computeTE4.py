@@ -20,7 +20,7 @@ srate = 2000
 fdir_summary = "/home/jungyoung/Project/hh_neuralnet/gen_three_pop_samples_repr/data"
 
 chunk_size = 100
-nchunks = 200
+nchunks = 400
 
 
 def build_args():

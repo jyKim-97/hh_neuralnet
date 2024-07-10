@@ -127,15 +127,20 @@ def compute_te_full(v_sample: np.ndarray,
                 yt_curr = y[n0,...][np.newaxis,...]
                 
                 # d = -np.arange(1, -nd+1)[::-1]
-                nd_set = -np.arange(1, -nd+1)
-                xt_prev = np.hstack([x[[n0+d],...] for d in nd_set])
-                yt_prev = np.hstack([y[[n0+d],...] for d in nd_set])
-                _x, _y, _z = clean_null_points(yt_curr, xt_prev, yt_prev)
+                # nd_set = -np.arange(1, -nd+1)
+                # xt_prev = np.hstack([x[[n0+d],...] for d in nd_set])
+                # yt_prev = np.hstack([y[[n0+d],...] for d in nd_set])
+                # _x, _y, _z = clean_null_points(yt_curr, xt_prev, yt_prev)
                 
-                try:
-                    te = cmi_nd_ggg(_x, _y, _z, mvaxis=-2, demeaned=False)
-                except:
-                    continue
+                # try:
+                #     te = cmi_nd_ggg(_x, _y, _z, mvaxis=-2, demeaned=False)
+                # except:
+                #     continue
+                
+                # xt_prev = np.hstack([x[[n0+d],...] for d in nd_set])
+                xt_prev = x[n0+nd,...][np.newaxis,...]
+                yt_prev = np.hstack([y[[n0+d],...] for d in ndelays])
+                te = cmi_nd_ggg(yt_curr, xt_prev, yt_prev, mvaxis=-2, demeaned=False)
                 
                 if abs(te) > 1e5 or np.isnan(te):
                     continue
@@ -152,7 +157,8 @@ def compute_te_full(v_sample: np.ndarray,
 
 
 def clean_null_points(x, y, z):
-    is_in = x[-1, 0, :] != 0
+    # is_in = x[-1, 0, :] != 0
+    is_in = ~np.isnan(x[-1, 0, :])
     return x[:,:,is_in], y[:,:,is_in], z[:,:,is_in]
 
 
@@ -200,28 +206,27 @@ def _sampling(f_sampling,
     
     assert max_delay < nadd
     
-    N = len(v_set)
-    v_sample = np.zeros((nchunks, 2, chunk_size+max_delay))
+    nlen = chunk_size + max_delay
+    v_sample = np.zeros((nchunks, 2, nlen))
     
     n = 0
     refresh = True
     while n < nchunks:
         
-        if refresh:
+        if refresh: # reload new dataset
             v_sel = f_sampling(v_set)
 
             nmax = v_sel.shape[1]
-            n0, n1 = 0, chunk_size+max_delay
+            n0 = np.random.randint(nlen)
+            n1 = n0 + nlen
             refresh = False
-
+            
         if n1 <= nmax:
             v_sample[n] = v_sel[:,n0:n1]
             n0 = n1 - max_delay
-            n1 = n0 + chunk_size + max_delay
-        elif n0 < nmax:
-            v_sample[n,:,:(nmax-n0)] = v_sel[:,n0:]
-            refresh = True
+            n1 = n0 + nlen
         else:
+            n -= 1            
             refresh = True
         
         n += 1
@@ -238,7 +243,7 @@ def sample_true(v_set: np.ndarray,
     def f_sampling(v_set):
         idx = np.random.randint(0, v_set.shape[0])
         v_sel = v_set[idx, :, nadd-nmax_delay:]
-        is_in = v_sel[0, :] != 0
+        is_in = ~np.isnan(v_sel[0, :])
         v_sel = v_sel[:, is_in]
         return v_sel
 
@@ -261,8 +266,8 @@ def sample_surrogate(v_set: np.ndarray,
         if nt == ns:
             return v_set[nt,:,nadd-nmax_delay:]
         
-        idt = v_set[nt,0,:] != 0
-        ids = v_set[ns,0,:] != 0
+        idt = ~np.isnan(v_set[nt,0,:])
+        ids = ~np.isnan(v_set[ns,0,:])
         
         if np.sum(idt) > np.sum(ids)*warp_range[1]-dr:
             nt, ns = ns, nt

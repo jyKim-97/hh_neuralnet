@@ -33,25 +33,27 @@ def build_args():
 
 # NBIN=30
 # NPOINT=500000
-# TAG="./data/te_full"
-TAG="./data/te_2d_mua"
+# TAG="./data/te_full2"
+TAG="./data/te_2d_mua_2"
 RUN="python computeTE4.py"
 nhist = 1
 # method = "full" # naive, 
+# method = "full"
 method = "2d"
 target = "mua"
 
 # TAG="./data/spec/"
 # RUN="python computeFT.py"
 
-ntrue = 200
-nsurr = 200
+ntrue = 100
+nsurr = 1000
 
 def main(n0=0, n1=0):
     n1 = min(n1, len(cw_pair))
     
     for cid, wid in cw_pair[n0:n1]:
         
+        # com = f"{RUN} --cid={cid} --wid={wid} --ntrue={ntrue} --nsurr={nsurr} --method={method} --target={target} --tlag_min=1 --tlag_max=40 --tlag_step=1 --nhist={nhist} --fout={TAG}/te_{cid}{wid:02d}.pkl"
         com = f"{RUN} --cid={cid} --wid={wid} --ntrue={ntrue} --nsurr={nsurr} --method={method} --target={target} --nhist={nhist} --fout={TAG}/te_{cid}{wid:02d}.pkl"
         # com = f"{RUN} --cid={cid} --wid={wid} --npoint=100000 --fout={TAG}/spec_{cid}{wid:02d}.pkl"
         # com = f"{RUN} --cid={cid} --wid={wid} --nsamples=1000 --ntrue=100 --nsurr=100 --method={method} --nhist={nhist} --fout={TAG}/te_{cid}{wid:02d}%d%02d.pkl"
