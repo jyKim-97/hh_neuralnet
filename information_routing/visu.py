@@ -30,7 +30,8 @@ def set_colorset(cs_new):
     cs = cs_new
 
 
-def draw_with_err(t, xset, p_range=(5, 95), tl=None, linestyle="-", c='k', avg_method="median", label=None):
+def draw_with_err(t, xset, p_range=(5, 95), tl=None, linestyle="-", c='k',
+                  avg_method="median", label=None):
     """
     t: time
     xset: (N x T)
@@ -54,13 +55,6 @@ def draw_with_err(t, xset, p_range=(5, 95), tl=None, linestyle="-", c='k', avg_m
         s = np.std(_xset, axis=0)
         xtop = x50 + 1.65*s # 5%
         xbot = x50 - 1.65*s # 95%
-        # xtop = x50 + 1.96*s/np.sqrt(N) # 5%
-        # xbot = x50 - 1.96*s/np.sqrt(N) # 95%
-    
-    # x50 = xset.mean(axis=0)
-    # s = xset.std(axis=0)*1.96/np.sqrt(xset.shape[0])
-    # xtop = x50 + s
-    # xbot = x50 - s
 
     plt.plot(_t, x50, c=c, lw=1.5, linestyle=linestyle, label=label)
     plt.fill_between(_t, xtop, xbot, color=c, alpha=0.2, edgecolor=c,
@@ -70,6 +64,7 @@ def draw_with_err(t, xset, p_range=(5, 95), tl=None, linestyle="-", c='k', avg_m
 def show_te_summary(te_data, figsize=(3.5, 3), dpi=120, xl=None, yl=None,
                     title=None, key="te", xlb=r"$\tau$ (ms)", ylb=r"$TE$ (bits)",
                     avg_method="median",
+                    stat_test=False,
                     subtract_surr=False):
     
     te_labels = (
@@ -86,23 +81,43 @@ def show_te_summary(te_data, figsize=(3.5, 3), dpi=120, xl=None, yl=None,
     if figsize is not None:
         fig = plt.figure(figsize=figsize, dpi=dpi)
     
-        
+    
+    key_surr = "%s_surr"%(key)
     if subtract_surr:
-        m0 = np.median(te_data["%s_surr"%(key)][:,0,:], axis=0)
-        m1 = np.median(te_data["%s_surr"%(key)][:,1,:], axis=0)
-        
-        _draw_err(te_data["tlag"], te_data[key][:,0,:]-m0, c=cs[0], label=te_labels[0]+"-"+te_labels[2])
-        _draw_err(te_data["tlag"], te_data[key][:,1,:]-m1, c=cs[1], label=te_labels[1]+"-"+te_labels[3])
-        
-        _draw_err(te_data["tlag"], te_data["%s_surr"%(key)][:,0,:]-m0, c=cs[2], linestyle=None)
-        _draw_err(te_data["tlag"], te_data["%s_surr"%(key)][:,1,:]-m1, c=cs[3], linestyle=None)
+        if avg_method == "median":
+            ms = np.median(te_data[key_surr], axis=0, keepdims=True)
+        else:
+            ms = np.average(te_data[key_surr], axis=0, keepdims=True)
+            
+        xy = te_data[key] - ms
+        xy_s = te_data[key_surr] - ms
+        labels = (te_labels[0]+"-"+te_labels[2],
+                  te_labels[1]+"-"+te_labels[3],
+                  None, None)
     
     else:
-        _draw_err(te_data["tlag"], te_data[key][:,0,:], c=cs[0], label=te_labels[0])
-        _draw_err(te_data["tlag"], te_data[key][:,1,:], c=cs[1], label=te_labels[1])
+        xy = te_data[key]
+        xy_s = te_data[key_surr]
+        labels = te_labels
+    
+    t = te_data["tlag"]
+    _draw_err(t, xy[:,0,:], c=cs[0], label=labels[0])
+    _draw_err(t, xy[:,1,:], c=cs[1], label=labels[1])
+    _draw_err(t, xy_s[:,0,:], c=cs[2], linestyle='--', label=labels[2])
+    _draw_err(t, xy_s[:,1,:], c=cs[3], linestyle='--', label=labels[3])
+    
         
-        _draw_err(te_data["tlag"], te_data["%s_surr"%(key)][:,0,:], c=cs[2], linestyle='--', label=te_labels[2])
-        _draw_err(te_data["tlag"], te_data["%s_surr"%(key)][:,1,:], c=cs[3], linestyle='--', label=te_labels[3])
+    if stat_test:
+        from stats import conf_test
+        
+        is_sig = np.zeros((2, xy.shape[-1]), dtype=bool)
+        for ntp in range(2):
+            for nd in range(xy.shape[-1]):
+                is_sig[ntp, nd] = conf_test(xy[:,ntp,nd], xy_s[:,ntp,nd], alpha=0.05)
+            
+        ms = xy.mean(axis=0)
+        for i in range(2):
+            plt.plot(t[is_sig[i]], ms[i][is_sig[i]], '.', c=cs[i], markersize=5)
     
     
     plt.xlim(xl)
@@ -246,27 +261,81 @@ def gen_background(dpi=200):
     return fig, coords
 
 
-def draw_freq_indicator(cid, yl=None):
-    if yl is None: yl = [0, 1]
+def draw_indicator(xind, yl=None, color='k',
+                   txt=None, htxt=None, fontsize=10,
+                   linestyle="--", linewidth=1, alpha=0.5,
+                   flip=False):
     
-    fopt = dict(va="center", ha="center", fontsize=10)
+    if yl is None:
+        yl = plt.ylim()
+    
+    if flip: xind = -xind
+
+    plt.vlines(xind, yl[0], yl[1], color=color,
+               linestyle=linestyle, linewidth=linewidth, alpha=alpha)
+    
+    if txt is not None:
+        if htxt is None:
+            htxt = yl[0] + (yl[1]-yl[0])/30*2
+        plt.text(xind, htxt, txt, va="center", ha="center",
+                 fontsize=fontsize, color=color)
+        
+
+def draw_cfc_indicator(cid, yl=None, flip=False, h=None):
+    _pi = np.pi
+    
+    trad = [0, 0]
+    for i in range(2):
+        f = max(fpeaks[cid-1][i], 30)
+        trad[i] = 1e3/f/(2*_pi)
+    
+    # trad = [1e3/f/(2*_pi) for f in fpeaks[cid-1]]
+    
+    dt_set_tot = [[-_pi/2 * trad[0]],
+                  [0],
+                  [-_pi/4 * trad[0]],
+                  [_pi/4 * trad[0]],
+                  [_pi/8 * trad[0], -_pi/8 * trad[1]],
+                  [_pi/4 * trad[0]],
+                  [0],
+                  [_pi/4 * trad[0], _pi*5/8 * trad[1]]]
+    
+    dt_set = dt_set_tot[cid-1]
+    for dt in dt_set:
+        if dt == 0: continue
+        if dt < 0: # f -> s
+            dt = -dt
+            c = cs[0]
+        else:
+            c = cs[1]
+            
+        print(dt)
+        draw_indicator(dt, yl, color=c, linestyle="-.", txt=r"$T^{CFC}$",
+                       flip=flip, htxt=h)
+    
+
+def draw_freq_indicator(cid, yl=None, flip=False, h=None):
+    
+    yl = plt.ylim() if yl is None else yl
+    
     lopt = dict(linestyle=":", linewidth=1, alpha=0.5)
     tp_labels = (r"$T_s/2$", r"$T_s$", r"$T_f/2$", r"$T_f$")
     
     for tp in range(2):
         f0 = fpeaks[cid-1][tp]
         if f0 == -1: continue
-        plt.vlines(1e3/f0, yl[0], yl[1], color=cs[1-tp], **lopt)
-        plt.vlines(1e3/f0/2, yl[0], yl[1], color=cs[1-tp], **lopt)
+        
+        c = cs[1-tp]
+        h = yl[0] + (yl[1]-yl[0])/30 if h is None else h
+        
+        draw_indicator(1e3/f0/2, yl, color=c, txt=tp_labels[2*tp], htxt=h, flip=flip, **lopt)
+        draw_indicator(1e3/f0, yl, color=c, txt=tp_labels[2*tp+1], htxt=h, flip=flip, **lopt)
         if 1e3/f0*3/2 < 40:
-            plt.vlines(1e3/f0/2*3, yl[0], yl[1], color=cs[1-tp], **lopt)
-        
-        h = yl[0] + (yl[1]-yl[0])/30
-        plt.text(1e3/f0/2, h, tp_labels[2*tp], **fopt)
-        plt.text(1e3/f0, h, tp_labels[2*tp+1], **fopt)
+            draw_indicator(1e3/f0/2*3, yl, color=c, flip=flip, **lopt)
         
         
-def draw_syn_indicator(yl=None):
+        
+def draw_syn_indicator(yl=None, flip=None, h=None):
     if yl is None: yl = [0, 1]
     tau1 = [0.3, 0.5, 1] # E, If, Is
     tau2 = [1. , 2.5, 8]
@@ -276,36 +345,105 @@ def draw_syn_indicator(yl=None):
               r"$t^*_{I_F}$",
               r"$t^*_{I_S}$")
     
-    fopt = dict(va="center", ha="center", fontsize=10)
-    lopt = dict(linestyle="dotted", linewidth=1)
-    
     for n in range(3):
-        cs, tp, lb = cs_set[n], tp_set[n], labels[n]
-        plt.vlines(tp, yl[0], yl[1], color=cs, **lopt)
-        h = yl[0] + (yl[1]-yl[0])/30 * (5-2*n)
-        plt.text(tp, h, lb, color=cs, **fopt)
+        h = yl[0] + (yl[1]-yl[0])/30 * (5-2*n) if h is None else h
+        draw_indicator(tp_set[n], yl, color=cs_set[n],
+                       txt=labels[n], htxt=h,
+                       linestyle='dotted', linewidth=1,
+                       flip=flip)
     
     
     
-def draw_cfc_indicator(cid, yl=None):
-    if yl is None: yl = [0, 1]
-    dp_set = (-1/2, 0, -1/4, 1/4, 1/8, 1/4, 0, 1/4) # \time \pi; \phi^S_S(V^F_f)
-    # -: Ff -> Ss / +: Ff <- Ss
+# def draw_cfc_indicator(cid, yl=None):
+#     if yl is None: yl = [0, 1]
+#     dp_set = (-1/2, 0, -1/4, 1/4, 1/8, 1/4, 0, 1/4) # \time \pi; \phi^S_S(V^F_f)
+#     # -: Ff -> Ss / +: Ff <- Ss
     
-    dt = dp_set[cid-1]/2 * 1e3/fpeaks[cid-1][0]
-    if dt < 0: # f -> s
-        c = cs[0]
-        txt = r"$T^{CFC}_{F \rightarrow S}$"
-    elif dt > 0: # s -> f
-        c = cs[1]
-        txt = r"$T^{CFC}_{S \rightarrow F}$"
-    else:
-        return
-        # r"$T_{\phi^S_s, V^F_f}$"
-    plt.vlines(abs(dt), yl[0], yl[1], color=c, linestyle="-", linewidth=0.5, alpha=0.8)
-    h = yl[0] + (yl[1]-yl[0])/30 * 28
-    plt.text(abs(dt), h, txt, color=c, va="center", ha="center", fontsize=10)
+#     dt = dp_set[cid-1]/2 * 1e3/fpeaks[cid-1][0]
+#     if dt < 0: # f -> s
+#         c = cs[0]
+#         txt = r"$T^{CFC}_{F \rightarrow S}$"
+#     elif dt > 0: # s -> f
+#         c = cs[1]
+#         txt = r"$T^{CFC}_{S \rightarrow F}$"
+#     else:
+#         return
+#         # r"$T_{\phi^S_s, V^F_f}$"
+#     plt.vlines(abs(dt), yl[0], yl[1], color=c, linestyle="-", linewidth=0.5, alpha=0.8)
+#     h = yl[0] + (yl[1]-yl[0])/30 * 28
+#     plt.text(abs(dt), h, txt, color=c, va="center", ha="center", fontsize=10)
     
     # plt.vlines(dt, yl[0], yl[1], color=)
     
+
+from numba import njit
+
+
+def find_hill(xs):
+    from scipy.signal import find_peaks
+
+    assert len(xs.shape) <= 2
+    if len(xs.shape) == 1:
+        N, nlen = 1, xs.shape[0]
+        xs = np.reshape(xs, (1, -1))
+    else:
+        N, nlen = xs.shape
     
+    hill_id = np.zeros_like(xs)
+    hill_id_set = []
+    id_peak = []
+    
+    for n in range(N):
+        idh = 1
+        idp_set, _ = find_peaks(xs[n])
+        id_peak.append(list(idp_set))
+        
+        for idp in idp_set:
+            is_low = fill_lower(xs[n], idp)
+            hill_id[n][is_low] = idh
+            idh += 1
+            
+        if np.all(hill_id[n][-3:] == 0):
+            n0 = np.where(hill_id[n] > 0)[0][-1]
+            hill_id[n][n0:] = idh
+            id_peak[-1].append(np.argmax(xs[n][n0:]) + n0)
+        
+        if np.all(hill_id[n][:3] == 0):
+            n0 = np.where(hill_id[n] > 0)[0][0]
+            id_peak[-1] = [np.argmax(xs[n][:n0])] + id_peak[-1]
+            hill_id[n] += 1
+            
+        hill_id_set.append(np.unique(hill_id[n]))
+        
+        assert len(hill_id_set[-1]) == len(id_peak[-1])
+            
+    assert not np.any(hill_id == 0)
+            
+    return dict(id=hill_id,
+                id_set=hill_id_set,
+                id_peak=id_peak)
+            
+                            
+def fill_lower(x, n0):
+    xl = fill_lower_dir(x, n0, ndir=-1)
+    xr = fill_lower_dir(x, n0, ndir=1)
+    return (xl == 1) | (xr == 1)
+
+@njit
+def fill_lower_dir(x, n0, ndir=-1):
+    # ndir in (-1, 1)
+    
+    xfill = np.zeros(len(x))
+    
+    n_cur, n_prv = n0, n0+ndir
+    while x[n_prv] <= x[n_cur]:
+        xfill[n_cur] = 1
+        n_cur += ndir
+        n_prv += ndir
+        
+        if n_prv < 0 or n_prv >= len(x):
+            break
+    
+    xfill[n_cur] = 1
+    
+    return xfill
