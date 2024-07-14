@@ -12,8 +12,12 @@ sys.path.append('/home/jungyoung/Project/hh_neuralnet/include/')
 import hhsignal
 import hhtools
 
-default_dir = "/home/jungyoung/Project/hh_neuralnet/gen_three_pop_samples_repr/data"
-prefix_motif_dir = "/home/jungyoung/Project/hh_neuralnet/information_routing/data/osc_motif/"
+tag = "_mfast"
+default_dir = "/home/jungyoung/Project/hh_neuralnet/gen_three_pop_samples_repr/data"+tag
+prefix_motif_dir = "/home/jungyoung/Project/hh_neuralnet/information_routing/data/osc_motif"+tag
+
+# default_dir = "/home/jungyoung/Project/hh_neuralnet/gen_three_pop_samples_repr/data"
+# prefix_motif_dir = "/home/jungyoung/Project/hh_neuralnet/information_routing/data/osc_motif/"
 
 cw_pair = [
     [1, 0], [1, 2], [1, 4], [1, 6],
@@ -25,6 +29,11 @@ cw_pair = [
     [7, 0], [7, 10],
     [8, 0], [8, 2], [8, 13], [8, 15]
 ]
+
+
+def set_default_dir(fdir):
+    global default_dir
+    default_dir = fdir
 
 
 def par_func(f, arg_set, num_process, desc=""):
@@ -41,9 +50,9 @@ def par_func(f, arg_set, num_process, desc=""):
     return result_set
 
 
-def load_osc_motif(cid, wid, reverse=False, tag='', verbose=False):
+def load_osc_motif(cid, wid, reverse=False, verbose=False):
     # fname = "./data/osc_motif/motif_info%s_%d"%(tag, cid)
-    fname = os.path.join(prefix_motif_dir, "motif_info%s_%d"%(tag, cid))
+    fname = os.path.join(prefix_motif_dir, "motif_info_%d"%(cid))
     if reverse: fname = fname + "(low)"
 
     with open(fname+".pkl", "rb") as fp:
@@ -80,7 +89,7 @@ def collect_chunk(cid: int, wid: int,
         print("load default dataset in %s"%(default_dir))
         summary_obj = hhtools.SummaryLoader(default_dir, load_only_control=True)
         
-    winfo, _ = load_osc_motif(cid, wid, reverse=False, tag='', verbose=verbose)
+    winfo, _ = load_osc_motif(cid, wid, reverse=False, verbose=verbose)
 
     # pre_sos = None if filt_range is None else hhsignal.get_sosfilter(filt_range, srate)
     
@@ -163,6 +172,16 @@ def export_mua(detail, dt=0.01, st=0.001):
     prefix = detail["prefix"]
     fname = prefix + "_mua.dat"
     data.tofile(fname)
+    
+    
+def compute_stfft_all(vs, ts, frange=(5, 100), mbin_t=0.01, wbin_t=0.5, srate=2000, t0=0.5):
+    psd_set = []
+    for v in vs:
+        _v, _t = hhsignal.get_eq_dynamics(v, ts, t0)
+        psd, fpsd, tpsd = hhsignal.get_stfft(_v, _t, srate, mbin_t=mbin_t, wbin_t=wbin_t, frange=frange)
+        psd_set.append(psd)
+    return psd_set, fpsd, tpsd
+
 
 # def _downsample(tq, t, y):
 #     yq = [

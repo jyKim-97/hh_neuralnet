@@ -2,6 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from functools import partial
 
+import matplotlib.ticker as mticker
+
 
 """ Parameters for plot """
 
@@ -61,7 +63,7 @@ def draw_with_err(t, xset, p_range=(5, 95), tl=None, linestyle="-", c='k',
                     linewidth=0.5, linestyle="--")
     
     
-def show_te_summary(te_data, figsize=(3.5, 3), dpi=120, xl=None, yl=None,
+def show_te_summary(te_data, figsize=(3.5, 3), dpi=120, ax=None, xl=None, yl=None,
                     title=None, key="te", xlb=r"$\tau$ (ms)", ylb=r"$TE$ (bits)",
                     avg_method="median",
                     stat_test=False,
@@ -77,10 +79,11 @@ def show_te_summary(te_data, figsize=(3.5, 3), dpi=120, xl=None, yl=None,
     assert avg_method in ("mean", "median")
     _draw_err = partial(draw_with_err, avg_method=avg_method, tl=xl)
     
-    fig = None
-    if figsize is not None:
+    if ax is None:
         fig = plt.figure(figsize=figsize, dpi=dpi)
-    
+    else:
+        fig = None
+        plt.sca(ax)
     
     key_surr = "%s_surr"%(key)
     if subtract_surr:
@@ -309,16 +312,18 @@ def draw_cfc_indicator(cid, yl=None, flip=False, h=None):
         else:
             c = cs[1]
             
-        print(dt)
+        # print(dt)
         draw_indicator(dt, yl, color=c, linestyle="-.", txt=r"$T^{CFC}$",
                        flip=flip, htxt=h)
     
 
-def draw_freq_indicator(cid, yl=None, flip=False, h=None):
+def draw_freq_indicator(cid, yl=None, flip=False, h=None,
+                        lw=1, alpha=1):
     
+    xl = plt.xlim()
     yl = plt.ylim() if yl is None else yl
     
-    lopt = dict(linestyle=":", linewidth=1, alpha=0.5)
+    lopt = dict(linestyle="--", linewidth=lw, alpha=alpha)
     tp_labels = (r"$T_s/2$", r"$T_s$", r"$T_f/2$", r"$T_f$")
     
     for tp in range(2):
@@ -330,12 +335,19 @@ def draw_freq_indicator(cid, yl=None, flip=False, h=None):
         
         draw_indicator(1e3/f0/2, yl, color=c, txt=tp_labels[2*tp], htxt=h, flip=flip, **lopt)
         draw_indicator(1e3/f0, yl, color=c, txt=tp_labels[2*tp+1], htxt=h, flip=flip, **lopt)
-        if 1e3/f0*3/2 < 40:
-            draw_indicator(1e3/f0/2*3, yl, color=c, flip=flip, **lopt)
+        
+        n = 3
+        while 1e3/f0*n/2 < max(xl):
+            draw_indicator(1e3/f0/2*n, yl, color=c, flip=flip, **lopt)
+            n += 1
+            
+    plt.xlim(xl)
         
         
         
 def draw_syn_indicator(yl=None, flip=None, h=None):
+    
+    xl = plt.xlim()
     if yl is None: yl = [0, 1]
     tau1 = [0.3, 0.5, 1] # E, If, Is
     tau2 = [1. , 2.5, 8]
@@ -352,98 +364,83 @@ def draw_syn_indicator(yl=None, flip=None, h=None):
                        linestyle='dotted', linewidth=1,
                        flip=flip)
     
-    
-    
-# def draw_cfc_indicator(cid, yl=None):
-#     if yl is None: yl = [0, 1]
-#     dp_set = (-1/2, 0, -1/4, 1/4, 1/8, 1/4, 0, 1/4) # \time \pi; \phi^S_S(V^F_f)
-#     # -: Ff -> Ss / +: Ff <- Ss
-    
-#     dt = dp_set[cid-1]/2 * 1e3/fpeaks[cid-1][0]
-#     if dt < 0: # f -> s
-#         c = cs[0]
-#         txt = r"$T^{CFC}_{F \rightarrow S}$"
-#     elif dt > 0: # s -> f
-#         c = cs[1]
-#         txt = r"$T^{CFC}_{S \rightarrow F}$"
-#     else:
-#         return
-#         # r"$T_{\phi^S_s, V^F_f}$"
-#     plt.vlines(abs(dt), yl[0], yl[1], color=c, linestyle="-", linewidth=0.5, alpha=0.8)
-#     h = yl[0] + (yl[1]-yl[0])/30 * 28
-#     plt.text(abs(dt), h, txt, color=c, va="center", ha="center", fontsize=10)
-    
-    # plt.vlines(dt, yl[0], yl[1], color=)
-    
-
-from numba import njit
+    plt.xlim(xl)
 
 
-def find_hill(xs):
-    from scipy.signal import find_peaks
-
-    assert len(xs.shape) <= 2
-    if len(xs.shape) == 1:
-        N, nlen = 1, xs.shape[0]
-        xs = np.reshape(xs, (1, -1))
+def draw_barcode(binfo, cmap="RdBu_r", dots="kp",
+                 vmax=None, vmin=None,
+                 figsize=(6.5, 1), ax=None, xlb=r"$\tau$ (ms)",
+                 show_cbar=False, show_pline=False):
+    
+    pos_cbar = (0.04, 0.1, 0.02, 0.85)
+    pos_ax = (0.08, 0.1, 0.72, 0.85)
+    
+    if ax is None:
+        fig = plt.figure(figsize=figsize)
+        ax_cbar = plt.axes(position=pos_cbar)
+        ax_main = plt.axes(position=pos_ax)
     else:
-        N, nlen = xs.shape
+        fig = None
+        plt.sca(ax)
+        ax.axis("off")
+        ax_cbar = ax.inset_axes(pos_cbar)
+        ax_main = ax.inset_axes(pos_ax)
+      
+    plt.sca(ax_main)
+    tbar = binfo["tbar"]
     
-    hill_id = np.zeros_like(xs)
-    hill_id_set = []
-    id_peak = []
+    if vmax is None:
+        if vmin is None:
+            vmax = np.percentile(binfo["barcode"][binfo["barcode"] > 0], 80)
+            vmin = -vmax
+        else:
+            vmax = -vmin
+            
+    if vmin is None:
+        vmin = -vmax
     
-    for n in range(N):
-        idh = 1
-        idp_set, _ = find_peaks(xs[n])
-        id_peak.append(list(idp_set))
-        
-        for idp in idp_set:
-            is_low = fill_lower(xs[n], idp)
-            hill_id[n][is_low] = idh
-            idh += 1
-            
-        if np.all(hill_id[n][-3:] == 0):
-            n0 = np.where(hill_id[n] > 0)[0][-1]
-            hill_id[n][n0:] = idh
-            id_peak[-1].append(np.argmax(xs[n][n0:]) + n0)
-        
-        if np.all(hill_id[n][:3] == 0):
-            n0 = np.where(hill_id[n] > 0)[0][0]
-            id_peak[-1] = [np.argmax(xs[n][:n0])] + id_peak[-1]
-            hill_id[n] += 1
-            
-        hill_id_set.append(np.unique(hill_id[n]))
-        
-        assert len(hill_id_set[-1]) == len(id_peak[-1])
-            
-    assert not np.any(hill_id == 0)
-            
-    return dict(id=hill_id,
-                id_set=hill_id_set,
-                id_peak=id_peak)
-            
-                            
-def fill_lower(x, n0):
-    xl = fill_lower_dir(x, n0, ndir=-1)
-    xr = fill_lower_dir(x, n0, ndir=1)
-    return (xl == 1) | (xr == 1)
+    plt.yticks([])
 
-@njit
-def fill_lower_dir(x, n0, ndir=-1):
-    # ndir in (-1, 1)
-    
-    xfill = np.zeros(len(x))
-    
-    n_cur, n_prv = n0, n0+ndir
-    while x[n_prv] <= x[n_cur]:
-        xfill[n_cur] = 1
-        n_cur += ndir
-        n_prv += ndir
+    dt = tbar[1] - tbar[0]
+    extent = (tbar[-1]+dt/2, -dt/2, 0, 1)
+    # (-tbar[-1]-dt/2, dt/2, 0, 1)
+    plt.imshow(binfo["barcode"][:,::-1], aspect="auto", cmap=cmap,
+               extent=extent, vmax=vmax, vmin=-vmax)
+
+    bpeaks = binfo["bpeaks"]
+    for ntp in range(2):
+        if len(bpeaks[ntp]) == 0: continue
+        plt.plot(tbar[bpeaks[ntp]], [0.75-0.5*ntp]*len(bpeaks[ntp]), dots)
         
-        if n_prv < 0 or n_prv >= len(x):
-            break
+    plt.gca().yaxis.tick_right()
+    plt.yticks([0.25, 0.75], labels=(r"$S \rightarrow F$", r"$F \rightarrow S$"))
+    plt.plot([tbar[-1], tbar[0]], [0.5, 0.5], 'k-', lw=0.2, alpha=0.5)
+    plt.xlabel(xlb, fontsize=14)
     
-    xfill[n_cur] = 1
+    xl = plt.xlim()
+    xt, xtt = plt.xticks()
+    assert 0 in xt
+    id0 = np.where(xt == 0)[0][0]
+    xtt[id0].set_text("NOW")
+    plt.xticks(xt, labels=xtt)
+    plt.xlim(xl)
     
-    return xfill
+    if show_cbar:
+        plt.colorbar(location="left", ax=ax_main, cax=ax_cbar,
+                     format=mticker.FormatStrFormatter("%d %%"))
+    else:
+        ax_cbar.axis("off")
+        
+    if show_pline:
+        nb = np.concatenate(bpeaks).astype(int)
+        if len(nb) > 0:
+            ax_p = ax_main.inset_axes((0, 0, 1, 1.15))
+            # print(nb)
+            xb = tbar[nb]
+            ax_p.vlines(xb, 0, 1.1, colors='k', linestyle=':', linewidth=1)
+            ax_p.set_ylim((0, 1.1))
+            ax_p.set_xlim(xl)
+            ax_p.axis("off")
+    
+    plt.sca(ax_main)
+    return fig, ax_main

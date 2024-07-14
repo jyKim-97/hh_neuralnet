@@ -1,49 +1,85 @@
 import numpy as np
 from numba import njit
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import stats
+# import matplotlib.ticker as mticker
 
 
-def draw_barcode(binfo, cmap="Reds", dots="kp",
-                 figsize=(6, 1), xlb=r"$\tau$ (ms)"):
+# def draw_barcode(binfo, cmap="RdBu_r", dots="kp",
+#                  vmax=None, vmin=None,
+#                  figsize=(6.5, 1), ax=None, xlb=r"$\tau$ (ms)",
+#                  show_cbar=False):
     
-    if figsize is not None:
-        fig = plt.figure(figsize=figsize)
-    else:
-        fig = plt.gcf()
-    # fig = None
+#     pos_cbar = (0.04, 0.1, 0.02, 0.85)
+#     pos_ax = (0.08, 0.1, 0.72, 0.85)
     
-    tbar = binfo["tbar"]
-    vmax = np.percentile(binfo["barcode"][binfo["barcode"] > 0], 80)
+#     if ax is None:
+#         fig = plt.figure(figsize=figsize)
+#         ax_cbar = plt.axes(position=pos_cbar)
+#         ax_main = plt.axes(position=pos_ax)
+#     else:
+#         fig = None
+#         ax.axis("off")
+#         plt.sca(ax)
+#         ax_cbar = ax.inset_axes(pos_cbar)
+#         ax_main = ax.inset_axes(pos_ax)
+      
+#     plt.axes(ax_main)
+#     tbar = binfo["tbar"]
     
-    plt.yticks([])
+#     if vmax is None:
+#         if vmin is None:
+#             vmax = np.percentile(binfo["barcode"][binfo["barcode"] > 0], 80)
+#             vmin = -vmax
+#         else:
+#             vmax = -vmin
+            
+#     if vmin is None:
+#         vmin = -vmax
+    
+#     plt.yticks([])
 
-    dt = tbar[1] - tbar[0]
-    extent = (tbar[-1]+dt/2, -dt/2, 0, 1)
-    # (-tbar[-1]-dt/2, dt/2, 0, 1)
-    plt.imshow(binfo["barcode"][:,::-1], aspect="auto", cmap=cmap,
-            extent=extent, vmax=vmax, vmin=-vmax)
+#     dt = tbar[1] - tbar[0]
+#     extent = (tbar[-1]+dt/2, -dt/2, 0, 1)
+#     # (-tbar[-1]-dt/2, dt/2, 0, 1)
+#     plt.imshow(binfo["barcode"][:,::-1], aspect="auto", cmap=cmap,
+#                extent=extent, vmax=vmax, vmin=-vmax)
 
-    bpeaks = binfo["bpeaks"]
-    for ntp in range(2):
-        if len(bpeaks[ntp]) == 0: continue
-        plt.plot(tbar[bpeaks[ntp]], [0.75-0.5*ntp]*len(bpeaks[ntp]), dots)
+#     bpeaks = binfo["bpeaks"]
+#     for ntp in range(2):
+#         if len(bpeaks[ntp]) == 0: continue
+#         plt.plot(tbar[bpeaks[ntp]], [0.75-0.5*ntp]*len(bpeaks[ntp]), dots)
         
-    plt.gca().yaxis.tick_right()
-    plt.yticks([0.25, 0.75], labels=(r"$S \rightarrow F$", r"$F \rightarrow S$"))
-    plt.plot([tbar[-1], tbar[0]], [0.5, 0.5], 'k-', lw=0.2, alpha=0.5)
-    plt.xlabel(xlb, fontsize=14)
+#     plt.gca().yaxis.tick_right()
+#     plt.yticks([0.25, 0.75], labels=(r"$S \rightarrow F$", r"$F \rightarrow S$"))
+#     plt.plot([tbar[-1], tbar[0]], [0.5, 0.5], 'k-', lw=0.2, alpha=0.5)
+#     plt.xlabel(xlb, fontsize=14)
     
-    return fig
+#     xl = plt.xlim()
+#     xt, xtt = plt.xticks()
+#     assert 0 in xt
+#     id0 = np.where(xt == 0)[0][0]
+#     xtt[id0].set_text("NOW")
+#     plt.xticks(xt, labels=xtt)
+#     plt.xlim(xl)
     
+#     if show_cbar:
+#         plt.colorbar(location="left", ax=ax_main, cax=ax_cbar,
+#                      format=mticker.FormatStrFormatter("%d %%"))
+        
+#     else:
+#         ax_cbar.axis("off")
+    
+#     return fig
 
-def get_barcode(te_data, stat_method='conf'):
+
+def is_diff_te(te_data, stat_method="conf", nw=3):
     sig_arr = stats.te_stat_test(te_data, method=stat_method, alpha=0.05)
     hinfo = find_te_hill(te_data, verbose=False)
     
-    nw = 3
     bpeaks = []
-    is_bar = np.zeros(te_data["te"].shape[1:], dtype=bool)
+    is_diff = np.zeros(te_data["te"].shape[1:], dtype=bool)
+    
     for ntp in range(2):
         bpeaks.append([])
         num = len(hinfo['id_set'][ntp])
@@ -55,15 +91,50 @@ def get_barcode(te_data, stat_method='conf'):
             if sig_arr[ntp][nset].sum() >= len(nset)-2:
                 nset = np.arange(n0-1, n0+2)
                 nset = nset[(nset >= 0) & (nset < te_data["te"].shape[-1])]
-                is_bar[ntp][nset] = True
+                is_diff[ntp][nset] = True
                 bpeaks[ntp].append(n0)
 
         bpeaks[ntp] = np.array(bpeaks[ntp])
         
+    return is_diff, bpeaks
+
+
+def get_barcode_boost(te_data, te_base, stat_method="conf"):
+    is_bar1, bpeaks_te = is_diff_te(te_data, stat_method=stat_method)
+    
+    dte_data = te_data["te"] - te_data["te_surr"].mean(axis=0, keepdims=True)
+    dte_base = te_base["te"] - te_base["te_surr"].mean(axis=0, keepdims=True)
+    te_tmp = dict(te=dte_data, te_surr=dte_base, tlag=te_data["tlag"], info=te_data["info"])
+    is_bar2, _ = is_diff_te(te_tmp)
+    
+    is_bar = is_bar1 & is_bar2
+    bpeaks = [np.array([nb for nb in bpeaks_te[n] if is_bar[n][nb]]) for n in range(2)]
+    
+    return get_barcode(te_tmp, is_bar=is_bar, bpeaks=bpeaks, percentile=True)
+    
+
+def get_barcode(te_data, stat_method='conf', is_bar=None, bpeaks=None, percentile=False):
+    
+    if is_bar is None:
+        is_bar, bpeaks = is_diff_te(te_data, stat_method=stat_method)
+        
+    if "info" not in te_data.keys():
+        te_data["info"] = None
+        
     tbar = te_data["tlag"]
     barcode = np.zeros(te_data["te"].shape[1:])
     m = te_data['te_surr'].mean(axis=0, keepdims=True)
-    barcode[is_bar] = (te_data["te"] - m).mean(axis=0)[is_bar]
+    
+    if np.sum(is_bar) == 0:
+        return dict(barcode=barcode, tbar=tbar, bpeaks=[[], []], info=te_data["info"])
+    
+    if percentile:
+        te = te_data["te"].mean(axis=0)[is_bar]
+        tem = m.mean(axis=0)[is_bar]
+        # print(te.shape, tem.shape)
+        barcode[is_bar] = (te - tem) / np.max(([np.abs(te), np.abs(tem)])) * 100
+    else:
+        barcode[is_bar] = (te_data["te"] - m).mean(axis=0)[is_bar]
 
     # fill
     if tbar[0] != 0:
@@ -74,9 +145,7 @@ def get_barcode(te_data, stat_method='conf'):
         barcode = np.hstack((bp, barcode))
         tbar = np.concatenate((np.arange(0, tbar[0], dt), tbar))
         bpeaks = [b + nt for b in bpeaks]
-    
-    if "info" not in te_data.keys():
-        te_data["info"] = None
+        
     info = dict(te_info=te_data["info"], stat_method=stat_method)
     return dict(barcode=barcode, tbar=tbar, bpeaks=bpeaks, info=info)
 
@@ -120,20 +189,24 @@ def find_hill(xs):
             hill_id[n][is_low] = idh
             idh += 1
             
-        if np.all(hill_id[n][-3:] == 0):
+        if hill_id[n][-1] == 0:
             n0 = np.where(hill_id[n] > 0)[0][-1]
-            hill_id[n][n0:] = idh
-            id_peak[-1].append(np.argmax(xs[n][n0:]) + n0)
-        
-        if np.all(hill_id[n][:3] == 0):
+            if np.all(hill_id[n][-4:] == 0):
+                hill_id[n][n0:] = idh
+                id_peak[-1].append(np.argmax(xs[n][n0:]) + n0)
+            else:
+                hill_id[n][n0:] = idh-1
+                
+        if hill_id[n][0] == 0:
             n0 = np.where(hill_id[n] > 0)[0][0]
-            id_peak[-1] = [np.argmax(xs[n][:n0])] + id_peak[-1]
-            hill_id[n] += 1
-            
+            if np.all(hill_id[n][:4] == 0):
+                id_peak[-1] = [np.argmax(xs[n][:n0])] + id_peak[-1]
+                hill_id[n] += 1
+            else:
+                hill_id[n][:n0] = 1
+                    
         hill_id_set.append(np.unique(hill_id[n]))
-        
         assert len(hill_id_set[-1]) == len(id_peak[-1])
-            
     assert not np.any(hill_id == 0)
             
     return dict(id=hill_id,
