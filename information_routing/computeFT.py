@@ -5,6 +5,7 @@ sys.path.append('/home/jungyoung/Project/hh_neuralnet/include/')
 import hhtools
 import hhsignal
 from tqdm import trange, tqdm
+import utils
 
 # import oscdetector as od
 import argparse
@@ -12,7 +13,7 @@ import argparse
 # from functools import partial
 # from multiprocessing import Pool
 
-import computeTE2 as ct
+# import computeTE2 as ct
 
 
 # set const
@@ -22,10 +23,10 @@ srate = 2000
 wbin_t = 0.5
 mbin_t = 0.1
 
-tag = ""
-# tag = "_mfast"
+# tag = ""
+tag = "_mfast"
 
-summary_obj = hhtools.SummaryLoader("/home/jungyoung/Project/hh_neuralnet/gen_three_pop_samples_repr/data%s"%(tag), load_only_control=True)
+summary_obj = hhtools.SummaryLoader("/home/jungyoung/Project/hh_neuralnet/gen_three_pop_samples_repr/data"+tag, load_only_control=True)
 
 
 def build_arg_parse():
@@ -43,7 +44,7 @@ def main(cid=5, wid=10, npoint=10000, nboot=100, fout=None, seed=42):
     np.random.seed(seed)
     
     # load oscillation motif informaiton
-    winfo, update_date = ct.load_osc_motif(cid, wid, reverse=False)
+    winfo, update_date = utils.load_osc_motif(cid, wid, reverse=False)
     
     # collect voltage segments
     spec_set, fpsd = collect_ft_chunk(cid, winfo)
@@ -84,8 +85,10 @@ def collect_ft_chunk(cid, winfo):
             
             psd_set = [[], []]
             t = detail_data["ts"]
-            psd_set[0], fpsd, tpsd = hhsignal.get_stfft(v1, t, srate, mbin_t=mbin_t, wbin_t=wbin_t, frange=(2, 100))
-            psd_set[1], fpsd, tpsd = hhsignal.get_stfft(v2, t, srate, mbin_t=mbin_t, wbin_t=wbin_t, frange=(2, 100))
+            # psd_set[0], fpsd, tpsd = hhsignal.get_stfft(v1, t, srate, mbin_t=mbin_t, wbin_t=wbin_t, frange=(2, 100))
+            # psd_set[1], fpsd, tpsd = hhsignal.get_stfft(v2, t, srate, mbin_t=mbin_t, wbin_t=wbin_t, frange=(2, 100))
+            psd_set, fpsd, tpsd = utils.compute_stfft_all([v1, v2], t, frange=(10, 100),
+                                                          mbin_t=mbin_t, wbin_t=wbin_t, srate=srate)
             
             # normalize
             psd_set[0] = psd_set[0] - psd_set[0].mean(axis=1)[:, None]
