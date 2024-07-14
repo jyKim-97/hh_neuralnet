@@ -175,6 +175,10 @@ def downsample(x, srate, srate_new):
     return x[::n]
 
 
+def get_eq_dynamics(x, t, teq):
+    idt_eq = t >= teq
+    return x[idt_eq], t[idt_eq]
+
 
 def get_mua(detail, dt=0.01, st=0.001):
     """
