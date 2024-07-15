@@ -28,6 +28,7 @@ static double v_avg1[MAX_CHECK_M][MAX_CLASS_M];
 static double v_avg2[MAX_CHECK_M][MAX_CLASS_M];
 // - lfp recording
 static float *vlfp[MAX_CLASS_M];
+static float *vlfp_syn[MAX_CLASS_M];
 
 // spike recording
 // - measure firing rate
@@ -53,8 +54,6 @@ static void calculate_firing_rate(summary_t *obj);
 
 // static void calculate_cv_isi(summary_t *obj);
 static float average(float *x);
-
-
 
 
 void init_measure(int N, int num_steps, int _num_class_types, int *_type_range){
@@ -166,6 +165,7 @@ static void init_flct(){
 
     for (int id=0; id<num_class_types; id++){
         vlfp[id] = (float*) calloc(max_step, sizeof(float));
+        vlfp_syn[id] = (float*) calloc(max_step, sizeof(float));
     }
 }
 
@@ -190,7 +190,10 @@ static void free_flct(){
         free(v1[n]);
         free(v2[n]);
     }
-    for (int n=0; n<num_class_types; n++) free(vlfp[n]);
+    for (int n=0; n<num_class_types; n++){
+        free(vlfp[n]);
+        free(vlfp_syn[n]);
+    }
 }
 
 
@@ -208,11 +211,32 @@ void add_checkpoint(int nstep){
 }
 
 
-void measure(int nstep, wbneuron_t *neuron){
+static double get_syn_current(nnpop_t *nnpop, int id){
+    double vpost = nnpop->neuron->vs[id];
+
+    int num_types = nnpop->num_types;
+    double isyn = 0;
+    for (int ntp=0; ntp<num_types; ntp++){
+        desyn_t *syn = nnpop->syns + ntp;
+        double expr = syn->expr[id];
+        double expd = syn->expd[id];
+        double ev = syn->ev;
+
+        isyn += (expr - expd) * (vpost - ev);    
+    }
+    return isyn;
+}
+
+
+
+// void measure(int nstep, wbneuron_t *neuron){
+void measure(int nstep, nnpop_t *nnpop){
 
     if (num_check == 0){
         printf("Warning: there is no checkpoint to measure\n");
     }
+
+    wbneuron_t *neuron = nnpop->neuron;
     
     double v_tmp=0;
     for (int n=0; n<ntk_size; n++){
@@ -220,8 +244,12 @@ void measure(int nstep, wbneuron_t *neuron){
         long double v_pow = v*v;
         int id = id_class[n];
 
-        v_tmp += v;
+        // update LFP measure
         vlfp[id][nstep] += v;
+        vlfp_syn[id][nstep]+= get_syn_current(nnpop, n);
+        
+
+        v_tmp += v;
         for (int i=0; i<num_check; i++){
             v1[i][n] += v;
             v2[i][n] += v_pow;
@@ -246,6 +274,7 @@ void measure(int nstep, wbneuron_t *neuron){
 
     for (int id=0; id<num_class_types; id++){
         vlfp[id][nstep] /= num_class[id];
+        vlfp_syn[id][nstep] /= num_class[id];
         for (int i=0; i<num_check; i++){
             v_avg1[i][id] += vlfp[id][nstep];
             v_avg2[i][id] += vlfp[id][nstep]*vlfp[id][nstep];
@@ -475,28 +504,103 @@ static float average(float *x){
 }
 
 
-void export_lfp(const char *fname){
+void export_core_result(const char *prefix, summary_t *obj){
+    /*
+    Export core results
+    1) summary: <PREFIX>_result.txt
+    2) spike  : <PREFIX>_spk.dat
+    3) lfp    : <PREFIX>_lfp.dat
+    4) lfp_syn: <PREFIX>_lfp_syn.dat
+    */
+
+    char fname_res[500];
+    sprintf(fname_res, "%s_result.txt", prefix);
+    export_result(obj, fname_res);
+
+    char fname_spk[500];
+    sprintf(fname_spk, "%s_spk.dat", prefix);
+    export_spike(fname_spk);
+
+    char fname_lfp[500];
+    sprintf(fname_lfp, "%s_lfp.dat", prefix);
+    export_lfp(fname_lfp);
+
+    char fname_lfp_syn[500];
+    sprintf(fname_lfp_syn, "%s_lfp_syn.dat", prefix);
+    export_lfp_syn(fname_lfp_syn);
+
+}
+
+
+static void export_lfp_class(const char *fname, int cid){
+    /*
+    export lfp, lfp_syn
+    cid == 0: lfp
+    cid == 1: lfp_syn
+    */
+    
+    float *x[MAX_CLASS_M];
+    if (cid == 0){
+        for (int n=0; n<num_class_types; n++) x[n] = vlfp[n];
+    } else if (cid == 1){
+        for (int n=0; n<num_class_types; n++) x[n] = vlfp_syn[n];
+    } else {
+        printf("Wrong identifier, use lfp signal\n");
+        for (int n=0; n<num_class_types; n++) x[n] = vlfp[n];
+    }
+
     FILE *fp = open_file(fname, "wb");
 
     extern double _fs_save;
     float info[2] = {(float) num_class_types, (float) _fs_save};
     fwrite(info, sizeof(float), 2, fp);
     
-    float *vlfp_tot = (float*) calloc(max_step, sizeof(float));
+    float *x_tot = (float*) calloc(max_step, sizeof(float));
     for (int id=0; id<num_class_types; id++){
         float factor = (float) num_class[id] / ntk_size;
         for (int n=0; n<max_step; n++){
-            vlfp_tot[n] += vlfp[id][n] * factor;
+            x_tot[n] += x[id][n] * factor;
         }
     }
-    
-    write_signal_f(max_step, vlfp_tot, fp);
+
+    write_signal_f(max_step, x_tot, fp);
     for (int id=0; id<num_class_types; id++){
-        write_signal_f(max_step, vlfp[id], fp);
+        write_signal_f(max_step, x[id], fp);
     }
 
-    free(vlfp_tot);
+    free(x_tot);
     fclose(fp);
+}
+
+
+void export_lfp_syn(const char *fname){
+    export_lfp_class(fname, 1);
+}
+
+
+void export_lfp(const char *fname){
+    export_lfp_class(fname, 0);
+    // FILE *fp = open_file(fname, "wb");
+
+    // extern double _fs_save;
+    // float info[2] = {(float) num_class_types, (float) _fs_save};
+    // fwrite(info, sizeof(float), 2, fp);
+    
+    // float *vlfp_tot = (float*) calloc(max_step, sizeof(float));
+    // for (int id=0; id<num_class_types; id++){
+    //     float factor = (float) num_class[id] / ntk_size;
+    //     for (int n=0; n<max_step; n++){
+    //         vlfp_tot[n] += vlfp[id][n] * factor;
+    //     }
+    // }
+    
+    // write_signal_f(max_step, vlfp_tot, fp);
+    // for (int id=0; id<num_class_types; id++){
+    //     write_signal_f(max_step, vlfp[id], fp);
+    // }
+
+    // free(vlfp_tot);
+    // fclose(fp);
 }
 
 

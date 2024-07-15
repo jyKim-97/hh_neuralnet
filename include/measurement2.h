@@ -3,6 +3,7 @@
 #include <math.h>
 #include <stdbool.h>
 #include "model2.h"
+#include "neuralnet.h"
 #include "utils.h"
 #include "storage.h"
 
@@ -23,12 +24,14 @@ typedef struct _summary_t {
 void init_measure(int N, int num_steps, int _num_class_types, int *_type_range);
 void reset();
 void add_checkpoint(int nstep);
-void measure(int nstep, wbneuron_t *neuron);
+// void measure(int nstep, wbneuron_t *neuron);
+void measure(int nstep, nnpop_t *nnpop); 
 summary_t flush_measure(void);
 void destroy_measure(void);
 void print_num_check();
-
+void export_core_result(const char *fname, summary_t *obj);
 void export_spike(const char *fname);
 void export_lfp(const char *fname);
+void export_lfp_syn(const char *fname);
 void export_result(summary_t *obj, const char *fname);
 void test_print(summary_t *obj);
