@@ -42,6 +42,10 @@ void progressbar(progbar_t *bar, int nstep)
         fprintf(stderr, "(%5.1fs / %5.1fs)", dt, pred_end_time);
         fprintf(stderr, "\r");
     }
+
+    if (nstep == bar->max_step){
+        fprintf(stderr, "\n");
+    }
 }
 
 
@@ -124,6 +128,12 @@ void print_elapsed(void)
 //     printf("elapsed time = %ds %dms %dus\n", sec, msec, usec);
 
 // }
+
+
+void print_error(char msg[300], const char *file, int line){
+    fprintf(stderr, "Error: %s (%s:%d)\n", msg, file, line);
+    exit(EXIT_FAILURE);
+}
 
 
 void print_variable(double *x, int n_print_node)

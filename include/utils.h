@@ -39,6 +39,7 @@ double get_dt(struct timeval tic, struct timeval toc);
 // void print_elapsed(struct timeval start_t);
 void checkpoint_tic(void);
 void print_elapsed(void);
+void print_error(char msg[300], const char *file, int line);
 
 void set_index_obj(index_t *idxer, int num_index, int max_ind[]);
 void next_index(index_t *idxer);
