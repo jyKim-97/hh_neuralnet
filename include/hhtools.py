@@ -56,18 +56,33 @@ def load_mua(fname):
 
 
 def load_network(fname):
-    ntk_in = []
-    ntk_win = []
+    """
+    Read in-degree network from a file.
+
+    Parameters:
+    fname (str): The name of the file containing the network data.
+
+    Returns:
+    tuple: (ntk_in, ntk_win)
+        ntk_in (list of lists): Incoming connections for each node.
+        ntk_win (list of lists): Weights of incoming connections for each node.
+    """
+    
     with open(fname, "r") as fid:
         line = fid.readline()
+        
+        # read number of cells
+        tmp = line.split("=")
+        N = int(tmp[1][:-2])
+        ntk_in = [[] for _ in range(N)]
+        ntk_win = [[] for _ in range(N)]
+        
+        # read connectivity
         line = fid.readline()
         while line:
             tmp = line.split("<-")
             npost = int(tmp[0])
             npre = int(tmp[1].split(",")[0])
-            while len(ntk_in) <= npost:
-                ntk_in.append([])
-                ntk_win.append([])
             ntk_in[npost].append(npre)
             ntk_win[npost].append(float(tmp[1].split(",")[1][:-1]))
             line = fid.readline()
@@ -160,12 +175,15 @@ def draw_spk(step_spk, dt=0.01, sequence=None, xl=None, color_ranges=None, color
 
 # Source code for loadding summarys
 class SummaryLoader:
-    def __init__(self, fdir, load_only_control=False):
+    def __init__(self, fdir, load_only_control=False, load_cache=True):
         # read control param infos
         self.fdir = fdir
         self._load_controls()
         if not load_only_control:
-            self._read_data()
+            if load_cache:
+                self._load_cache()
+            else:
+                self._read_data()
     
     def _load_controls(self):
         with open(os.path.join(self.fdir, "control_params.txt"), "r") as fid:
@@ -179,12 +197,21 @@ class SummaryLoader:
                 self.control_names.append(tmp[0])
                 self.controls[tmp[0]] = [float(x) for x in tmp[1].split(",")[:-1]]
                 line = fid.readline()
+                
+    def _load_cache(self):
+        fcache = os.path.join(self.fdir, "summary.pkl")
+        if os.path.exists(fcache):
+            with open(fcache, "rb") as fp:
+                self.summary = pkl.load(fp)
+                return
+        else:
+            print("Cache file does not exist, read data")
+            self._read_data()
 
     def _read_data(self):
-        # NOTE: pkl 파일 체크
-        fnames = [f for f in os.listdir(self.fdir) if "id" in f and "result" in f]
+        
+        fnames = [f for f in os.listdir(self.fdir) if "id" in f and "result" in f and "monitor" not in f]
         self.num_overlap = self.check_overlap(fnames)
-        print(self.num_overlap)
 
         nums = len(fnames)
         nums_expect = 1
@@ -200,12 +227,6 @@ class SummaryLoader:
         var_names = ["chi", "cv", "frs_m", "frs_s"]
         for k in var_names:
             self.summary[k] = []
-
-        fcache = os.path.join(self.fdir, "summary.pkl")
-        if os.path.exists(fcache):
-            with open(fcache, "rb") as fp:
-                self.summary = pkl.load(fp)
-                return
 
         for n in range(nums_expect):
 
