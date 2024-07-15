@@ -7,6 +7,7 @@ const double ev_i = -80;
 
 static int num_cells = 0;
 static int num_types = 2;
+nnpop_t nnpop;
 wbneuron_t neuron;
 desyn_t syns[MAX_TYPE], ext_syn[MAX_TYPE];
 double taur_default=0.3, taud_default=1;
@@ -28,18 +29,26 @@ static void update_total_syns(int nid);
 static double get_total_syns_current(int nid, double vpost);
 static void fprintf2d_d(FILE *fp, double x[MAX_TYPE][MAX_TYPE]);
 static void fill_connection_prob(nn_info_t *info);
-static void set_cell_range(void);
+static void set_cell_range(nn_info_t *info);
+
+
+#define REPORT_ERROR(msg) print_error(msg, __FILE__, __LINE__)
 
 
 void init_nn(int N, int _num_types){
     if (N <= 0){
-        printf("Invalid N: %d\n", N);
-        exit(-1);
+        char msg[300];
+        sprintf(msg, "Invalid N: %d", N);
+        REPORT_ERROR(msg);
     }
 
     num_cells = N;
     num_types = _num_types;
-    set_cell_range();
+    
+    for (int n=0; n<MAX_TYPE; n++){
+        cell_range[n][0] = 0;
+        cell_range[n][1] = 0;
+    }
 }
 
 
@@ -53,6 +62,8 @@ nn_info_t init_build_info(int N, int _num_types){
 
     for (int i=0; i<MAX_TYPE; i++){
         info.type_range[i] = cell_range[i][1];
+        info.type_id[i] = -1;
+
         for (int j=0; j<MAX_TYPE; j++){
             info.mdeg_in[i][j] = -1;
             info.p_out[i][j] = -1;
@@ -72,6 +83,12 @@ nn_info_t init_build_info(int N, int _num_types){
 
 
 void build_ei_rk4(nn_info_t *info){
+
+    nnpop.neuron = &neuron;
+    nnpop.syns = syns;
+    nnpop.ext_syn = ext_syn;
+    nnpop.N = info->N;
+    nnpop.num_types = info->num_types;
 
     // generate empty synapse (+ external poisson input)
     init_wbneuron(num_cells, &neuron);
@@ -105,8 +122,23 @@ void build_ei_rk4(nn_info_t *info){
     } else if (num_types == 4){
         ev_set[2] = ev_e;
     } else {
-        printf("num_types (%d) exceeds expected (neuralnet.c: build_ei_rk4)\n", num_types);
-        exit(1);
+        if (info->type_id[0] == -1){
+            char msg[300];
+            sprintf(msg, "Invalid num_types (%d) without specified type", num_types);
+            REPORT_ERROR(msg);
+        }
+        for (int n=0; n<MAX_TYPE; n++){
+            switch (info->type_id[n]) {
+                case E:
+                    ev_set[n] = ev_e; break;
+                case IF:
+                    ev_set[n] = ev_i; break;
+                case IS:
+                    ev_set[n] = ev_i; break;
+                default:
+                    break;
+            }
+        }
     }
 
     for (int i=0; i<num_types; i++){
@@ -114,7 +146,7 @@ void build_ei_rk4(nn_info_t *info){
     }
 
     // set the cell type range
-    set_cell_range();
+    set_cell_range(info);
     
     // check input type & generate network
     int flag_ntk = -1;
@@ -200,7 +232,7 @@ void check_multiple_input(){
 }
 
 
-static void set_cell_range(void){
+static void set_cell_range(nn_info_t *info){
 
     if (num_types == 1){
         cell_range[0][0] = 0;
@@ -226,8 +258,17 @@ static void set_cell_range(void){
             ncum += tmp_num_types[n];
         }
     } else {
-        printf("not expected number of types (neuralnet.c: set_cell_range)\n");
-        exit(1);
+        if (info->type_range[0] == 0){
+            char msg[300] = "The number of each cell type is not determined";
+            REPORT_ERROR(msg);
+        }
+        
+        int ncum = 0;
+        for (int n=0; n<num_types; n++){
+            cell_range[n][0] = ncum;
+            cell_range[n][1] = ncum + info->type_range[n];
+            ncum += info->type_range[n];
+        }
     }
 
     // check the number (this line is for num_types == 3)
@@ -238,8 +279,8 @@ static void set_cell_range(void){
 
     if (num_cells > num_set){
         if (num_types != 3){
-            printf("Unexpected case, check the input cell number (neuralnet.c: set_cell_range)\n");\
-            exit(1);
+            char msg[] = "The number of cells and sum of type range does not match";
+            REPORT_ERROR(msg);
         }
 
         int dn = num_cells - num_set;
@@ -452,6 +493,7 @@ static void update_total_syns(int nid){
 
 
 static double get_total_syns_current(int nid, double vpost){
+    /*Update total synaptic current*/
     double isyn = 0;
     for (int n=0; n<num_types; n++){
         isyn += get_current(&syns[n], nid, vpost);
@@ -483,7 +525,11 @@ static void fill_connection_prob(nn_info_t *info){
         for (int i=0; i<num_types; i++){
             int n = cell_range[i][1] - cell_range[i][0];
             for (int j=0; j<num_types; j++){
-                info->mdeg_in[i][j] = n * info->p_out[i][j]; 
+                if (info->p_out[i][j] == ONE2ONE){ 
+                    info->mdeg_in[i][j] = ONE2ONE;
+                } else {
+                    info->mdeg_in[i][j] = n * info->p_out[i][j]; 
+                }
             }
         }
     } else if (info->mdeg_in[0][0] >= 0){

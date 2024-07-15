@@ -199,6 +199,7 @@ void set_coupling(desyn_t *syn, int pre_range[2], int post_range[2], double targ
     if (syn->w_list == NULL){
         gen_flag = 1;
         syn->w_list = (double**) malloc(sizeof(double*) * N);
+        // w_list is 2-dim,: (npost, npre index
         // printf("%d, %d - %d, %d\n", pre_range[0], pre_range[1], post_range[0], post_range[1]);
     }
 
@@ -291,12 +292,19 @@ void add_spike(int nstep, desyn_t *syn, wbneuron_t *neuron){
 
 
 void update_desyn(desyn_t *syn, int nid){
+    /*Update synaptic divided synaptic activity
+    - nid: postsynpatic neuron ID */
+
     syn->expr[nid] *= syn->mul_expr;
     syn->expd[nid] *= syn->mul_expd;
 }
 
 
 double get_current(desyn_t *syn, int nid, double vpost){
+    /* Get current of postsynaptic neuron from pre-
+    nid = postsynaptic neuron ID
+    vpost: membrane potential of post synaptic neuron (id=nid)
+    */
     if (nid >= syn->N) return 0;
     return (syn->expr[nid] - syn->expd[nid]) * (vpost - syn->ev);
 }

@@ -33,6 +33,7 @@ typedef struct _wbneuron_t{
     int spk_count;
     int *is_spk, *spk_buf[_spk_buf_size]; // buffer size X (number of the neurons)
 
+    // desyn_t *syns
 } wbneuron_t;
 
 

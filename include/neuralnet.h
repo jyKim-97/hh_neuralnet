@@ -4,14 +4,31 @@
 #include <stdio.h>
 #include "model2.h"
 #include "storage.h"
+#include "utils.h"
 
-#define MAX_TYPE 4
+#define MAX_TYPE 8
+
+#define E 0
+#define IF 1
+#define IS 2
+
+typedef struct _nnpop_t
+{
+    wbneuron_t *neuron;
+    desyn_t *syns;
+    desyn_t *ext_syn;
+    int N;
+    int num_types;
+
+} nnpop_t;
+
 
 
 typedef struct _neuralnet_info_t{
     int N;
     int num_types;
     int type_range[MAX_TYPE];
+    int type_id[MAX_TYPE]; // 0 (E), 1 (IF), 2(IS)
     double mdeg_in[MAX_TYPE][MAX_TYPE];
     double p_out[MAX_TYPE][MAX_TYPE];
     double w[MAX_TYPE][MAX_TYPE]; // pre -> post
@@ -26,9 +43,11 @@ typedef struct _neuralnet_info_t{
 
     bool const_current;
     int num_ext_types;
+
 } nn_info_t;
 
 void init_nn(int N, int _num_types);
+// void init_nn(nn_info_t *info);
 nn_info_t init_build_info(int N, int _num_types);
 void build_ei_rk4(nn_info_t *info);
 void write_info(nn_info_t *info, char *fname);
