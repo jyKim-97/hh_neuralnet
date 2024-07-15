@@ -6,7 +6,7 @@ import numpy as np
 import utils
 import argparse
 
-import sys
+import sys 
 sys.path.append('/home/jungyoung/Project/hh_neuralnet/include/')
 import hhtools
 import pickle as pkl
@@ -15,9 +15,12 @@ from functools import partial
 import tetools as tt
 
 
+tag = "_mfast"
+
+
 num_process = 4
 srate = 2000
-fdir_summary = "/home/jungyoung/Project/hh_neuralnet/gen_three_pop_samples_repr/data"
+fdir_summary = "/home/jungyoung/Project/hh_neuralnet/gen_three_pop_samples_repr/data"+tag
 
 chunk_size = 100
 nchunks = 400
@@ -91,6 +94,7 @@ def main(cid=5, wid=10, ntrue=10, nsurr=1000, nhist=1,
         
         info = {"cid": cid, "wid": wid, "ntrue": ntrue, "nsurr": nsurr,
                 "tw": tw, "tadd": tadd,
+                "fdir": fdir_summary,
                 "seed": seed, "dir": ("0->1", "1->0")}
         info.update(params)
         
