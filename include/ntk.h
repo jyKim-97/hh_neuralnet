@@ -10,6 +10,8 @@
 extern "C" {
 #endif
 
+#define ONE2ONE -2
+
 enum binet_type {
     outdeg = 0,
     indeg = 1

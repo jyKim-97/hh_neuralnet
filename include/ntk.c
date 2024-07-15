@@ -1,5 +1,7 @@
 #include "ntk.h"
 
+#define REPORT_ERROR(msg) print_error(msg, __FILE__, __LINE__)
+
 
 static void connect(ntk_t *ntk, int id_pre, int id_post);
 
@@ -20,14 +22,35 @@ ntk_t get_empty_net(int N){
 
 
 void gen_er_pout(ntk_t *ntk, double p_out, int pre_range[2], int post_range[2]){
-    int num_pre = LEN(pre_range);
-    gen_er_mdin(ntk, num_pre*p_out, pre_range, post_range);
+    int mdeg_in = 0;
+    if (p_out == ONE2ONE){
+        mdeg_in = ONE2ONE;
+    } else if (p_out < 0){
+        char msg[300];
+        sprintf(msg, "Invalid p_out: %f", p_out);
+        REPORT_ERROR(msg);
+    } else {
+        int num_pre = LEN(pre_range);
+        mdeg_in = num_pre * p_out;
+    }
+    gen_er_mdin(ntk, mdeg_in, pre_range, post_range);
 }
 
 
 void gen_er_pin(ntk_t *ntk, double p_in, int pre_range[2], int post_range[2]){
-    int num_post = LEN(post_range);
-    gen_er_mdin(ntk, num_post*p_in, pre_range, post_range);
+    int mdeg_in = 0;
+    if (p_in == ONE2ONE){
+        mdeg_in = ONE2ONE;
+    } else if (p_in < 0){
+        char msg[300];
+        sprintf(msg, "Invalid p_in: %f", p_in);
+        REPORT_ERROR(msg);
+    } else {
+        int num_post = LEN(post_range);
+        mdeg_in = num_post*p_in;
+    }
+    
+    gen_er_mdin(ntk, mdeg_in, pre_range, post_range);
 }
 
 
@@ -38,6 +61,7 @@ void gen_er_mdout(ntk_t *ntk, double mdeg_out, int pre_range[2], int post_range[
 
 
 double cvt_mdeg_out2in(double mdeg_out, int num_pre, int num_post){
+    if (mdeg_out == ONE2ONE) return ONE2ONE;
     return num_pre * mdeg_out / num_post;
 }
 
@@ -65,13 +89,30 @@ void gen_er_mdin(ntk_t *ntk, double mdeg_in, int pre_range[2], int post_range[2]
     int num_post = LEN(post_range);
     int target_deg = mdeg_in * num_post;
 
+    // one-to-one connection
+    if (mdeg_in == ONE2ONE){ 
+        if (num_pre == num_post){
+            for (int i=0; i<num_pre; i++){
+                int npre = i + pre_range[0];
+                int npost = i + post_range[0];
+                connect(ntk, npre, npost);
+            }
+        } else {
+            REPORT_ERROR("one-to-one connection is only allowed bewteen the same number of populations");
+        }
+        return;
+    } else if (mdeg_in < 0){
+        char msg[300];
+        sprintf(msg, "Invalid indegree: %f", mdeg_in);
+        REPORT_ERROR(msg);
+    }
+
     if ((num_pre == num_post) && (target_deg == num_pre*num_pre)){
         target_deg -= num_pre; // p_new = (N-1)/N x p
     } 
 
     if (target_deg > num_post * num_pre){
-        printf("Network size exceed maximum edges\n");
-        exit(-1);
+        REPORT_ERROR("Network size exceed maximum edges");
     }
 
     int total_deg = 0;
