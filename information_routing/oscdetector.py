@@ -258,7 +258,7 @@ def align_cobit(_words, digit=4):
 # 
 def get_motif_boundary(words, tpsd):
     bd_motif_tmp = []
-    for w in range(1, 16):
+    for w in range(16):
         bd = get_boundary(words == w)
         for i in range(len(bd)):
             bd_motif_tmp.append(dict(id=w, range=tpsd[bd[i]]))
@@ -301,6 +301,16 @@ def get_motif_labels():
         )
         # lb.append("%d%d%d%d"%(x2[3], x2[2], x2[1], x2[0]))
     return lb
+
+
+def get_motif_id(key):
+    lb = get_motif_labels()
+    try:
+        idx = lb.index(key)
+    except:
+        print("Key %s does not exist"%(key))
+        idx = None
+    return idx
 
 
 def argsort_motif_labels():

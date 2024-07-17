@@ -282,6 +282,7 @@ def draw_indicator(xind, yl=None, color='k',
             htxt = yl[0] + (yl[1]-yl[0])/30*2
         plt.text(xind, htxt, txt, va="center", ha="center",
                  fontsize=fontsize, color=color)
+    plt.ylim(yl)
         
 
 def draw_cfc_indicator(cid, yl=None, flip=False, h=None):
@@ -317,8 +318,8 @@ def draw_cfc_indicator(cid, yl=None, flip=False, h=None):
                        flip=flip, htxt=h)
     
 
-def draw_freq_indicator(cid, yl=None, flip=False, h=None,
-                        lw=1, alpha=1):
+def draw_freq_indicator(cid=None, yl=None, flip=False, h=None,
+                        lw=1, alpha=1, f0_set=None):
     
     xl = plt.xlim()
     yl = plt.ylim() if yl is None else yl
@@ -326,8 +327,12 @@ def draw_freq_indicator(cid, yl=None, flip=False, h=None,
     lopt = dict(linestyle="--", linewidth=lw, alpha=alpha)
     tp_labels = (r"$T_s/2$", r"$T_s$", r"$T_f/2$", r"$T_f$")
     
+    if f0_set is None:
+        if cid is None: raise ValueError("cid or f0_set need to be determined")
+        f0_set = fpeaks[cid-1]
+    
     for tp in range(2):
-        f0 = fpeaks[cid-1][tp]
+        f0 = f0_set[tp]
         if f0 == -1: continue
         
         c = cs[1-tp]

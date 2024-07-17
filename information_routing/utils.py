@@ -57,7 +57,7 @@ def load_osc_motif(cid, wid, reverse=False, verbose=False):
 
     with open(fname+".pkl", "rb") as fp:
         osc_motif = pkl.load(fp)
-    
+        
     update_date = osc_motif["metainfo"]["last-updated"]
     print("Loaded oscillation motif information udpated in %s"%(update_date))
     
