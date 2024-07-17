@@ -4,11 +4,25 @@ Summary file for clustering analysis
 >> Need three_pop_mpi/data
 >> Run postprocess.py before
 
-# Prepare dataset for clustering
+# Clustering
+## Prepare dataset for clustering
 > Use three_pop_mpi/data 
 [Source code](./prepare_clustering_data.ipynb)
-
 Rearrange post processed dataset and normalize dataset using Z-score normalization method. Then, split dataset into _sub_ and _total_ population measured 
+
+## Run K-means clustering
+> Use splitted dataset from [prepare_clustering](./prepare_clustering_data.ipynb)
+[Source code](./explore_kmeans2.py)
+Run K-means clustering several times in each K for consensus-clustering
+
+## Hierarchical clustering
+> Use K-means clustered data
+[Source code](./hierarchical_clustering.ipynb)
+
+## Validate clustering
+> Draw features
+[Source code](./validate_clustering)
+Validate and draw clustered features
 
 # Test clustering (testing various clustering method for selecting the clustering method)
 > Use "./data/align_data_sub.pkl" or "./data/align_data_tot.pkl" 
