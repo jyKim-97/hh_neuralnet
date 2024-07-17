@@ -76,13 +76,17 @@ def get_frequency_peak(vlfp, fs=2000):
 
 
 # Get cross-correlation
-def get_correlation(x, y, srate, max_lag=None):
+def get_correlation(x, y, srate, max_lag=None, norm=True):
     # positive: y leads x
     # negative: x leads y
     
-    xn = x - np.average(x)
-    yn = y - np.average(y)
-    std = [np.std(xn), np.std(yn)]
+    if norm:
+        xn = x - np.average(x)
+        yn = y - np.average(y)
+        std = [np.std(xn), np.std(yn)]
+    else:
+        xn, yn = x, y
+        std = [1, 1]
 
     if max_lag is None:
         max_lag = len(x)/srate
