@@ -3,8 +3,8 @@ import os
 # import subprocess
 import xarray as xa
 from tqdm import tqdm
-from dataclasses import dataclass
-from typing import List, Tuple
+from collections import OrderedDict
+import argparse
 
 
 """
@@ -15,6 +15,12 @@ Input: .nc dataset file
 Output: ./params_to_run.txt and ./selected_cluster_info
 
 """
+
+def build_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--fdir", required=True)
+    return parser
+
 
 # repr_points = [[0, 0, 2, 0]]
 
@@ -61,26 +67,47 @@ echelon_set = []
 w_set = []
 
 
-def main(fname_cinfo=None, nsamples_for_each=100,
-         fdir_out="./data"):
+def main(fname_cinfo=None, nsamples_for_each=100, fdir="./data"):
     """
     Input
-    - pbest: 상위 몇퍼센트 데이터?>
+    - pbest: 상위 몇퍼센트 데이터?
     """
+    
+    if fname_cinfo is None:
+        fname_cinfo = "../dynamics_clustering/data/cluster_id_sub.nc"
 
     cid_dataset = xa.load_dataset(fname_cinfo)
     read_param_range(cid_dataset)
     
     # select data set and export parameters
+    cid_set = [4, 5, 8]
+    # ratio_set = [1, 0.75, 0.5, 0.25, 0.1]
+    # ratio_set = [0.1, 0.05, 0.01, 0]
+    ratio_set = [0, 0.25, 0.5, 0.75, 1]
+    num_itr = 10
+    
     params_tot = []
+    for cid in cid_set:
+        loc = repr_points[int(cid-1)]
+        for ratio in ratio_set:
+            params = set_params(loc, ratio=ratio)
+            params_tot.extend([params]*num_itr)
     
-    cid = 8
+    # cid = 8
+    # loc = repr_points[int(cid-1)]
+    # ratio = 2
+    # num_itr = 1
     
-    loc = repr_points[int(cid-1)]
-    params = set_params(loc)
+    # ratio_set = [ratio]
+    # cid_set = [cid]
+    # params_tot = [set_params(loc, ratio=ratio)]
     
+    controls = OrderedDict(cluster_id=cid_set,
+                           ratio_set=ratio_set)
     
-    write_params(fdir_out, [params, params])
+    write_params(fdir, params_tot)
+    write_control_params(fdir, controls, num_itr)
+    # write_control_params(fdir, [8], 2)
     
     
 def read_param_range(cid_dataset):
@@ -93,7 +120,7 @@ def read_param_range(cid_dataset):
     
     
 # TODO: NEED TO DISCUSS about inter-inhibitory connection in transmission line
-def set_params(locs):
+def set_params(locs, ratio=1):
     alpha = alpha_set[locs[0]]
     beta = beta_set[locs[1]]
     echelon = echelon_set[locs[2]]
@@ -113,34 +140,66 @@ def set_params(locs):
     keys = ("EF", "IF", "TF", "RF", "ES", "IS", "TS", "RS")
     
     # number of cells
-    nums = dict(EF=800, IF=200, TF=20, RF=20,
-                ES=800, IS=200, TS=20, RS=20)
+    NE, NI = 800, 200
+    NTR = 20
+    
+    nums = dict(EF=NE, IF=NI, TF=NTR, RF=NTR,
+                ES=NE, IS=NI, TS=NTR, RS=NTR)
+    # nums = dict(EF=800, IF=200, TF=1, RF=1,
+    #             ES=800, IS=200, TS=1, RS=1)
     
     wa = (w_fast*alpha, w_slow*alpha)
     wb = (w_fast*beta,  w_slow*beta)
     
+    # adjust connection probability
+    npop = NE
+    ntot = NE + NTR*2
+    
+    pe_local, pe_ts = [], []
+    for p in pE:
+        p0 = np.round(p*npop/ntot, 3)
+        n0 = p0 * ntot
+        dn = p * npop - n0
+        
+        pe_local.append(p0)
+        pe_ts.append(np.round(p0+dn/NTR, 4))
+    
     # projection probability (region A -> region B)
     prob = dict(
-        EF=(pE[0], pE[0], pE[0], pE[0], wa[0]*pE[0], wa[0]*pE[0], wa[0]*pE[0], 0),
-        IF=(pI[0], pI[0], pI[0], pI[0], wa[0]*pE[0], wb[0]*pI[0], wb[0]*pI[0], 0),
-        TF=(0, 0, 0, 0, 0, 0, 0, -1),
-        RF=(0, 0, 0, 0, 0, 0, 0,  0),
-        ES=(wa[1]*pE[1], wa[1]*pE[1], wa[1]*pE[1], 0, pE[1], pE[1], pE[1], pE[1]),
-        IS=(wb[1]*pI[1], wb[1]*pI[1], wb[1]*pI[1], 0, pI[1], pI[1], pI[1], pI[1]),
-        TS=(0, 0, 0, -1, 0, 0, 0, 0),
-        RS=(0, 0, 0,  0, 0, 0, 0, 0)
+        EF=(pe_local[0], pe_local[0], pe_local[0], pe_local[0], wa[0]*pE[0], wa[0]*pE[0], wa[0]*pE[0],           0),
+        IF=(      pI[0],       pI[0],       pI[0],       pI[0], wb[0]*pI[0], wb[0]*pI[0], wb[0]*pI[0], wb[0]*pI[0]),
+        TF=(   pe_ts[0],    pe_ts[0],           0,           0,           0,           0,           0,          -1),
+        RF=(   pe_ts[0],    pe_ts[0],           0,           0,           0,           0,           0,           0),
+        ES=(wa[1]*pE[1], wa[1]*pE[1], wa[1]*pE[1],           0, pe_local[1], pe_local[1], pe_local[1], pe_local[1]),
+        IS=(wb[1]*pI[1], wb[1]*pI[1], wb[1]*pI[1], wb[1]*pI[1],       pI[1],       pI[1],       pI[1],       pI[1]),
+        TS=(          0,           0,           0,          -1,    pe_ts[1],    pe_ts[1],           0,           0),
+        RS=(          0,           0,           0,           0,    pe_ts[1],    pe_ts[1],           0,           0)
     )
     
-    # connection strength
+    # prob = dict(
+    #     EF=(      pE[0],       pE[0],       pE[0],       pE[0], wa[0]*pE[0], wa[0]*pE[0], wa[0]*pE[0],           0),
+    #     IF=(      pI[0],       pI[0],       pI[0],       pI[0], wb[0]*pI[0], wb[0]*pI[0], wb[0]*pI[0], wb[0]*pI[0]),
+    #     TF=(   pe_ts[0],    pe_ts[0],           0,           0,           0,           0,           0,          -1),
+    #     RF=(   pe_ts[0],    pe_ts[0],           0,           0,           0,           0,           0,           0),
+    #     ES=(wa[1]*pE[1], wa[1]*pE[1], wa[1]*pE[1],           0,       pE[1],       pE[1],       pE[1],       pE[1]),
+    #     IS=(wb[1]*pI[1], wb[1]*pI[1], wb[1]*pI[1], wb[1]*pI[1],       pI[1],       pI[1],       pI[1],       pI[1]),
+    #     TS=(          0,           0,           0,          -1,    pe_ts[1],    pe_ts[1],           0,           0),
+    #     RS=(          0,           0,           0,           0,    pe_ts[1],    pe_ts[1],           0,           0)
+    # )
+    
+    # connection strength (out)
+    # wTR = [10*w for w in wE]
+    wTR = [ratio*p*a*NE for p, a in zip(pE, wa)]
+    
     weight = dict(
-        EF=(wE[0], wE[0], wE[0], wE[0], wE[0], wE[0], wE[0], 0),
-        IF=(wI[0], wI[0], wI[0], wI[0], wI[0], wI[0], wI[0], 0),
-        TF=(0, 0, 0, 0, 0, 0, 0, 10*wE[0]),
-        RF=(0, 0, 0, 0, 0, 0, 0, 0),
-        ES=(wE[1], wE[1], wE[1], wE[1], wE[1], wE[1], wE[1], 0),
-        IS=(wI[1], wI[1], wI[1], wI[1], wI[1], wI[1], wI[1], 0),
-        TS=(0, 0, 0, 10*wE[1], 0, 0, 0, 0),
-        RS=(0, 0, 0,     0, 0, 0, 0, 0)
+        EF=(wE[0], wE[0], wE[0],  wE[0], wE[0], wE[0], wE[0],      0),
+        IF=(wI[0], wI[0], wI[0],  wI[0], wI[0], wI[0], wI[0],  wI[0]),
+        TF=(wE[0], wE[0],     0,      0,     0,     0,     0, wTR[0]),
+        RF=(wE[0], wE[0],     0,      0,     0,     0,     0,      0),
+        ES=(wE[1], wE[1], wE[1],      0, wE[1], wE[1], wE[1],  wE[1]),
+        IS=(wI[1], wI[1], wI[1],  wI[1], wI[1], wI[1], wI[1],  wI[1]),
+        TS=(    0,     0,     0, wTR[1], wE[1], wE[1],     0,      0),
+        RS=(    0,     0,     0,      0, wE[1], wE[1],     0,      0),
     )
     
     nu = [d*np.sqrt(p) for d, p in zip(d_set, pE)]
@@ -186,12 +245,40 @@ def write_params(fdir_out, params):
             for p in pset:
                 fp.write("%f,"%(p))
             fp.write("\n")
+            
+            
+def write_control_params(fdir_out, controls, num_itr):
+    keys = list(controls.keys())
+    
+    fname = os.path.join(fdir_out, "control_params.txt")
+    with open(fname, "w") as fp:
+        for k in keys:
+            fp.write("%d,"%(len(controls[k])))
+        fp.write("%d,\n"%(num_itr))
+        
+        for k in keys:
+            fp.write("%s:"%(k))
+            for val in controls[k]:
+                fp.write("%f,"%(val))
+            fp.write("\n")
+
+
+# def write_control_params(fdir_out, kset, nsamples_for_each):
+#     fname = os.path.join(fdir_out, "control_params.txt")
+#     with open(fname, "w") as fp:
+#         fp.write("%d,%d,\ncluster_id:"%(len(kset), nsamples_for_each))
+#         for k in kset:
+#             fp.write("%.1f,"%(k))
+#         fp.write("\n")
 
 
 if __name__ == "__main__":
-    main(fname_cinfo="../dynamics_clustering/data/cluster_id_sub.nc",
-         nsamples_for_each=100,
-         fdir_out="./data")
+    # main(fname_cinfo="../dynamics_clustering/data/cluster_id_sub.nc",
+    #      nsamples_for_each=100,
+    #      fdir_out="./data_weak")
+    
+    main(**vars(build_parser().parse_args()))
+    
     # main(fname_cinfo="../dynamics_clustering/data/cluster_id_sub.nc",
     #      pbest=10, nsamples_for_each=500,
     #      fdir_out="./data2", init_seed=42)

@@ -11,7 +11,7 @@
 #include "unistd.h"
 
 
-#define TEST
+// #define TEST
 
 #ifndef TEST
 #include "mpifor.h"
@@ -137,13 +137,22 @@ void run(int job_id, void *nullarg){
     sprintf(fname_info, "%s_info.txt", prefix);
     write_info(&info, fname_info);
 
-    init_measure(N, nmax, 2, pop_range);
-    add_checkpoint(0);
-
     #ifdef TEST
+    // export synaptic network 
+    for (int n=0; n<8; n++){
+        char fname_syn[200];
+        sprintf(fname_syn, "%s_syn_%d.txt", prefix, n);
+        print_syn_network(nnpop.syns+n, fname_syn);
+    }
+
+    // exit(1);
+
     progbar_t bar;
     init_progressbar(&bar, nmax);
     #endif
+
+    init_measure(N, nmax, 2, pop_range);
+    add_checkpoint(0);
 
     int flag_eq = 0;
     for (int nstep=0; nstep<nmax; nstep++){
@@ -235,7 +244,7 @@ void read_params(char *fname){
 
     mpi_barrier();
     MPI_Bcast((void*) nn_info_set, nsamples*sizeof(nn_info_t), MPI_BYTE, 0, MPI_COMM_WORLD);
-    // init_nn(nn_info_set[0].N, nn_info_set[0].num_types);
+    init_nn(nn_info_set[0].N, nn_info_set[0].num_types);
 
     #else
 
