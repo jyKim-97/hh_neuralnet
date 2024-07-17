@@ -96,6 +96,8 @@ void build_ei_rk4(nn_info_t *info){
         init_desyn(num_cells, &syns[n]);
     }
 
+    // printf("N: %d, num_cells: %d\n", info->N, num_cells);
+
     num_ext_types = info->num_ext_types;
     ext_class = (int*) calloc(num_cells, sizeof(int));
     ext_index = (int*) calloc(num_cells, sizeof(int));
@@ -153,20 +155,30 @@ void build_ei_rk4(nn_info_t *info){
     if (info->p_out[0][0] >= 0) flag_ntk = 0;
     else if (info->mdeg_in[0][0] >= 0) flag_ntk = 1;
 
-    if (flag_ntk == -1){
-        printf("Set the connection info (neuralnet.c)!\n"); exit(1);
-    }
+    if (flag_ntk == -1) REPORT_ERROR("Set the connection info");
 
     for (int n=0; n<num_types; n++){
-        ntk_t ntk = get_empty_net(num_cells);
+        ntk_t ntk = get_empty_net(num_cells); // in- network
         for (int i=0; i<num_types; i++){
             if (flag_ntk == 0){
+                // n: pre, i: post
                 gen_er_pout(&ntk, info->p_out[n][i], cell_range[n], cell_range[i]);
             } else {
                 gen_er_mdin(&ntk, info->mdeg_in[n][i], cell_range[n], cell_range[i]);
             }
+
+            // printf("ntype: %d (%d,%d)-%d (%d, %d)\n", n, cell_range[n][0], cell_range[n][1], i, cell_range[i][0], cell_range[i][1]);
+            // for (int nc=1020; nc<1040; nc++){
+            //     printf("%d(%d):", nc, ntk.num_edges[nc]);
+            //     for (int m=0; m<ntk.num_edges[nc]; m++){
+            //         printf("%d,", ntk.adj_list[nc][m]);
+            //     }
+            //     printf("\n");
+            // }
+            // printf("\n");
         }
-        set_network(&syns[n], &ntk);
+
+        set_network(&syns[n], &ntk); // n: pre
         free_network(&ntk);
     }
 

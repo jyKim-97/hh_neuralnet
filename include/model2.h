@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include "ntk.h"
 #include "rng.h"
+#include "utils.h"
 // #include "mt64.h"
 
 extern double _dt;
@@ -38,6 +39,10 @@ typedef struct _wbneuron_t{
 
 
 typedef struct _desyn_t{
+    /*
+    indeg_list: (post-synaptic neuron, pre-synaptic neuron)
+    */
+
     int N;
     // network
     int *num_indeg;

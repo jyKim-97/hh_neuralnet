@@ -78,7 +78,7 @@ static void connect(ntk_t *ntk, int id_pre, int id_post){
         ntk->num_edges[id_pre]++;
 
     } else {
-        printf("Wrong edge direction type\n");
+        REPORT_ERROR("Wrong edge direction type");
     }
 }
 

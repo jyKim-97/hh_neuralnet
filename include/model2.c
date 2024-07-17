@@ -3,11 +3,13 @@
 
 #define IN(x, range) ((x >= range[0]) && (x < range[1]))
 #define _inf 10000000
+#define REPORT_ERROR(msg) print_error(msg, __FILE__, __LINE__)
 
 static inline double get_minf(double v);
 
 double _dt = 0.01;
 int flag_nan = 0;
+
 
 void init_wbneuron(int N, wbneuron_t *neuron){
     neuron->N = N;
@@ -137,14 +139,12 @@ void set_attrib(desyn_t *syn, double ev, double taur, double taud, double ode_fa
 
 
 void set_network(desyn_t *syn, ntk_t *ntk){
-    if (ntk->edge_dir != indeg){
-        printf("Network data type must be indegree! Cannot set synapse\n");
-        return;
-    }
-
-    if (syn->N != ntk->N){
-        printf("Synapse size and Network size are different\n");
-    }
+    /*
+    Set synaptic network (in-) to the given network structure (ntk)
+    */
+   
+    if (ntk->edge_dir != indeg) REPORT_ERROR("Network data type must be indegree! Cannot set synapse");
+    if (syn->N != ntk->N) REPORT_ERROR("Synapse size and Network size are different");
 
     int N = syn->N;
     syn->num_indeg = (int*) calloc(N, sizeof(int));
@@ -421,7 +421,7 @@ void print_syn_network(desyn_t *syn, char *fname){
     FILE *fp = fopen(fname, "w");
     int N = syn->N;
 
-    fprintf(fp, "adjacency list, w\n");
+    fprintf(fp, "adjacency list, w (N=%d)\n", N);
     for (int n=0; n<N; n++){
         int num_pre = syn->num_indeg[n];
         for (int i=0; i<num_pre; i++){
@@ -433,6 +433,10 @@ void print_syn_network(desyn_t *syn, char *fname){
             }
             fprintf(fp, "%d<-%d,%f\n", n,syn->indeg_list[n][i], w);
         }
+
+        // if ((n > 1500) && (n < 1600)){
+        //     for (int i=0; i<num_pre; i++) printf("%d-%d\n", n, syn->indeg_list[n][i]);
+        // }
     }
     fclose(fp);
 }
