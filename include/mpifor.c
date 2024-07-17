@@ -83,12 +83,21 @@ void control_tower(int nitr){
 
 
 void iterate(void (*f) (int, void*), void *arg){
+    /* 
+    Arguments
+    f: functions to run
+    args: the set of arguments
+    */
+
     int id_itr=0;
     MPI_Status status;
 
     MPI_Recv(&id_itr, 1, MPI_INT, 0, SIG_SEND, MPI_COMM_WORLD, &status);
     while (id_itr != -1){
-        // function to iterate
+
+        // int state_val;
+        // jmp_buf state;
+        // state_val = setjmp(state); // record the cucrrent state
         f(id_itr, arg);
 
         MPI_Send(&id_itr, 1, MPI_INT, 0, SIG_DONE, MPI_COMM_WORLD);

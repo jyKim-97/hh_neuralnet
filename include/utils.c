@@ -40,10 +40,11 @@ void progressbar(progbar_t *bar, int nstep)
         pred_end_time = dt * ((double) bar->max_step) / ((double) nstep);
 
         fprintf(stderr, "(%5.1fs / %5.1fs)", dt, pred_end_time);
-        fprintf(stderr, "\r");
+
+        if (nstep < bar->max_step-1) fprintf(stderr, "\r");
     }
 
-    if (nstep == bar->max_step){
+    if (nstep == bar->max_step-1){
         fprintf(stderr, "\n");
     }
 }
