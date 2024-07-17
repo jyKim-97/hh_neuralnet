@@ -198,6 +198,10 @@ class SummaryLoader:
                 self.controls[tmp[0]] = [float(x) for x in tmp[1].split(",")[:-1]]
                 line = fid.readline()
                 
+            self.num_total = 1
+            for n in self.num_controls:
+                self.num_total *= n
+                
     def _load_cache(self):
         fcache = os.path.join(self.fdir, "summary.pkl")
         if os.path.exists(fcache):
@@ -280,26 +284,19 @@ class SummaryLoader:
     def get_id(self, *nid):
         return get_id(self.num_controls, *nid)
     
-    def load_detail(self, *nid):
+    def load_detail(self, *nid, load_now=True):
         if len(nid) == 1:
             n = nid[0]
         else:
             n = get_id(self.num_controls, *nid)
-        tag = os.path.join(self.fdir, "id%06d"%(n))
-        data = {}
-        data["step_spk"], _ = load_spk(tag+"_spk.dat")
-        data["vlfp"], fs = load_vlfp(tag+"_lfp.dat")
-        data["mua"] = load_mua(tag+"_mua.dat")
-        data["ts"] = np.arange(len(data["vlfp"][0])) / fs
-        data["nid"] = nid
-        data["prefix"] = tag
         
-        if os.path.exists(tag+"_info.txt"):
-            with open(tag+"_info.txt", "r") as fid:
-                data["info"] = fid.readlines()
+        tag = os.path.join(self.fdir, "id%06d"%(n))
+        obj = SampleLoader(tag, nid)
+        
+        if load_now:
+            return obj.load()
         else:
-            data["info"] = None
-        return data
+            return obj
 
     def print_params(self, *nid):
         # check
@@ -325,6 +322,29 @@ class SummaryLoader:
         print("Save summary to %s"%(f))
         with open(f, "wb") as fid:
             pkl.dump(self, fid)
+
+
+class SampleLoader:
+    def __init__(self, tag, data_id):
+        self.tag = tag
+        self.data_id = data_id
+        
+    def load(self):
+        data = {}
+        data["step_spk"], _ = load_spk(self.tag+"_spk.dat")
+        data["vlfp"], fs = load_vlfp(self.tag+"_lfp.dat")
+        data["mua"] = load_mua(self.tag+"_mua.dat")
+        data["ts"] = np.arange(len(data["vlfp"][0])) / fs
+        data["nid"] = self.data_id
+        data["prefix"] = self.tag
+        
+        if os.path.exists(self.tag+"_info.txt"):
+            with open(self.tag+"_info.txt", "r") as fid:
+                data["info"] = fid.readlines()
+        else:
+            data["info"] = None
+        
+        return data
 
 
 def read_info(info_string):
@@ -564,12 +584,12 @@ def export_summary(obj:SummaryLoader):
         pkl.dump(obj, fid)
     
 
-def load_summary(f):
-    import pickle as pkl
+# def load_summary(f):
+#     import pickle as pkl
 
-    # need to error log
-    with open(f, "rb") as fid:
-        obj = pkl.load(fid)
+#     # need to error log
+#     with open(f, "rb") as fid:
+#         obj = pkl.load(fid)
     
-    return obj
+#     return obj
 
