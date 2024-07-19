@@ -10,7 +10,7 @@
 #include "utils.h"
 // #include "mt64.h"
 
-extern double _dt;
+extern double _dt; // (ms)
 extern int flag_nan;
 
 #define _spk_buf_size 200
@@ -38,12 +38,26 @@ typedef struct _wbneuron_t{
 } wbneuron_t;
 
 
+typedef struct _pneuron_t{
+    /*
+    Poisson neuron following a specified firing rate
+    */
+    int N; 
+    double fr; // firing rate of poisson neuron
+    double pfr; // firing probability
+    // spike
+    int spk_count; // manage the buffer index
+    int *is_spk, *spk_buf[_spk_buf_size];
+
+} pneuron_t;
+
+
 typedef struct _desyn_t{
     /*
     indeg_list: (post-synaptic neuron, pre-synaptic neuron)
     */
 
-    int N;
+    int N; // number of postsynaptic neurons
     // network
     int *num_indeg;
     int **indeg_list;
@@ -79,6 +93,13 @@ double solve_wb_h(wbparams_t *params, double h, double v);
 double solve_wb_n(wbparams_t *params, double n, double v);
 void check_fire(wbneuron_t *neuron, double *v_prev);
 
+// Poisson neuron
+void init_pneuron(int N, pneuron_t *neuron);
+void destroy_pneuron(pneuron_t *neuron);
+void set_pneuron_attrib(pneuron_t *neuron, double fr);
+// void update_pneuron(pneuron_t *neuron);
+void add_pneuron_spike(desyn_t *psyn, pneuron_t *neuron);
+
 // Synapse
 void init_desyn(int N, desyn_t *syn);
 void destroy_desyn(desyn_t *syn);
@@ -94,7 +115,7 @@ void add_spike(int nstep, desyn_t *syn, wbneuron_t *neuron);
 void update_desyn(desyn_t *syn, int nid);
 double get_current(desyn_t *syn, int nid, double vpost);
 
-// Pos synapse
+// Pos synapse (external synapse)
 void init_extsyn(int N, desyn_t *syn);
 void set_poisson(desyn_t *ext_syn, double nu_mu, double nu_sd, double w_mu, double w_sd);
 void add_ext_spike(desyn_t *ext_syn);

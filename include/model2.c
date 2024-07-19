@@ -5,6 +5,9 @@
 #define _inf 10000000
 #define REPORT_ERROR(msg) print_error(msg, __FILE__, __LINE__)
 
+// count spike
+#define UPDATE_COUNTER(spk_count, nbuf) spk_count = nbuf==_spk_buf_size-1? 0: nbuf+1
+
 static inline double get_minf(double v);
 
 double _dt = 0.01;
@@ -16,17 +19,16 @@ void init_wbneuron(int N, wbneuron_t *neuron){
     neuron->vs   = (double*) malloc(sizeof(double) * N);
     neuron->hs   = (double*) malloc(sizeof(double) * N);
     neuron->ns   = (double*) malloc(sizeof(double) * N);
-    neuron->is_spk = (int*) malloc(sizeof(int) * N);
     neuron->params = (wbparams_t*) malloc(sizeof(wbparams_t) * N);
 
     for (int n=0; n<N; n++){
         neuron->vs[n] = -70; // initializing with constant value
         neuron->hs[n] = 0;
         neuron->ns[n] = 0;
-        neuron->is_spk[n] = 0;
         set_default_wbparams(&neuron->params[n]);
     }
     
+    neuron->is_spk = (int*) calloc(N, sizeof(int));
     for (int n=0; n<_spk_buf_size; n++){
         neuron->spk_buf[n] = (int*) calloc(N, sizeof(int));
     }
@@ -102,16 +104,64 @@ void check_fire(wbneuron_t *neuron, double *v_prev){
             neuron->is_spk[n] = 0;
         }
     }
-    neuron->spk_count = nbuf==_spk_buf_size-1? 0: nbuf+1;
+    UPDATE_COUNTER(neuron->spk_count, nbuf);
+    // neuron->spk_count = nbuf==_spk_buf_size-1? 0: nbuf+1;
 }
 
 
-void init_desyn(int N, desyn_t *syn){
-    syn->N = N;
+void init_pneuron(int N, pneuron_t *neuron){
+    neuron->N = N;
+    neuron->fr = 0;
+    neuron->pfr = 0;
+    neuron->spk_count = 0;
+
+    neuron->is_spk = (int*) calloc(N, sizeof(int));
+    for (int n=0; n<_spk_buf_size; n++){
+        neuron->spk_buf[n] = (int*) calloc(N, sizeof(int));
+    }
+}
+
+
+void destroy_pneuron(pneuron_t *neuron){
+    free(neuron->is_spk);
+    for (int n=0; n<_spk_buf_size; n++){
+        free(neuron->spk_buf);
+    }
+}
+
+
+void set_pneuron_attrib(pneuron_t *neuron, double fr){
+    neuron->fr = fr;
+    neuron->pfr = fr * _dt * 1e-3;
+
+    // printf("fr: %f, pfr: %f\n", neuron->fr, neuron->pfr);
+}
+
+
+// void update_pneuron(pneuron_t *neuron){
+//     if (neuron->pfr == 0){
+//         REPORT_ERROR("firing rate in Poisson neuron is not defined.");
+//     }
+
+//     int N = neuron->N;
+//     double p = neuron->pfr;
+//     int nbuf = neuron->spk_count;
+
+//     for (int n=0; n<N; n++){
+//         int fire = genrand64_real2()<p? 1: 0;
+//         neuron->is_spk[n] = fire;
+//         neuron->spk_buf[nbuf][n] = fire;
+//     }
+//     UPDATE_COUNTER(neuron->spk_count, nbuf);
+// }
+
+
+void init_desyn(int num_post, desyn_t *syn){
+    syn->N = num_post;
     syn->num_indeg  = NULL; //(int*) calloc(N, sizeof(int));
     syn->indeg_list = NULL; //(int**) malloc(N * sizeof(int*));
-    syn->expr = (double*) calloc(N, sizeof(double));
-    syn->expd = (double*) calloc(N, sizeof(double));
+    syn->expr = (double*) calloc(num_post, sizeof(double));
+    syn->expd = (double*) calloc(num_post, sizeof(double));
     syn->w_list = NULL;
     syn->w_ext  = NULL;
     syn->expl   = NULL;
@@ -247,8 +297,9 @@ void set_const_delay(desyn_t *syn, double td){
     syn->load_delay = true;
 
     if (syn->n_delay >= _spk_buf_size){
-        printf("Line 230 in model2.c: Expected delay size exceeds spike buffer size, increase the buffer\n");
-        exit(-1);
+        REPORT_ERROR("Expected delay size exceeds spike buffer size, increase the buffer");
+        // printf("Line 230 in model2.c: Expected delay size exceeds spike buffer size, increase the buffer\n");
+        // exit(-1);
     }
 }
 
@@ -257,6 +308,40 @@ void set_delay(desyn_t *syn, int pre_range[2], int post_range[2], double target_
     if (!syn->load_ntk){
         printf("Network is not loaded, delay cannot be updated\n");
     }
+}
+
+
+void add_pneuron_spike(desyn_t *psyn, pneuron_t *neuron){
+    if (neuron->pfr == 0){
+        REPORT_ERROR("firing rate in Poisson neuron is not defined.");
+    }
+
+    int N = neuron->N;
+    double p = neuron->pfr;
+    int nbuf = neuron->spk_count;
+
+    for (int n=0; n<N; n++){
+        int fire = genrand64_real2()<p? 1: 0;
+        neuron->is_spk[n] = fire;
+        neuron->spk_buf[nbuf][n] = fire;
+    }
+    UPDATE_COUNTER(neuron->spk_count, nbuf);
+
+    for (int npost=0; npost<psyn->N; npost++){
+        int num_pre = psyn->num_indeg[npost];
+        for (int n=0; n<num_pre; n++){
+            int npre = psyn->indeg_list[npost][n];
+
+            // printf("%d,", neuron->is_spk[npre]);
+
+            if (neuron->is_spk[npre] == 1){
+                double wA = psyn->w_list[npost][n] * psyn->A;
+                psyn->expr[npost] += wA;
+                psyn->expd[npost] += wA;
+            }
+        }
+    }
+    // printf("\n");
 }
 
 
