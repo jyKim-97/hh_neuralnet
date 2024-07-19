@@ -11,6 +11,7 @@ extern "C" {
 #endif
 
 #define ONE2ONE -2
+#define NULL_CON -3
 
 enum binet_type {
     outdeg = 0,

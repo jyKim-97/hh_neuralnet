@@ -5,7 +5,7 @@
 
 static void connect(ntk_t *ntk, int id_pre, int id_post);
 
-ntk_t get_empty_net(int N){
+ntk_t get_empty_net(int N){ // npost
     ntk_t ntk;
     ntk.N = N;
     ntk.num_edges = (int*) calloc(N, sizeof(int));
