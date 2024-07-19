@@ -24,6 +24,7 @@ typedef struct _summary_t {
 void init_measure(int N, int num_steps, int _num_class_types, int *_type_range);
 void reset();
 void add_checkpoint(int nstep);
+void add_pmeasure(int NP);
 // void measure(int nstep, wbneuron_t *neuron);
 void measure(int nstep, nnpop_t *nnpop); 
 summary_t flush_measure(void);

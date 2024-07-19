@@ -5,11 +5,14 @@ Source code for measurement
 
 
 // population parameters
-static int ntk_size = -1; // total size of the network
+static int ntk_size = 0; // total size of the network
 static int num_class_types = 0; // total number of different types to measure
 static int *id_class = NULL; // 
 static int num_class[MAX_CLASS_M]; // The maximal number of types
 extern double _dt; // ms
+
+// Poisson input trace
+static int p_size = 0; // number of Poisson inputs
 
 // simulation step
 int max_step  = -1;
@@ -66,6 +69,14 @@ void init_measure(int N, int num_steps, int _num_class_types, int *_type_range){
 }
 
 
+void add_pmeasure(int NP){
+    free_spike();
+
+    p_size = NP;
+    init_spike();
+}
+
+
 void destroy_measure(void){
 
     for (int n=0; n<num_check; n++){
@@ -88,6 +99,7 @@ void destroy_measure(void){
 
 static void set_class(int _num_class_types, int *type_range){
     id_class = (int*) malloc(sizeof(int) * ntk_size);
+    for (int n=0; n<ntk_size; n++) id_class[n] = -1;
     
     if (type_range == NULL){
         num_class_types = 2;
@@ -97,6 +109,7 @@ static void set_class(int _num_class_types, int *type_range){
         int tp = 0;
         for (int n=0; n<ntk_size; n++){
             if (n == type_range[tp]) tp ++;
+            if (num_class_types == tp) break;
             id_class[n] = tp;
         }
     }
@@ -105,7 +118,8 @@ static void set_class(int _num_class_types, int *type_range){
     for (int n=0; n<MAX_CLASS_M; n++) num_class[n] = 0;
 
     for (int n=0; n<ntk_size; n++){
-        if ((id_class[n] < 0) || (id_class[n] >= MAX_CLASS_M-1)){
+        // if ((id_class[n] < 0) || (id_class[n] >= MAX_CLASS_M-1)){
+        if (id_class[n] >= MAX_CLASS_M-1){
             printf("Neuron ID is wrong: %d, resize the LEN or check class\n", id_class[n]);
             exit(1);
         }
@@ -115,6 +129,8 @@ static void set_class(int _num_class_types, int *type_range){
         }
 
         int id = id_class[n];
+        if (id == -1) continue;
+
         num_class[id]++;
     }
 }
@@ -126,9 +142,10 @@ void print_num_check(){
 
 
 static void init_spike(){
-    num_spk  = (int*) calloc(ntk_size, sizeof(int));
-    step_spk = (int**) malloc(ntk_size * sizeof(int*));
-    for (int n=0; n<ntk_size; n++){
+    int num = ntk_size + p_size;
+    num_spk  = (int*) calloc(num, sizeof(int));
+    step_spk = (int**) malloc(num * sizeof(int*));
+    for (int n=0; n<num; n++){
         step_spk[n] = (int*) calloc(_block_size, sizeof(int));
     }
 }
@@ -143,7 +160,7 @@ static void add_checkpoint_spike(){
 static void free_spike(){
     free(num_spk);
     for (int n=0; n<num_check; n++) free(cum_spk[n]);
-    for (int n=0; n<ntk_size; n++) free(step_spk[n]);
+    for (int n=0; n<ntk_size+p_size; n++) free(step_spk[n]);
     free(step_spk);
 }
 
@@ -240,21 +257,6 @@ void measure(int nstep, nnpop_t *nnpop){
     
     double v_tmp=0;
     for (int n=0; n<ntk_size; n++){
-        double v = neuron->vs[n];
-        long double v_pow = v*v;
-        int id = id_class[n];
-
-        // update LFP measure
-        vlfp[id][nstep] += v;
-        vlfp_syn[id][nstep]+= get_syn_current(nnpop, n);
-        
-
-        v_tmp += v;
-        for (int i=0; i<num_check; i++){
-            v1[i][n] += v;
-            v2[i][n] += v_pow;
-        }
-
         // check spike
         if (neuron->is_spk[n]){
             append_int(step_spk+n, num_spk[n], nstep);
@@ -264,6 +266,22 @@ void measure(int nstep, nnpop_t *nnpop){
                 cum_spk[i][n]++;
             }
         }
+
+        // update LFP measure
+        int id = id_class[n];
+        if (id == -1) continue;
+
+        double v = neuron->vs[n];
+        long double v_pow = v*v;
+        
+        vlfp[id][nstep] += v;
+        vlfp_syn[id][nstep]+= get_syn_current(nnpop, n);
+
+        v_tmp += v;
+        for (int i=0; i<num_check; i++){
+            v1[i][n] += v;
+            v2[i][n] += v_pow;
+        }        
     }
     v_tmp /= ntk_size;
 
@@ -283,6 +301,18 @@ void measure(int nstep, nnpop_t *nnpop){
 
     for (int i=0; i<num_check; i++){
         cum_steps[i]++;
+    }
+
+    // Track Poisson input
+    if (p_size <= 0) return;
+
+    pneuron_t *pneuron = nnpop->pneuron;
+    for (int n=0; n<p_size; n++){
+        int ntot = ntk_size+n;
+        if (pneuron->is_spk[n]){
+            append_int(step_spk+ntot, num_spk[ntot], nstep);
+            num_spk[ntot]++;
+        }
     }
 }
 
@@ -414,6 +444,7 @@ static void calculate_cv_isi(summary_t *obj){
         if (cv[n] == -1) continue;
 
         int id = id_class[n];
+        if (id == -1) continue;
         cv_isi_tmp[id] += cv[n];
         stack[id]++;
     }
@@ -437,6 +468,8 @@ static void calculate_flct(summary_t *obj){
         double vm  = v1[0][n]/cum_steps[0];
         double var = v2[0][n]/cum_steps[0] - vm*vm;
         int id = id_class[n];
+        if (id == -1) continue;
+
         var_indiv[id] += var;
     }
 
@@ -467,6 +500,8 @@ static void calculate_firing_rate(summary_t *obj){
     float div = cum_steps[0] * _dt / 1000.;
     for (int n=0; n<ntk_size; n++){
         int id = id_class[n];
+        if (id == -1) continue;
+
         float x = cum_spk[0][n]/div;
 
         m   += x/ntk_size;
@@ -605,11 +640,13 @@ void export_lfp(const char *fname){
 
 
 void export_spike(const char *fname){
+    int ntot = ntk_size + p_size;
+
     FILE *fp = open_file(fname, "wb");
-    int info[2] = {ntk_size, max_step};
+    int info[2] = {ntot, max_step};
     fwrite(info, sizeof(int), 2, fp);
-    fwrite(num_spk, sizeof(int), ntk_size, fp);
-    for (int n=0; n<ntk_size; n++){
+    fwrite(num_spk, sizeof(int), ntot, fp);
+    for (int n=0; n<ntot; n++){
         fwrite(step_spk[n], sizeof(int), num_spk[n], fp);
     }
     fclose(fp);
