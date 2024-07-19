@@ -68,10 +68,6 @@ w_set = []
 
 
 def main(fname_cinfo=None, nsamples_for_each=100, fdir="./data"):
-    """
-    Input
-    - pbest: 상위 몇퍼센트 데이터?
-    """
     
     if fname_cinfo is None:
         fname_cinfo = "../dynamics_clustering/data/cluster_id_sub.nc"
@@ -81,33 +77,29 @@ def main(fname_cinfo=None, nsamples_for_each=100, fdir="./data"):
     
     # select data set and export parameters
     cid_set = [4, 5, 8]
-    # ratio_set = [1, 0.75, 0.5, 0.25, 0.1]
-    # ratio_set = [0.1, 0.05, 0.01, 0]
-    ratio_set = [0, 0.25, 0.5, 0.75, 1]
+    ratio_set = [0, 0.25, 0.5, 1, 2, 3, 5] # 150 + 80 6*19 + 
     num_itr = 10
+        
+    # params_tot = []
+    # for cid in cid_set:
+    #     loc = repr_points[int(cid-1)]
+    #     for ratio in ratio_set:
+    #         params = set_params(loc, ratio=ratio)
+    #         params_tot.extend([params]*num_itr)
     
-    params_tot = []
-    for cid in cid_set:
-        loc = repr_points[int(cid-1)]
-        for ratio in ratio_set:
-            params = set_params(loc, ratio=ratio)
-            params_tot.extend([params]*num_itr)
-    
-    # cid = 8
-    # loc = repr_points[int(cid-1)]
-    # ratio = 2
-    # num_itr = 1
-    
-    # ratio_set = [ratio]
-    # cid_set = [cid]
-    # params_tot = [set_params(loc, ratio=ratio)]
+    cid = 8
+    loc = repr_points[int(cid-1)]
+    ratio = 0
+    num_itr = 1    
+    ratio_set = [ratio]
+    cid_set = [cid]
+    params_tot = [set_params(loc, poisson_fr=5, ratio=ratio)]
     
     controls = OrderedDict(cluster_id=cid_set,
                            ratio_set=ratio_set)
     
     write_params(fdir, params_tot)
     write_control_params(fdir, controls, num_itr)
-    # write_control_params(fdir, [8], 2)
     
     
 def read_param_range(cid_dataset):
@@ -120,7 +112,7 @@ def read_param_range(cid_dataset):
     
     
 # TODO: NEED TO DISCUSS about inter-inhibitory connection in transmission line
-def set_params(locs, ratio=1):
+def set_params(locs, poisson_fr=10, ratio=1):
     alpha = alpha_set[locs[0]]
     beta = beta_set[locs[1]]
     echelon = echelon_set[locs[2]]
@@ -135,81 +127,70 @@ def set_params(locs, ratio=1):
     
     '''
     Types
-    EF, IF, TF, RF, ES, IS, TS, RS (T: transmisson, R: receiver)
+    # EF, IF, TF, RF, ES, IS, TS, RS (T: transmisson, R: receiver)
+    EF, IF, ES, IS, RF, RS, TF, TS (T: transmisson, R: receiver)
     '''
-    keys = ("EF", "IF", "TF", "RF", "ES", "IS", "TS", "RS")
+    # keys = ("EF", "IF", "RF", "ES", "IS", "RS")
+    keys = ("EF", "IF", "ES", "IS", "RF", "RS")
     
     # number of cells
-    NE, NI = 800, 200
-    NTR = 20
-    
-    nums = dict(EF=NE, IF=NI, TF=NTR, RF=NTR,
-                ES=NE, IS=NI, TS=NTR, RS=NTR)
-    # nums = dict(EF=800, IF=200, TF=1, RF=1,
-    #             ES=800, IS=200, TS=1, RS=1)
-    
-    wa = (w_fast*alpha, w_slow*alpha)
-    wb = (w_fast*beta,  w_slow*beta)
-    
-    # adjust connection probability
-    npop = NE
-    ntot = NE + NTR*2
-    
-    pe_local, pe_ts = [], []
-    for p in pE:
-        p0 = np.round(p*npop/ntot, 3)
-        n0 = p0 * ntot
-        dn = p * npop - n0
-        
-        pe_local.append(p0)
-        pe_ts.append(np.round(p0+dn/NTR, 4))
-    
+    nums = [800, 200, 200] # E, I, Recv (= Transmitter)
+
     # projection probability (region A -> region B)
-    prob = dict(
-        EF=(pe_local[0], pe_local[0], pe_local[0], pe_local[0], wa[0]*pE[0], wa[0]*pE[0], wa[0]*pE[0],           0),
-        IF=(      pI[0],       pI[0],       pI[0],       pI[0], wb[0]*pI[0], wb[0]*pI[0], wb[0]*pI[0], wb[0]*pI[0]),
-        TF=(   pe_ts[0],    pe_ts[0],           0,           0,           0,           0,           0,          -1),
-        RF=(   pe_ts[0],    pe_ts[0],           0,           0,           0,           0,           0,           0),
-        ES=(wa[1]*pE[1], wa[1]*pE[1], wa[1]*pE[1],           0, pe_local[1], pe_local[1], pe_local[1], pe_local[1]),
-        IS=(wb[1]*pI[1], wb[1]*pI[1], wb[1]*pI[1], wb[1]*pI[1],       pI[1],       pI[1],       pI[1],       pI[1]),
-        TS=(          0,           0,           0,          -1,    pe_ts[1],    pe_ts[1],           0,           0),
-        RS=(          0,           0,           0,           0,    pe_ts[1],    pe_ts[1],           0,           0)
-    )
+    wa = (w_fast*alpha, w_slow*alpha)
+    wb = ( w_fast*beta,  w_slow*beta)
     
     # prob = dict(
-    #     EF=(      pE[0],       pE[0],       pE[0],       pE[0], wa[0]*pE[0], wa[0]*pE[0], wa[0]*pE[0],           0),
-    #     IF=(      pI[0],       pI[0],       pI[0],       pI[0], wb[0]*pI[0], wb[0]*pI[0], wb[0]*pI[0], wb[0]*pI[0]),
-    #     TF=(   pe_ts[0],    pe_ts[0],           0,           0,           0,           0,           0,          -1),
-    #     RF=(   pe_ts[0],    pe_ts[0],           0,           0,           0,           0,           0,           0),
-    #     ES=(wa[1]*pE[1], wa[1]*pE[1], wa[1]*pE[1],           0,       pE[1],       pE[1],       pE[1],       pE[1]),
-    #     IS=(wb[1]*pI[1], wb[1]*pI[1], wb[1]*pI[1], wb[1]*pI[1],       pI[1],       pI[1],       pI[1],       pI[1]),
-    #     TS=(          0,           0,           0,          -1,    pe_ts[1],    pe_ts[1],           0,           0),
-    #     RS=(          0,           0,           0,           0,    pe_ts[1],    pe_ts[1],           0,           0)
+    #     EF=(      pE[0],       pE[0],       pE[0], wa[0]*pE[0], wa[0]*pE[0], wa[0]*pE[0]),
+    #     IF=(      pI[0],       pI[0],       pI[0], wb[0]*pI[0], wb[0]*pI[0], wa[0]*pE[0]),
+    #     RF=(          0,           0,           0,           0,           0,           0),
+    #     ES=(wa[1]*pE[1], wa[1]*pE[1], wa[1]*pE[1],       pE[1],       pE[1],       pE[1]),
+    #     IS=(wb[1]*pI[1], wb[1]*pI[1], wb[1]*pI[1],       pI[1],       pI[1],       pI[1]),
+    #     RS=(          0,           0,           0,           0,           0,           0)
     # )
     
-    # connection strength (out)
-    # wTR = [10*w for w in wE]
-    wTR = [ratio*p*a*NE for p, a in zip(pE, wa)]
+    # # connection strength (out)
+    # weight = dict(
+    #     EF=(wE[0], wE[0], wE[0], wE[0], wE[0], wE[0]),
+    #     IF=(wI[0], wI[0], wI[0], wI[0], wI[0], wI[0]),
+    #     RF=(    0,     0,     0,     0,     0,     0),
+    #     ES=(wE[1], wE[1], wE[1], wE[1], wE[1], wE[1]),
+    #     IS=(wI[1], wI[1], wI[1], wI[1], wI[1], wI[1]),
+    #     RS=(    0,     0,     0,     0,     0,     0)
+    # )
     
-    weight = dict(
-        EF=(wE[0], wE[0], wE[0],  wE[0], wE[0], wE[0], wE[0],      0),
-        IF=(wI[0], wI[0], wI[0],  wI[0], wI[0], wI[0], wI[0],  wI[0]),
-        TF=(wE[0], wE[0],     0,      0,     0,     0,     0, wTR[0]),
-        RF=(wE[0], wE[0],     0,      0,     0,     0,     0,      0),
-        ES=(wE[1], wE[1], wE[1],      0, wE[1], wE[1], wE[1],  wE[1]),
-        IS=(wI[1], wI[1], wI[1],  wI[1], wI[1], wI[1], wI[1],  wI[1]),
-        TS=(    0,     0,     0, wTR[1], wE[1], wE[1],     0,      0),
-        RS=(    0,     0,     0,      0, wE[1], wE[1],     0,      0),
+    prob = dict(
+        EF=(      pE[0],       pE[0], wa[0]*pE[0], wa[0]*pE[0],       pE[0], wa[0]*pE[0]),
+        IF=(      pI[0],       pI[0], wb[0]*pI[0], wb[0]*pI[0],       pI[0], wb[0]*pI[0]),
+        ES=(wa[1]*pE[1], wa[1]*pE[1],       pE[1],       pE[1], wa[1]*pE[1],       pE[1]),
+        IS=(wb[1]*pI[1], wb[1]*pI[1],       pI[1],       pI[1], wb[1]*pI[1],       pI[1]),
+        RF=(          0,           0,           0,           0,           0,           0),
+        RS=(          0,           0,           0,           0,           0,           0)
     )
     
+    # connection strength (out)
+    weight = dict(
+        EF=(wE[0], wE[0], wE[0], wE[0], wE[0], wE[0]),
+        IF=(wI[0], wI[0], wI[0], wI[0], wI[0], wI[0]),
+        ES=(wE[1], wE[1], wE[1], wE[1], wE[1], wE[1]),
+        IS=(wI[1], wI[1], wI[1], wI[1], wI[1], wI[1]),
+        RF=(    0,     0,     0,     0,     0,     0),
+        RS=(    0,     0,     0,     0,     0,     0)
+    )
+    
+    # weight_tr = [ratio*w*p*nums[0] for w, p in zip(wE, pE)] # TF->RS (0) / TS->RF (1)
+    weight_tr = [ratio, ratio]
     nu = [d*np.sqrt(p) for d, p in zip(d_set, pE)]
     
     # convert
-    params = [nums[k] for k in keys]
+    params = nums[:]
     for k in keys:
         params.extend(prob[k])
     for k in keys:
         params.extend(weight[k])
+    
+    params.extend(weight_tr)
+    params.append(poisson_fr)
     params.extend(nu)
     
     return params
