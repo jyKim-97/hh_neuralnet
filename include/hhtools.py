@@ -327,7 +327,7 @@ class SummaryLoader:
 class SampleLoader:
     def __init__(self, tag, data_id):
         self.tag = tag
-        self.data_id = data_id
+        self.data_id = data_id[0] if len(data_id) == 1 else data_id
         
     def load(self):
         data = {}
