@@ -111,6 +111,15 @@ nn_info_t init_build_info(){
     return info;
 }
 
+
+void set_type_info(nn_info_t *info, int num_types, int type_id[], int type_range[]){
+    info->num_types = num_types;
+    for (int n=0; n<num_types; n++){
+        info->type_id[n] = type_id[n];
+        info->type_range[n] = type_range[n];
+    }
+}
+
 // void set_pneuron_input(nn_info_t *info, int NP, double taur, double taud){
 //     info->NP = NP;
 //     num_pcells = NP;

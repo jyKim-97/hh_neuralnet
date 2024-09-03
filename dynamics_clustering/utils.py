@@ -1,6 +1,24 @@
 import numpy as np
 
 
+key2lb = {"frs_m": "z",
+              "chi": "\chi",
+            #   "CV": "cv",
+              "ac2p_1st": "A_1",
+              "ac2p_large": "A_{M}",
+              "tau_1st": "\\tau_1",
+              "tau_large": "\\tau_{M}",
+              "tlag_1st": "\\tau_{1}",
+              "tlag_large": "\\tau_{M}",
+              "tlag_cc": "\\tau_{C}",
+              "cc1p": "C_{M}",
+              "leading_ratio": "\eta",
+            #   "leading_ratio(abs)": "|\eta|",
+            #   "leading_ratio(abs)": "\bar{\eta}",
+            "leading_ratio(abs)": "\zeta",
+              "dphi": "\Delta \phi"}
+
+
 def set_seed(seed):
     np.random.seed(seed)
 
@@ -18,21 +36,6 @@ def mapping(row_names, num_in_pop=True):
                 key = key[::-1].replace("%d"%(n), key2number[n], 1)[::-1]
                 return key
         return key
-
-    # map
-    key2lb = {"frs_m": "z",
-              "chi": "\chi",
-              "ac2p_1st": "A_1",
-              "ac2p_large": "A_{large}",
-              "tau_1st": "\\tau_1",
-              "tau_large": "\\tau_{large}",
-              "tlag_1st": "\\tau_{1}",
-              "tlag_large": "\\tau_{large}",
-              "tlag_cc": "\\tau_{cc}",
-              "cc1p": "C",
-              "leading_ratio": "\eta",
-              "leading_ratio(abs)": "|\eta|",
-              "dphi": "\Delta \phi"}
 
     key2number = {0: "T", 1: "F", 2: "S"}
     

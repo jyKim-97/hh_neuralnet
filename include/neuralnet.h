@@ -31,7 +31,7 @@ typedef struct _nnpop_t
 typedef struct _neuralnet_info_t{
     int N; // number of neurons
     int num_types; // number of neuron (or synapse) types
-    int type_range[MAX_TYPE]; // number of each type neuron
+    int type_range[MAX_TYPE]; // number of each type neuron (800, 200, ...)
     int type_id[MAX_TYPE]; // 0 (E), 1 (IF), 2(IS)
     
     // set neural network
@@ -76,6 +76,7 @@ typedef struct _neuralnet_info_t{
 // void init_nn(int N, int _num_types);
 // nn_info_t init_build_info(int N, int _num_types);
 nn_info_t init_build_info(void);
+void set_type_info(nn_info_t *info, int num_types, int type_id[], int type_range[]);
 void build_ei_rk4(nn_info_t *info);
 void check_building(void);
 
