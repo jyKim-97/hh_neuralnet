@@ -48,11 +48,13 @@ typedef struct _neuralnet_info_t{
     // poisson neuron is defined as excitatory neuron (num_type = 1)
     int pN; 
     double pfr; // poisson neuron firing rate
-
     // double pmdeg_in[MAX_TYPE];
     double pp_out[MAX_TYPE];
     double pw[MAX_TYPE];
     int prange[MAX_TYPE][2]; // post neuron range
+
+    // controllable neurons
+    // int cN; // number of controllable neurons
 
     // poisson synapse information
     double ptaur, ptaud;
@@ -69,6 +71,8 @@ typedef struct _neuralnet_info_t{
     // double w_ext_multi[MAX_TYPE];
     bool const_current;
     int num_ext_types; // number of external neuron types
+
+    long seed;
 
 } nn_info_t;
 

@@ -7,6 +7,7 @@ const double ev_i = -80;
 static int num_cells = 0;
 static int num_types = 2;
 static int num_pcells = 0;
+// static int num_ccells = 0;
 
 nnpop_t nnpop; // nnpop references whole network providing proxy in the other source codes
 wbneuron_t neuron;
@@ -16,6 +17,10 @@ desyn_t ext_syn[MAX_TYPE] = {0,};
 // Poisson input neuorn
 pneuron_t pneuron;
 desyn_t psyn;
+
+// controllable neuron
+// cneuron_t cneuron;
+// desyn_t csyn;
 
 double taur_default=0.3, taud_default=1;
 int const_current = false;
@@ -342,6 +347,7 @@ void build_ei_rk4(nn_info_t *info){
     // set global variables
     num_cells = info->N;
     num_pcells = info->pN; // Poisson neuron
+    // num_ccells = info->cN; // controllable neuron
     if (num_cells == 0) REPORT_ERROR("The number of neurons is 0");
 
     num_types = info->num_types;
@@ -683,7 +689,7 @@ static void add_spike_total_syns(int nstep){
         add_spike(nstep, &syns[n], &neuron);
     }
 
-    if (num_pcells > 0) add_pneuron_spike(&psyn, &pneuron);
+    if (num_pcells > 0) add_pneuron_spike(nstep, &psyn, &pneuron);
 
     if (!const_current){
         for (int n=0; n<num_ext_types; n++){

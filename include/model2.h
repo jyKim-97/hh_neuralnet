@@ -45,11 +45,32 @@ typedef struct _pneuron_t{
     int N; 
     double fr; // firing rate of poisson neuron
     double pfr; // firing probability
-    // spike
+
+    // controllable part
+    int *n_steps; // currently looking times
+    int *max_steps; // max number of target times
+    int **target_steps;
+
+    // spike activity
     int spk_count; // manage the buffer index
     int *is_spk, *spk_buf[_spk_buf_size];
 
 } pneuron_t;
+
+
+// typedef struct _cneuron_t{
+//     /*
+//     Controllable neuron
+//     */
+//     int N; 
+//     // spike
+//     int *n_steps; // currently looking times
+//     int *max_steps; // max number of target times
+//     int **target_steps;
+//     int spk_count; // manage the buffer index
+//     int *is_spk, *spk_buf[_spk_buf_size];
+
+// } cneuron_t;
 
 
 typedef struct _desyn_t{
@@ -97,8 +118,15 @@ void check_fire(wbneuron_t *neuron, double *v_prev);
 void init_pneuron(int N, pneuron_t *neuron);
 void destroy_pneuron(pneuron_t *neuron);
 void set_pneuron_attrib(pneuron_t *neuron, double fr);
+void set_pneuron_target_time(pneuron_t *neuron, int nid, int len, double *t_steps);
 // void update_pneuron(pneuron_t *neuron);
-void add_pneuron_spike(desyn_t *psyn, pneuron_t *neuron);
+void add_pneuron_spike(int nstep, desyn_t *psyn, pneuron_t *neuron);
+
+// controllable neuron
+// void init_cneuron(int N, cneuron_t *neuron);
+// void destroy_cneuron(cneuron_t *neuron);
+// void set_cneuron_target_time(cneuron_t *neuron, int nid, int len, double *t_steps);
+// void add_cneuron_spike(int nstep, desyn_t *csyn, cneuron_t *neuron);
 
 // Synapse
 void init_desyn(int N, desyn_t *syn);

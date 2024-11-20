@@ -115,6 +115,11 @@ void init_pneuron(int N, pneuron_t *neuron){
     neuron->pfr = 0;
     neuron->spk_count = 0;
 
+    // controllable part
+    neuron->n_steps = (int*) calloc(N, sizeof(int));
+    neuron->max_steps = (int*) calloc(N, sizeof(int));
+    neuron->target_steps = (int**) malloc(sizeof(int*) * N);
+
     neuron->is_spk = (int*) calloc(N, sizeof(int));
     for (int n=0; n<_spk_buf_size; n++){
         neuron->spk_buf[n] = (int*) calloc(N, sizeof(int));
@@ -123,10 +128,20 @@ void init_pneuron(int N, pneuron_t *neuron){
 
 
 void destroy_pneuron(pneuron_t *neuron){
+
+    // destroy controllable part
+    free(neuron->n_steps);
+    free(neuron->max_steps);
+    for (int n=0; n<neuron->N; n++){
+        free(neuron->target_steps[n]);
+    }
+    free(neuron->target_steps);
+
     free(neuron->is_spk);
     for (int n=0; n<_spk_buf_size; n++){
-        free(neuron->spk_buf);
+        free(neuron->spk_buf[n]);
     }
+    free(neuron->spk_buf);
 }
 
 
@@ -136,6 +151,67 @@ void set_pneuron_attrib(pneuron_t *neuron, double fr){
 
     // printf("fr: %f, pfr: %f\n", neuron->fr, neuron->pfr);
 }
+
+
+// void init_cneuron(int N, cneuron_t *neuron){
+//     neuron->N = N;
+
+//     neuron->n_steps = (int*) calloc(N, sizeof(int));
+//     neuron->max_steps = (int*) calloc(N, sizeof(int));
+//     neuron->target_steps = (int**) malloc(sizeof(int*) * N);
+
+//     neuron->spk_count = 0;
+//     neuron->is_spk = (int*) calloc(N, sizeof(int));
+//     for (int n=0; n<_spk_buf_size; n++){
+//         neuron->spk_buf[n] = (int*) calloc(N, sizeof(int));
+//     }
+// }
+
+
+// void destroy_cneuron(cneuron_t *neuron){
+
+//     free(neuron->n_steps);
+//     free(neuron->max_steps);
+    
+//     for (int n=0; n<neuron->N; n++){
+//         free(neuron->target_steps[n]);
+//     }
+//     free(neuron->target_steps);
+
+//     free(neuron->is_spk);
+//     for (int n=0; n<_spk_buf_size; n++){
+//         free(neuron->spk_buf[n]);
+//     }
+//     free(neuron->spk_buf);
+// }
+
+
+void set_pneuron_target_time(pneuron_t *neuron, int nid, int len, double *t_steps){
+    
+    int num_step = 0;
+    int nt_prv = -1;
+    for (int n=0; n<len; n++){
+        int nt = (int) (t_steps[n] / _dt);
+        if (nt_prv != nt){
+            num_step ++;
+        }
+        nt_prv = nt;
+    }
+
+    neuron->max_steps[nid] = num_step;
+    neuron->target_steps[nid] = (int*) malloc(sizeof(int) * num_step);
+    int i = 0;
+    nt_prv = -1;
+    for (int n=0; n<len; n++){
+        int nt = (int) (t_steps[n] / _dt);
+        if (nt_prv != nt){
+            neuron->target_steps[nid][i] = nt;
+            i++;
+        }
+        nt_prv = nt;
+    }
+}
+
 
 
 // void update_pneuron(pneuron_t *neuron){
@@ -311,17 +387,64 @@ void set_delay(desyn_t *syn, int pre_range[2], int post_range[2], double target_
 }
 
 
-void add_pneuron_spike(desyn_t *psyn, pneuron_t *neuron){
-    if (neuron->pfr == 0){
-        REPORT_ERROR("firing rate in Poisson neuron is not defined.");
-    }
+// void add_cneuron_spike(int nstep, desyn_t *csyn, cneuron_t *neuron){
+//     int N = neuron->N;
+
+//     // check firing
+//     int nbuf = neuron->spk_count;
+//     for (int n=0; n<N; n++){
+//         if (neuron->n_steps[n] == neuron->max_steps[n]) continue;
+        
+//         int i =  neuron->n_steps[n];
+//         int nt = neuron->target_steps[i];
+//         if (nt == nstep) neuron->n_steps[n]++;
+
+//         int fire = nt==nstep? 1: 0;
+//         neuron->is_spk[n] = fire;
+//         neuron->spk_buf[nbuf][n] = fire;
+//     }
+//     UPDATE_COUNTER(neuron->spk_count, nbuf);
+
+//     for (int npost=0; npost<csyn->N; npost++){
+//         int num_pre = csyn->num_indeg[npost];
+//         for (int n=0; n<num_pre; n++){
+//             int npre = csyn->indeg_list[npost][n];
+
+//             if (neuron->is_spk[npre] == 1){
+//                 double wA = csyn->w_list[npost][n] * csyn->A;
+//                 csyn->expr[npost] += wA;
+//                 csyn->expd[npost] += wA;
+//             }
+//         }
+//     }
+// }
+
+
+
+void add_pneuron_spike(int nstep, desyn_t *psyn, pneuron_t *neuron){
+    // if (neuron->pfr == 0){
+    //     REPORT_ERROR("firing rate in Poisson neuron is not defined.");
+    // }
 
     int N = neuron->N;
     double p = neuron->pfr;
     int nbuf = neuron->spk_count;
 
     for (int n=0; n<N; n++){
-        int fire = genrand64_real2()<p? 1: 0;
+        // check controllable part
+        int fire;
+        if (neuron->max_steps[n] > 0){ // control
+            if (neuron->n_steps[n] == neuron->max_steps[n]) continue;
+            int i =  neuron->n_steps[n];
+            int nt = neuron->target_steps[n][i];
+            fire = nt==nstep? 1: 0;
+            if (nt == nstep){
+                neuron->n_steps[n]++;
+            }
+        } else { // random firing
+            fire = genrand64_real2()<p? 1: 0;
+        }
+
         neuron->is_spk[n] = fire;
         neuron->spk_buf[nbuf][n] = fire;
     }

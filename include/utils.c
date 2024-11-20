@@ -98,7 +98,7 @@ void print_elapsed(void)
         msec += 1e3;
     }
 
-    printf("elapsed time = %ds %dms %dus\n", sec, msec, usec);
+printf("elapsed time = %ds %dms %dus\n", sec, msec, usec);
 
 }
 
