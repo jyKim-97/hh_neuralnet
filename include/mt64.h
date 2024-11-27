@@ -51,6 +51,9 @@
    Any feedback is very welcome.
    http://www.math.hiroshima-u.ac.jp/~m-mat/MT/emt.html
    email: m-mat @ math.sci.hiroshima-u.ac.jp (remove spaces)
+
+
+Jungyoung modified the source code for adapting more than one rng
 */
 
 #ifdef __cplusplus
@@ -63,12 +66,12 @@ void init_genrand64(unsigned long long seed);
 /* initialize by an array with array-length */
 /* init_key is the array for initializing keys */
 /* key_length is its length */
-void init_by_array64(unsigned long long init_key[], 
-		     unsigned long long key_length);
+// void init_by_array64(unsigned long long init_key[], 
+// 		     unsigned long long key_length);
 
 /* generates a random number on [0, 2^64-1]-interval */
+unsigned long long genrand64_int64_by_id(int rng_id);
 unsigned long long genrand64_int64(void);
-
 
 /* generates a random number on [0, 2^63-1]-interval */
 long long genrand64_int63(void);
@@ -77,13 +80,15 @@ long long genrand64_int63(void);
 double genrand64_real1(void);
 
 /* generates a random number on [0,1)-real-interval */
+double genrand64_real2_by_id(int rng_id);
 double genrand64_real2(void);
 
 /* generates a random number on (0,1)-real-interval */
 double genrand64_real3(void);
 
 /* generates a random number on (mu, sigma) normal distribution */
-double genrand64_normal(double mu, double sigma);
+double genrand64_normal_by_id(int rng_id);
+double genrand64_normal(void);
 
 #ifdef __cplusplus
 }
