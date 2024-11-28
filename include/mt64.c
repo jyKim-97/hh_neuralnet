@@ -74,7 +74,8 @@ typedef struct _rng_state_t {
 
 
 static int num_state=0;
-static rng_state_t mt_state[MAX_RNG];
+static rng_state_t mt_state[MAX_RNG]={0,};
+static int default_id=0;
 
 /* The array for the state vector */
 // static unsigned long long mt[NN]; 
@@ -84,14 +85,27 @@ static rng_state_t mt_state[MAX_RNG];
 /* initializes mt[NN] with a seed */
 void init_genrand64(unsigned long long seed)
 {
-    unsigned long long *mt = mt_state[num_state].mt;
-    int mti = mt_state[num_state].mti;
+    init_genrand64_by_id(seed, num_state);
+    num_state++;
+    printf("state added: %d, %lld\n", num_state, seed);
+}
+
+
+void init_genrand64_by_id(unsigned long long seed, int rng_id)
+{
+    if (rng_id > num_state){
+        fprintf(stderr, "Error: rng_id (%d) exceeds num_state (%d)\n", rng_id, num_state);
+    }
+    
+    unsigned long long *mt = mt_state[rng_id].mt;
+    int mti = mt_state[rng_id].mti;
 
     mt[0] = seed;
     for (mti=1; mti<NN; mti++) 
         mt[mti] =  (6364136223846793005ULL * (mt[mti-1] ^ (mt[mti-1] >> 62)) + mti);
     
-    num_state++;
+    // num_state++;
+    
 }
 
 /* initialize by an array with array-length */
@@ -126,8 +140,8 @@ void init_genrand64(unsigned long long seed)
 unsigned long long genrand64_int64_by_id(int rng_id)
 {
     /*rng_id is the rng_id order*/
-    if (rng_id >= num_state){
-        printf("RNG is not initialized: %d/%d\n", rng_id, num_state);
+    if (rng_id > num_state){
+        fprintf(stderr, "Error: rng_id (%d) exceeds num_state (%d)\n", rng_id, num_state);
     }
 
     int i;
@@ -142,7 +156,7 @@ unsigned long long genrand64_int64_by_id(int rng_id)
         /* if init_genrand64() has not been called, */
         /* a default initial seed is used     */
         if (mti == NN+1) 
-            init_genrand64(5489ULL); 
+            init_genrand64_by_id(5489ULL, rng_id); 
 
         for (i=0;i<NN-MM;i++) {
             x = (mt[i]&UM)|(mt[i+1]&LM);
@@ -159,7 +173,9 @@ unsigned long long genrand64_int64_by_id(int rng_id)
     }
   
     x = mt[mti];
-    mt_state[rng_id].mti++;
+    mt_state[rng_id].mti = mti+1;
+
+    // printf("x: %lld, mt: %d\n", x, mt_state[rng_id].mti);
 
     x ^= (x >> 29) & 0x5555555555555555ULL;
     x ^= (x << 17) & 0x71D67FFFEDA60000ULL;
@@ -170,9 +186,22 @@ unsigned long long genrand64_int64_by_id(int rng_id)
 }
 
 
+void change_default_rng_id(int rng_id){
+    default_id = rng_id;
+}
+
+
+void print_mt_state(int rng_id){
+    // fprintf(stderr, "num_state: %d\n", num_state);
+    unsigned long long *mt = mt_state[rng_id].mt;
+    int mti = mt_state[rng_id].mti;
+    printf("mti: %d, x: %lld\n", mti, mt[mti]);
+}
+
+
 unsigned long long genrand64_int64(void)
 {
-    return genrand64_int64_by_id(0);
+    return genrand64_int64_by_id(default_id);
 }
 
 
@@ -196,7 +225,7 @@ double genrand64_real2_by_id(int rng_id)
 
 double genrand64_real2(void)
 {
-    return genrand64_real2_by_id(0);
+    return genrand64_real2_by_id(default_id);
 }
 
 /* generates a random number on (0,1)-real-interval */
@@ -221,5 +250,5 @@ double genrand64_normal_by_id(int rng_id)
 
 double genrand64_normal(void)
 {
-    return genrand64_normal_by_id(0);
+    return genrand64_normal_by_id(default_id);
 }

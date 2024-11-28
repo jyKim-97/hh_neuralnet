@@ -62,6 +62,9 @@ extern "C" {
 
 /* initializes mt[NN] with a seed */
 void init_genrand64(unsigned long long seed);
+void init_genrand64_by_id(unsigned long long seed, int rng_id);
+void change_default_rng_id(int rng_id);
+void print_mt_state(int rng_id);
 
 /* initialize by an array with array-length */
 /* init_key is the array for initializing keys */
