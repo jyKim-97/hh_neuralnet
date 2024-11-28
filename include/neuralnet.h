@@ -11,6 +11,7 @@
 #define E 0
 #define IF 1
 #define IS 2
+#define tP 3 // pseudo neurons: which only receives input
 
 typedef struct _nnpop_t
 {
@@ -32,7 +33,7 @@ typedef struct _neuralnet_info_t{
     int N; // number of neurons
     int num_types; // number of neuron (or synapse) types
     int type_range[MAX_TYPE]; // number of each type neuron (800, 200, ...)
-    int type_id[MAX_TYPE]; // 0 (E), 1 (IF), 2(IS)
+    int type_id[MAX_TYPE]; // 0 (E), 1 (IF), 2(IS), 3(tP)
     
     // set neural network
     double mdeg_in[MAX_TYPE][MAX_TYPE];

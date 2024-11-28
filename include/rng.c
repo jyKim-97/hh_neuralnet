@@ -12,6 +12,11 @@ void set_seed(long seed){
 }
 
 
+void set_seed_by_id(long seed, int rng_id){
+    init_genrand64_by_id(seed, rng_id);
+}
+
+
 double *exp_lambda = NULL;
 void init_exp_lambda(int N, const double *lambda){
     exp_lambda = (double*) malloc(sizeof(double) * N);

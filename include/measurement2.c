@@ -256,6 +256,7 @@ void measure(int nstep, nnpop_t *nnpop){
     wbneuron_t *neuron = nnpop->neuron;
     
     double v_tmp=0;
+    // printf("ntk_size: %d\n", ntk_size);
     for (int n=0; n<ntk_size; n++){
         // check spike
         if (neuron->is_spk[n]){
@@ -269,6 +270,8 @@ void measure(int nstep, nnpop_t *nnpop){
 
         // update LFP measure
         int id = id_class[n];
+        // printf("n: %d, id: %d\n", n, id);
+
         if (id == -1) continue;
 
         double v = neuron->vs[n];

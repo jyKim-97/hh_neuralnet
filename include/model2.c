@@ -199,7 +199,7 @@ void set_pneuron_target_time(pneuron_t *neuron, int nid, int len, double *t_step
     }
 
     neuron->max_steps[nid] = num_step;
-    neuron->target_steps[nid] = (int*) malloc(sizeof(int) * num_step);
+    neuron->target_steps[nid] = (int*) malloc(sizeof(int) * (num_step+1));
     int i = 0;
     nt_prv = -1;
     for (int n=0; n<len; n++){
@@ -210,6 +210,7 @@ void set_pneuron_target_time(pneuron_t *neuron, int nid, int len, double *t_step
         }
         nt_prv = nt;
     }
+    neuron->target_steps[nid][num_step] = -1;
 }
 
 
@@ -306,7 +307,7 @@ void set_gaussian_coupling(desyn_t *syn, double w_mu, double w_sd){
 
     syn->w_ext = (double*) malloc(sizeof(double) * N);
     for (int n=0; n<N; n++){
-        syn->w_ext[n] = genrand64_normal(w_mu, w_sd);
+        syn->w_ext[n] = genrand64_normal()*w_sd + w_mu;
     }
 
     syn->is_ext = true;
@@ -434,12 +435,13 @@ void add_pneuron_spike(int nstep, desyn_t *psyn, pneuron_t *neuron){
         // check controllable part
         int fire;
         if (neuron->max_steps[n] > 0){ // control
-            if (neuron->n_steps[n] == neuron->max_steps[n]) continue;
-            int i =  neuron->n_steps[n];
-            int nt = neuron->target_steps[n][i];
-            fire = nt==nstep? 1: 0;
-            if (nt == nstep){
-                neuron->n_steps[n]++;
+            if (neuron->n_steps[n] >= neuron->max_steps[n]){
+                fire = 0;
+            } else {
+                int i =  neuron->n_steps[n];
+                int nt = neuron->target_steps[n][i];
+                fire = nt==nstep? 1: 0;
+                neuron->n_steps[n] += fire;                
             }
         } else { // random firing
             fire = genrand64_real2()<p? 1: 0;
@@ -590,7 +592,7 @@ void set_poisson(desyn_t *ext_syn, double nu_mu, double nu_sd, double w_mu, doub
     ext_syn->nu_ext = (double*) malloc(sizeof(double) * N);
     ext_syn->expl   = (double*) malloc(sizeof(double) * N);
     for (int n=0; n<N; n++){
-        ext_syn->nu_ext[n] = genrand64_normal(nu_mu, nu_sd);
+        ext_syn->nu_ext[n] = genrand64_normal()*nu_sd+nu_mu;
         ext_syn->expl[n] = exp(-_dt/1000.* ext_syn->nu_ext[n]);
     }
 }

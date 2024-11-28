@@ -26,8 +26,8 @@ void end_stream();
 // #else
 //     #define get_poisson_array(N, exp_l) get_poisson_array_single(N, exp_l)
 // #endif
-
 void set_seed(long seed);
+void set_seed_by_id(long seed, int rng_id);
 int *get_poisson_array_single(int N, const double *exp_l);
 int pick_random_poisson(double exp_l);
 void init_exp_lambda(int N, const double *lambda);

@@ -34,12 +34,12 @@ double cell_ratio2[2] = {0.8, 0.2};
 double cell_ratio3[3] = {4./5, 1./10, 1./10};
 double cell_ratio4[4] = {2./5, 1./5, 2./5, 1./5};
 int cell_range[MAX_TYPE][2] = {0,};
+static int *rng_id = NULL;
 
 // network construction
 static void init_background_input(nn_info_t *info);
 static void init_poisson_input(nn_info_t *info);
 static void set_cell_range(nn_info_t *info);
-
 
 static void add_spike_total_syns(int nstep);
 static void update_total_syns(int nid);
@@ -77,6 +77,7 @@ nn_info_t init_build_info(){
     info.N = 0;
     info.num_types = 0;
     info.pN = 0;
+    info.seed = -1;
 
     for (int i=0; i<MAX_TYPE; i++){
         info.type_range[i] = cell_range[i][1];
@@ -118,6 +119,14 @@ nn_info_t init_build_info(){
 
 
 void set_type_info(nn_info_t *info, int num_types, int type_id[], int type_range[]){
+    /*
+    allocate type information to info
+    - info
+    - num_types, int
+    - type_id, (int,)
+    - type_range, (int,)
+        The number of cells
+     */
     info->num_types = num_types;
     for (int n=0; n<num_types; n++){
         info->type_id[n] = type_id[n];
@@ -153,7 +162,7 @@ static void build_desyn(nn_info_t *info){
         for (int n=0; n<MAX_TYPE; n++){
             int nid = info->type_id[n];
             if (nid == -1) break;
-            if (nid > 2){
+            if (nid > tP){
                 char msg[300];
                 sprintf(msg, "Invalid type ID: %d", nid);
                 REPORT_ERROR(msg);
@@ -180,8 +189,8 @@ static void build_desyn(nn_info_t *info){
         set_attrib(&syns[i], ev_set[i], info->taur[i], info->taud[i], 0.5);
     }
 
-
     // connect network
+    // printf("num_types: %d\n", num_types);
     int flag_ntk = -1;
     if (info->p_out[0][0] != NULL_CON){
         flag_ntk = 0;
@@ -192,6 +201,12 @@ static void build_desyn(nn_info_t *info){
     for (int n=0; n<num_types; n++){
         ntk_t ntk = get_empty_net(num_cells); // in- network
         for (int i=0; i<num_types; i++){
+            if ((info->type_id[n] == tP) || (info->type_id[i] == tP)){
+                change_default_rng_id(1);
+            } else {
+                change_default_rng_id(0);
+            }
+
             if (flag_ntk == 0){ // n: pre, i: post
                 gen_er_pout(&ntk, info->p_out[n][i], cell_range[n], cell_range[i]);
             } else { 
@@ -207,7 +222,7 @@ static void build_desyn(nn_info_t *info){
     for (int n=0; n<num_types; n++){
         for (int i=0; i<num_types; i++){
             set_coupling(&syns[n], cell_range[n], cell_range[i], info->w[n][i]);
-        }
+    }
         check_coupling(&syns[n]);
     }
 
@@ -271,8 +286,6 @@ static void init_poisson_input(nn_info_t *info){
         int num = info->prange[n][1] - info->prange[n][0];
         int pre_range[2] = {nstack, nstack+num};
         if (info->prange[n][0] == -1) break;
-
-        // printf("%d:%d -> %d:%d\n", pre_range[0],ntk pre_range[1], info->prange[n][0], info->prange[n][1]);
 
         // gen_er_pout(&pntk, info->pp_out[n], pre_range, info->prange[n]);
         gen_er_pout(&pntk, ONE2ONE, pre_range, info->prange[n]);
@@ -360,6 +373,8 @@ void build_ei_rk4(nn_info_t *info){
     init_background_input(info); // set external input
     init_poisson_input(info); 
 
+    printf("after building: ");
+    print_mt_state(0);
 }
 
 
@@ -381,7 +396,7 @@ void set_multiple_ext_input(nn_info_t *info, int type_id, int num_targets, int *
 
         ext_class[nid] = type_id;
         ext_index[nid] = n;
-    }
+    }    
 
     init_extsyn(num_targets, &(ext_syn[type_id]));
     set_attrib(&(ext_syn[type_id]), 0, taur_default, taud_default, 0.5);
@@ -439,6 +454,8 @@ static void set_cell_range(nn_info_t *info){
             cell_range[n][0] = ncum;
             cell_range[n][1] = ncum + info->type_range[n];
             ncum += info->type_range[n];
+
+            // printf("range (%d): %d-%d\n", info->type_id[n], cell_range[n][0], cell_range[n][1]);
         }
     }
 
@@ -467,11 +484,23 @@ static void set_cell_range(nn_info_t *info){
         exit(1);
     }
 
-    // printf("cell_range\n");
-    // for (int n=0; n<num_types; n++){
-    //     printf("[%4d, %4d]\n", cell_range[n][0], cell_range[n][1]);
-    // }
-    // printf("\n");
+    // random number generator ID:
+    // 0: E/I
+    // 1: pneuron
+    rng_id = (int*) malloc(sizeof(int) * info->N);
+    for (int i=0; i<info->num_types; i++){
+        int n0 = cell_range[i][0];
+        int n1 = cell_range[i][1];
+        int id = info->type_id[i];
+
+        for (int n=n0; n<n1; n++){
+            if (id == tP){
+                rng_id[n] = 1;
+            } else {
+                rng_id[n] = 0;
+            }
+        }
+    }
 }
 
 
@@ -497,6 +526,7 @@ void write_info(nn_info_t *info, char *fname){
     // }
 
     FILE *fp = open_file(fname, "w");
+    fprintf(fp, "seed: %ld\n", info->seed);
     fprintf(fp, "Size: %d\n", info->N);
     fprintf(fp, "ntypes: %d\n", info->num_types);
     fprintf(fp, "type_range: ");
@@ -513,7 +543,7 @@ void write_info(nn_info_t *info, char *fname){
         fprintf(fp, "%f, %f\n", info->taur[n], info->taud[n]);
     }
 
-    fprintf(fp, "mean indegree:\n");
+    fprintf(fp, "mean indegree (row: pre / col: post):\n");
     fprintf2d_d(fp, info->num_types, info->mdeg_in);
     fprintf(fp, "connection prob (out):\n");
     fprintf2d_d(fp, info->num_types, info->p_out);
@@ -574,7 +604,10 @@ void update_rk4(int nstep, double iapp){
 
     double *v_prev = (double*) malloc(sizeof(double) * num_cells);
 
+
     for (int id=0; id<num_cells; id++){
+        change_default_rng_id(rng_id[id]);
+
         v_prev[id] = neuron.vs[id];
         wbparams_t *ptr_params = neuron.params+id;
         double v0=neuron.vs[id], h0=neuron.hs[id], n0=neuron.ns[id];
@@ -612,6 +645,8 @@ void update_rk4(int nstep, double iapp){
         neuron.hs[id] = h0 + (dh1 + 2*dh2 + 2*dh3 + dh4)/6.;
         neuron.ns[id] = n0 + (dn1 + 2*dn2 + 2*dn3 + dn4)/6.;
     }
+
+    change_default_rng_id(0);
 
     check_fire(&neuron, v_prev);
     add_spike_total_syns(nstep);
@@ -677,6 +712,8 @@ void destroy_neuralnet(void){
         free(ext_class);
         free(ext_index);
     }
+    // free rngID
+    free(rng_id);
 
     #ifdef USE_MKL
     end_stream();
@@ -693,6 +730,14 @@ static void add_spike_total_syns(int nstep){
 
     if (!const_current){
         for (int n=0; n<num_ext_types; n++){
+            if (n < 2) {
+                change_default_rng_id(0);
+            } else if (n < 4){
+                change_default_rng_id(1);
+            } else {
+                REPORT_ERROR("Unexpected ext type");
+            }
+
             add_ext_spike(&(ext_syn[n]));
         }
     }
