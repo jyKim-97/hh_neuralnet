@@ -8,16 +8,21 @@
 #include "model2.h"
 #include "neuralnet.h"
 #include "measurement2.h"
-#include "mpifor.h"
 #include "unistd.h"
 
-// 
+#define TEST
+
+#ifndef TEST
+#include "mpifor.h"
+#endif
 
 
 extern double _dt;
 // extern wbneuron_t neuron;
 extern nnpop_t nnpop;
 extern int world_size, world_rank;
+
+static void print_syn_ntk(const char *prefix);
 
 
 int N = 2000;
@@ -49,14 +54,17 @@ double taud[] = {  1, 2.5,   1, 8};
 int main(int argc, char **argv){
 
     /* read args & init parameters */
+    #ifndef TEST
     init_mpi(&argc, &argv);
+    #endif
     // set_seed(time(NULL) * world_size * 5 + world_rank*2);
     ignore_exist_file(true);
-
     read_args(argc, argv);
     read_params(fname_params);
 
+    #ifndef TEST
     mpi_barrier();
+    #endif
     if (world_rank == 0){
         printf("%d samples are found\n", nsamples);
     }
@@ -67,7 +75,11 @@ int main(int argc, char **argv){
     /* run simulation */
     struct timeval tic, toc;
     gettimeofday(&tic, NULL);
+    #ifndef TEST
     for_mpi(nsamples, run, NULL);
+    #else
+    for (int n=0; n<nsamples; n++) run(n, NULL);
+    #endif
 
     if (world_rank == 0){
         gettimeofday(&toc, NULL);
@@ -76,7 +88,10 @@ int main(int argc, char **argv){
 
     /* close simulation */
     free(nn_info_set);
+    #ifndef TEST
     end_mpi();
+    #endif
+
     return 0;
 }
 
@@ -84,9 +99,8 @@ int main(int argc, char **argv){
 void run(int job_id, void *nullarg){
 
     nn_info_t info = nn_info_set[job_id];
-    set_seed(info.seed);
 
-    printf("#%03d started (seed: %8d)\n", job_id, info.seed);
+    // printf("#%03d started (seed: %8d)\n", job_id, info.seed);
 
     // check is file exist
     char fname_exist[200];
@@ -103,6 +117,7 @@ void run(int job_id, void *nullarg){
     path_join(fbuf, fdir_out, fname_info);
     write_info(&info, fbuf);
 
+    set_seed(info.seed);
     build_ei_rk4(&info);
     allocate_multiple_ext(&info);
 
@@ -112,6 +127,17 @@ void run(int job_id, void *nullarg){
     int pop_range[2] = {N/2, N};
     init_measure(N, nmax, 2, pop_range);
     add_checkpoint(0);
+
+    // check synaptic network
+    #ifdef TEST
+    char fname_id[100], prefix[200];
+    sprintf(fname_id, "id%06d", job_id);
+    path_join(prefix, fdir_out, fname_id);
+    print_syn_ntk(prefix);
+
+    progbar_t bar;
+    init_progressbar(&bar, nmax);
+    #endif
 
     int flag_eq = 0;
     for (int nstep=0; nstep<nmax; nstep++){
@@ -135,6 +161,10 @@ void run(int job_id, void *nullarg){
         KEEP_SIMUL();
         // measure(nstep, &neuron);
         measure(nstep, &nnpop);
+
+        #ifdef TEST
+        progressbar(&bar, nstep);
+        #endif
     }
 
     /* Extract values */
@@ -175,7 +205,7 @@ void read_args(int argc, char **argv){
         // } else if (strcmp(argv[n], "-t") == 0){
         if (strcmp(argv[n], "-t") == 0){
             tmax = atof(argv[n+1]); n++;
-        } else if (strcmp(argv[n], "--fdir_out") == 0){
+        } else if (strcmp(argv[n], "--fdir") == 0){
             strcpy(fdir_out, argv[n+1]); n++;
         } else {
             printf("Wrong argument typed: %s\n", argv[n]);
@@ -218,12 +248,11 @@ void read_params(char *fname){
 
         fclose(fp);
 
-        printf("fast->slow: %f\n slow->fast: %f\n", nn_info_set[nsamples-1].p_out[0][2],
-                                                nn_info_set[nsamples-1].p_out[2][0]);
-
-        // print(nn_info_set[nsamples-1].p_out[0][2])
+        // printf("fast->slow: %f\n slow->fast: %f\n", nn_info_set[nsamples-1].p_out[0][2],
+        //                                         nn_info_set[nsamples-1].p_out[2][0]);
     }
 
+    #ifndef TEST
     MPI_Bcast(&nsamples, 1, MPI_INT, 0, MPI_COMM_WORLD);
     if (world_rank != 0){
         nn_info_set = (nn_info_t*) malloc(sizeof(nn_info_t) * nsamples);
@@ -231,6 +260,7 @@ void read_params(char *fname){
 
     mpi_barrier();
     MPI_Bcast((void*) nn_info_set, nsamples*sizeof(nn_info_t), MPI_BYTE, 0, MPI_COMM_WORLD);
+    #endif
     // init_nn(nn_info_set[0].N, nn_info_set[0].num_types);
 }
 
@@ -327,9 +357,20 @@ void allocate_multiple_ext(nn_info_t *info){
         for (int i=0; i<nsub; i++){
             target[i] = i + nsub * ntype;
         }
+
+        printf("nt: %d, nsub: %d, 0: %d\n", ntype, nsub, target[0]);
         set_multiple_ext_input(info, ntype, nsub, target);
     }
 
     free(target);
     // check_multiple_input();
+}
+
+
+static void print_syn_ntk(const char *prefix){
+    for (int n=0; n<4; n++){
+        char fname_syn[200];
+        sprintf(fname_syn, "%s_syn_%d.txt", prefix, n);
+        print_syn_network(nnpop.syns+n, fname_syn);
+    }
 }
