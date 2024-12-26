@@ -10,7 +10,7 @@
 #include "measurement2.h"
 #include "unistd.h"
 
-#define TEST
+// #define TEST
 
 #ifndef TEST
 #include "mpifor.h"
@@ -152,7 +152,7 @@ void run(int job_id, void *nullarg){
         if (nstep == 2*neq){
             summary_t obj = flush_measure();
             char fname_res[100];
-            sprintf(fname_res, "id%06d_result(monitor).txt", job_id);
+        sprintf(fname_res, "id%06d_result(monitor).txt", job_id);
             path_join(fbuf, fdir_out, fname_res);
             export_result(&obj, fbuf);
         }
@@ -358,7 +358,7 @@ void allocate_multiple_ext(nn_info_t *info){
             target[i] = i + nsub * ntype;
         }
 
-        printf("nt: %d, nsub: %d, 0: %d\n", ntype, nsub, target[0]);
+        // printf("nt: %d, nsub: %d, 0: %d\n", ntype, nsub, target[0]);
         set_multiple_ext_input(info, ntype, nsub, target);
     }
 

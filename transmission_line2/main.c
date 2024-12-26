@@ -14,7 +14,7 @@
 // make -C ../include main
 // 
 
-#define TEST
+// #define TEST
 
 #ifndef TEST
 
@@ -154,7 +154,6 @@ static void run(int job_id, void *nullarg){
     }
 
     set_seed_by_id(info.seed, 0); // initialize w random seed
-    // print_mt_state(0);
 
     // export information file
     char fname_info[200];
@@ -176,7 +175,7 @@ static void run(int job_id, void *nullarg){
     add_pmeasure(info.pN);
 
     add_checkpoint(0);
-    
+
     #ifdef TEST
     print_syn_ntk(prefix);
     progbar_t bar;
@@ -207,7 +206,6 @@ static void run(int job_id, void *nullarg){
         #ifdef TEST
         progressbar(&bar, nstep);
         #endif
-
     }
 
     // export result    
@@ -483,22 +481,22 @@ static void allocate_target_spike(int job_id, int num_pcells){
     // printf("total pN: %d, %d\n", nnpop.pneuron->N, num_pcells);
 
     // read t_spks
+    // printf("num: %d\n", num_pcells);
     for (int n=0; n<num_pcells; n++){
         int len;
         fscanf(fp, "%d:", &len);
+
+        // printf("id %4d: len: %d\n", n, len);
         
-        double *t_spk = (double*) malloc(sizeof(double) * len);
+        // double *t_spk = (double*) malloc(sizeof(double) * len);
+        int *step_spk = (int*) malloc(sizeof(int) * (len+1));
         for (int i=0; i<len; i++){
-            fscanf(fp, "%lf,", t_spk+i);
+            // fscanf(fp, "%lf,", t_spk+i);s
+            fscanf(fp, "%d,", step_spk+i);
         }
+        step_spk[len] = -1;
 
-        // printf("ID (%d): %d\n",len,  n);
-        // for (int i=0; i<len;i++){s[]
-        //     printf("%lf,", t_spk[i]);
-        // }
-        // printf("\n");
-
-        set_pneuron_target_time(nnpop.pneuron, n, len, t_spk);
+        set_pneuron_target_step(nnpop.pneuron, n, len, step_spk);
 
         // int nmax = nnpop.pneuron->max_steps[n];
         // printf("Id: %d (%d)\n", n, nmax);
@@ -507,8 +505,12 @@ static void allocate_target_spike(int job_id, int num_pcells){
         // }
         // printf("\n");
 
-        free(t_spk);
-        fscanf(fp, "\n");
+        free(step_spk);
+        if (len == 0){
+            fscanf(fp, ",\n");
+        } else {
+            fscanf(fp, "\n");
+        }
     }
 
     fclose(fp);
