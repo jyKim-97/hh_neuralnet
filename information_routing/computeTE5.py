@@ -39,7 +39,7 @@ def build_args():
     parser.add_argument("--nsurr", default=1000, type=int)
     parser.add_argument("--method", default="naive", type=str, choices=("naive", "spo", "mit", "2d", "full"))
     parser.add_argument("--target", default="lfp", type=str, choices=("lfp", "mua"))
-    parser.add_argument("--nhist", default=1, type=int)
+    # parser.add_argument("--nhist", default=1, type=int)
     parser.add_argument("--tlag_max", default=40, type=float)
     parser.add_argument("--tlag_min", default=1, type=float)
     parser.add_argument("--tlag_step", default=0.5, type=float)
@@ -48,9 +48,10 @@ def build_args():
     return parser
 
 
-def main(cid=5, wid=10, ntrue=10, nsurr=1000, nhist=1, 
+def main(cid=5, wid=10, ntrue=10, nsurr=1000, 
          tlag_max=40, tlag_min=1, tlag_step=1,
-         method="naive", target="lfp", fout=None, seed=42):
+         method="2d",
+         target="lfp", fout=None, seed=42):
     
     tw = 1.2
     tadd = 0.3
@@ -65,28 +66,16 @@ def main(cid=5, wid=10, ntrue=10, nsurr=1000, nhist=1,
                                 target=target,
                                 srate=srate, 
                                 nequal_len=int(tw * srate), nadd=nadd,
-                                norm=True, filt_range=None, verbose=True)
+                                reverse=True, norm=True, filt_range=None, verbose=True)
     
     nlag_max = int(tlag_max * srate / 1000)
     nlag_min = int(tlag_min * srate / 1000)
     nlag_step = int(tlag_step * srate / 1000)
     
     # compute TE
-    if method in ("naive", "spo", "mit"):
-        fte = tt.compute_te
-        params = dict(nchunks=nchunks, chunk_size=chunk_size,
-                      nmax_delay=nlag_max, nmin_delay=nlag_min, nstep_delay=nlag_step,
-                      method=method,
-                      nrel_points=list(-np.arange(nhist)))
-    elif method == "2d":
-        fte = tt.compute_te_2d
-        params = dict(nchunks=nchunks, chunk_size=chunk_size,
-                      nmax_delay=nlag_max, nmin_delay=nlag_min, nstep_delay=nlag_step)
-    elif method == "full":
-        fte = tt.compute_te_full2
-        params = dict(nchunks=nchunks, chunk_size=chunk_size,
-                      nmax_delay=nlag_max, nmin_delay=nlag_min, nstep_delay=nlag_step)
-    
+    fte = tt.compute_te_2d_reverse
+    params = dict(nchunks=nchunks, chunk_size=chunk_size,
+                  nmax_delay=nlag_max, nmin_delay=nlag_min, nstep_delay=nlag_step)
     
     te_true, tlag = compute_te_true(fte, v_set, ntrue, nadd, params)
     te_surr, tlag = compute_te_surr(fte, v_set, nsurr, nadd, params)
@@ -131,7 +120,8 @@ def _compute_te_true(seed, fte=None, v_set=None, nadd=None,
     v_set_sub = tt.sample_true(v_set,
                                nadd=nadd,
                                nchunks=nchunks, chunk_size=chunk_size,
-                               nmax_delay=config["nmax_delay"])
+                               nmax_delay=config["nmax_delay"],
+                               reverse=True)
     
     te, nlag = fte(v_set_sub, **config)
     tlag = nlag/srate*1e3
@@ -143,16 +133,18 @@ def _compute_te_surr(seed, fte=None, v_set=None, nadd=None,
                      nchunks=0, chunk_size=0, **config):
     
     np.random.seed(seed)        
-    # v_set_sub = tt.sample_surrogate(v_set,
+    v_set_sub = tt.sample_surrogate(v_set,
+                               nadd=nadd,
+                               nchunks=nchunks, chunk_size=chunk_size,
+                               nmax_delay=config["nmax_delay"],
+                               warp_range=(0.8, 1.2),
+                               reverse=True)
+    
+    # v_set_sub = tt.sample_surrogate_iaaft(v_set,
     #                            nadd=nadd,
     #                            nchunks=nchunks, chunk_size=chunk_size,
     #                            nmax_delay=config["nmax_delay"],
-    #                            warp_range=(0.8, 1.2))
-    
-    v_set_sub = tt.sample_surrogate_iaaft(v_set,
-                               nadd=nadd,
-                               nchunks=nchunks, chunk_size=chunk_size,
-                               nmax_delay=config["nmax_delay"])
+    #                            reverse=True)
     
     te, nlag = fte(v_set_sub, **config)
     tlag = nlag/srate*1e3

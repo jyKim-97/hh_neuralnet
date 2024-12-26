@@ -102,8 +102,12 @@ def is_diff_te(te_data, stat_method="conf", nw=3):
 def get_barcode_boost(te_data, te_base, stat_method="conf"):
     is_bar1, bpeaks_te = is_diff_te(te_data, stat_method=stat_method)
     
-    dte_data = te_data["te"] - te_data["te_surr"].mean(axis=0, keepdims=True)
-    dte_base = te_base["te"] - te_base["te_surr"].mean(axis=0, keepdims=True)
+    # dte_data = te_data["te"] - te_data["te_surr"].mean(axis=0, keepdims=True)
+    # dte_base = te_base["te"] - te_base["te_surr"].mean(axis=0, keepdims=True)
+    
+    dte_data = te_data["te"]
+    dte_base = te_base["te"]
+    
     te_tmp = dict(te=dte_data, te_surr=dte_base, tlag=te_data["tlag"], info=te_data["info"])
     is_bar2, _ = is_diff_te(te_tmp)
     
@@ -113,10 +117,11 @@ def get_barcode_boost(te_data, te_base, stat_method="conf"):
     return get_barcode(te_tmp, is_bar=is_bar, bpeaks=bpeaks, percentile=True)
     
 
-def get_barcode(te_data, stat_method='conf', is_bar=None, bpeaks=None, percentile=False):
+def get_barcode(te_data, stat_method='conf', bth=2, is_bar=None, bpeaks=None, percentile=False):
     
+    nw = 3
     if is_bar is None:
-        is_bar, bpeaks = is_diff_te(te_data, stat_method=stat_method)
+        is_bar, bpeaks = is_diff_te(te_data, stat_method=stat_method, nw=nw)
         
     if "info" not in te_data.keys():
         te_data["info"] = None
@@ -124,14 +129,21 @@ def get_barcode(te_data, stat_method='conf', is_bar=None, bpeaks=None, percentil
     tbar = te_data["tlag"]
     barcode = np.zeros(te_data["te"].shape[1:])
     m = te_data['te_surr'].mean(axis=0, keepdims=True)
-    
     if np.sum(is_bar) == 0:
         return dict(barcode=barcode, tbar=tbar, bpeaks=[[], []], info=te_data["info"])
     
+    # # remove periodic values
+    # te_val = (te_data["te"] - m).mean(axis=0)
+    # for ntp in range(2):
+    #     bp, bp_out = _remove_periodic_barcode(bpeaks[ntp], te_val[ntp], bth=bth)
+    #     for n in bp_out:
+    #         is_bar[ntp, n-nw:n+nw+1] = False
+    #     # print(bpeaks[ntp], bp)
+    #     bpeaks[ntp] = np.array(bp)
+            
     if percentile:
         te = te_data["te"].mean(axis=0)[is_bar]
         tem = m.mean(axis=0)[is_bar]
-        # print(te.shape, tem.shape)
         barcode[is_bar] = (te - tem) / np.max(([np.abs(te), np.abs(tem)])) * 100
     else:
         barcode[is_bar] = (te_data["te"] - m).mean(axis=0)[is_bar]
@@ -150,17 +162,47 @@ def get_barcode(te_data, stat_method='conf', is_bar=None, bpeaks=None, percentil
     return dict(barcode=barcode, tbar=tbar, bpeaks=bpeaks, info=info)
 
 
+
+def _remove_periodic_barcode(bpeaks, yval, bth=2):
+    bpeaks = list(bpeaks)[:]
+    bpeaks_out = []
+    
+    n = 0
+    while n < len(bpeaks)-1:
+        if bpeaks[n] < 5:
+            n += 1
+            continue
+        db = bpeaks[n+1] - bpeaks[n]
+
+        for i in np.arange(n+2, len(bpeaks))[::-1]:
+            c1 = (bpeaks[i] - bpeaks[n])%db <= bth
+            c2 = (bpeaks[i] - bpeaks[n] + bth)%db <= bth
+            
+            if (c1 or c2) and (yval[bpeaks[i]] <= yval[bpeaks[n]]):
+                bpeaks_out.append(bpeaks.pop(i))
+        n += 1
+    
+    if len(bpeaks) > 2:
+        db1 = bpeaks[1]-bpeaks[0]
+        db2 = bpeaks[2]-bpeaks[1]
+        
+        if abs(db1 - db2) <= bth:
+            bpeaks_out.append(bpeaks.pop(2))
+        
+    return bpeaks, bpeaks_out
+
+
 def find_te_hill(te_data, verbose=False):
     te = te_data["te"].mean(axis=0)
     hinfo = find_hill(te)
     
     if verbose:
         t = te_data['tlag']
-        plt.figure(figsize=(4, 3))
+        # plt.figure(figsize=(4, 3))
         for ntp in range(2):
             for c in hinfo["id_set"][ntp]:
                 idh = hinfo["id"][ntp] == c
-                plt.plot(t[idh], te[ntp][idh])
+                # plt.plot(t[idh], te[ntp][idh])
                 
     return hinfo
 
@@ -181,7 +223,7 @@ def find_hill(xs):
     
     for n in range(N):
         idh = 1
-        idp_set, _ = find_peaks(xs[n])
+        idp_set, _ = find_peaks(xs[n], prominence=1e-3)
         id_peak.append(list(idp_set))
         
         for idp in idp_set:
@@ -204,8 +246,13 @@ def find_hill(xs):
                 hill_id[n] += 1
             else:
                 hill_id[n][:n0] = 1
-                    
-        hill_id_set.append(np.unique(hill_id[n]))
+        
+        # hill_id[n][hill_id[n] == 0] = np.nan
+        id_unique = np.unique(hill_id[n])
+        id_unique = id_unique[id_unique > 0]
+        hill_id_set.append(id_unique)
+        hill_id[n][hill_id[n] == 0] = np.nan
+        
         assert len(hill_id_set[-1]) == len(id_peak[-1])
     assert not np.any(hill_id == 0)
             
