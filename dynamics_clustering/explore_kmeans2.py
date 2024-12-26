@@ -75,6 +75,7 @@ def main(fdata=None, fout=None, kmin=3, kmax=15, nitr=100):
         kscores.append(ks)
         sscores.append(ss)
     
+    print("Saved into %s"%(fout))
     with open(fout, "wb") as fp:
         pkl.dump({"labels": np.array(pred_labels),
                   "inertia": -np.array(kscores), # convert sign from - to +

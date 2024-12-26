@@ -35,6 +35,7 @@ Check the point index interactively
 ## Need to run [explore_kmeans2.py](./explore_kmeans2.py)
 > Get ./data/kmeans_pred.pkl
 
+# Visualize clustering result
 
 
 <!-- # Rearrange post processed dataset
@@ -51,9 +52,20 @@ check the covariance and variance of each dataset and export splitted data after
 
 # Data descrption (./data)
 
+- align_data*.pkl
+    Aligned postprocessed data (not for clustering)
+- align_data_sub*.pkl
+    Aligned postprocessed data from fast and slow populations
+- align_data_tot*.pkl
+    Aligned postprocessed data sampled from total populations
 - kmeans_pred.pkl
     Kmeans clustering result from K = 3 to 30 with 100 iteraction for each
 - kmeans_pred_inv.pkl
     Kmeans clustering result from K = 3 to 30 with 100 iteraction for each, tau -> 1/tau
 - kmeans_pred_partial.pkl
     Kmeans clustering result from K = 3 to 30 with 100 iteraction for each, dphi are removed
+
+xdata
+- align_data*.pkl
+    It contains lead-lag index
+    
