@@ -87,7 +87,7 @@ void init_genrand64(unsigned long long seed)
 {
     init_genrand64_by_id(seed, num_state);
     num_state++;
-    printf("state added: %d, %lld\n", num_state, seed);
+    // printf("state added: %d, %lld\n", num_state, seed);
 }
 
 
@@ -104,7 +104,7 @@ void init_genrand64_by_id(unsigned long long seed, int rng_id)
     for (mti=1; mti<NN; mti++) 
         mt[mti] =  (6364136223846793005ULL * (mt[mti-1] ^ (mt[mti-1] >> 62)) + mti);
     
-    // num_state++;
+    mt_state[rng_id].mti = 0;
     
 }
 

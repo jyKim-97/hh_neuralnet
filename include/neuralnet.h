@@ -74,6 +74,8 @@ typedef struct _neuralnet_info_t{
     int num_ext_types; // number of external neuron types
 
     long seed;
+    double wratio_trans; // only used when you consider transmitter
+    
 
 } nn_info_t;
 

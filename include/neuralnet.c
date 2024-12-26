@@ -209,7 +209,7 @@ static void build_desyn(nn_info_t *info){
 
             if (flag_ntk == 0){ // n: pre, i: post
                 gen_er_pout(&ntk, info->p_out[n][i], cell_range[n], cell_range[i]);
-            } else { 
+            } else {
                 gen_er_mdin(&ntk, info->mdeg_in[n][i], cell_range[n], cell_range[i]);
             }
         }
@@ -373,8 +373,8 @@ void build_ei_rk4(nn_info_t *info){
     init_background_input(info); // set external input
     init_poisson_input(info); 
 
-    printf("after building: ");
-    print_mt_state(0);
+    // printf("after building: ");
+    // print_mt_state(0);
 }
 
 
@@ -604,7 +604,6 @@ void update_rk4(int nstep, double iapp){
 
     double *v_prev = (double*) malloc(sizeof(double) * num_cells);
 
-
     for (int id=0; id<num_cells; id++){
         change_default_rng_id(rng_id[id]);
 
@@ -726,7 +725,11 @@ static void add_spike_total_syns(int nstep){
         add_spike(nstep, &syns[n], &neuron);
     }
 
-    if (num_pcells > 0) add_pneuron_spike(nstep, &psyn, &pneuron);
+    if (num_pcells > 0){
+        change_default_rng_id(1);
+        add_pneuron_spike(nstep, &psyn, &pneuron);
+        change_default_rng_id(0);
+    }
 
     if (!const_current){
         for (int n=0; n<num_ext_types; n++){
@@ -737,7 +740,6 @@ static void add_spike_total_syns(int nstep){
             } else {
                 REPORT_ERROR("Unexpected ext type");
             }
-
             add_ext_spike(&(ext_syn[n]));
         }
     }
