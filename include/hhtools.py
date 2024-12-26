@@ -131,7 +131,15 @@ def draw_spk(step_spk, dt=0.01, sequence=None, xl=None, color_ranges=None, color
         plt.plot(t_spk, np.ones_like(t_spk)*n, '.', ms=ms, c=c)
     plt.xlim(xl)
     plt.ylim([0, len(sequence)])
-
+    
+    
+def draw_spk_single(step_spk, dt=0.01, y0=0, **plot_opt):
+    x, y = [], []
+    for n, nstep in enumerate(step_spk):
+        x.extend([nstep*dt, nstep*dt, np.nan])
+        y.extend([y0, y0+1, np.nan])
+    
+    plt.plot(x, y, **plot_opt)
 
 # def get_autocorr(x, t, tlag_max):
 #     dt = t[1] - t[0]
