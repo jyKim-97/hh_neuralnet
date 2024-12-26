@@ -39,3 +39,4 @@ callgrind*
 
 # old files
 x*
+tmp*
