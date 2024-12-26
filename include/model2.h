@@ -119,6 +119,7 @@ void init_pneuron(int N, pneuron_t *neuron);
 void destroy_pneuron(pneuron_t *neuron);
 void set_pneuron_attrib(pneuron_t *neuron, double fr);
 void set_pneuron_target_time(pneuron_t *neuron, int nid, int len, double *t_steps);
+void set_pneuron_target_step(pneuron_t *neuron, int nid, int len, int *n_steps);
 // void update_pneuron(pneuron_t *neuron);
 void add_pneuron_spike(int nstep, desyn_t *psyn, pneuron_t *neuron);
 

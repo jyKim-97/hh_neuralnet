@@ -83,17 +83,16 @@ void change_sampling_rate(double fs){
 
 FILE *open_file(const char *fname, const char *option){
 
-    FILE *fp = fopen(fname, "r");
-
     if (!ignore_file_check){
-        if (fp != NULL){
+        FILE *fp_check = fopen(fname, "r");
+        if (fp_check != NULL){
             fprintf(stderr, "File %s exists\n", fname);
-            fclose(fp);
+            fclose(fp_check);
             return NULL;
         }
     }
 
-    fp = fopen(fname, option);
+    FILE *fp = fopen(fname, option);
     return fp;
 }
 

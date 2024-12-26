@@ -118,6 +118,9 @@ void init_pneuron(int N, pneuron_t *neuron){
     // controllable part
     neuron->n_steps = (int*) calloc(N, sizeof(int));
     neuron->max_steps = (int*) calloc(N, sizeof(int));
+    for (int n=0; n<N; n++){
+        neuron->max_steps[n] = -1;   
+    }
     neuron->target_steps = (int**) malloc(sizeof(int*) * N);
 
     neuron->is_spk = (int*) calloc(N, sizeof(int));
@@ -211,6 +214,17 @@ void set_pneuron_target_time(pneuron_t *neuron, int nid, int len, double *t_step
         nt_prv = nt;
     }
     neuron->target_steps[nid][num_step] = -1;
+}
+
+
+void set_pneuron_target_step(pneuron_t *neuron, int nid, int len, int *n_steps){
+    
+    neuron->max_steps[nid] = len;
+    neuron->target_steps[nid] = (int*) malloc(sizeof(int) * (len+1));
+    for (int n=0; n<len; n++){
+        neuron->target_steps[nid][n] = n_steps[n];
+    }
+    neuron->target_steps[nid][len] = -1;
 }
 
 
@@ -434,7 +448,7 @@ void add_pneuron_spike(int nstep, desyn_t *psyn, pneuron_t *neuron){
     for (int n=0; n<N; n++){
         // check controllable part
         int fire;
-        if (neuron->max_steps[n] > 0){ // control
+        if (neuron->max_steps[n] >= 0){ // control
             if (neuron->n_steps[n] >= neuron->max_steps[n]){
                 fire = 0;
             } else {
@@ -484,6 +498,7 @@ void add_spike(int nstep, desyn_t *syn, wbneuron_t *neuron){
         int num_pre = syn->num_indeg[npost];
         for (int n=0; n<num_pre; n++){
             int npre = syn->indeg_list[npost][n];
+            if (npre == -1) continue; // skip updates
 
             if (!syn->is_const_delay){
                 int dn = nstep - syn->n_delays[npost][n];
