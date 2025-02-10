@@ -75,6 +75,7 @@ typedef struct _neuralnet_info_t{
 
     long seed;
     double wratio_trans; // only used when you consider transmitter
+    double tdelay_trans; // 
     
 
 } nn_info_t;

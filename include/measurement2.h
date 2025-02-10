@@ -8,7 +8,7 @@
 #include "storage.h"
 
 #define MAX_CLASS_M 5
-#define MAX_CHECK_M 10
+#define MAX_CHECK_M 20
 
 typedef struct _summary_t {
     // 0 index is for total neurons

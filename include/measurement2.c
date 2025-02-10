@@ -18,7 +18,8 @@ static int p_size = 0; // number of Poisson inputs
 int max_step  = -1;
 static int cum_steps[MAX_CHECK_M];
 static int check_steps[MAX_CHECK_M];
-static int num_check = 0;
+// static int num_check = 0;
+int num_check = 0;
 
 // fluctuation recording
 // - save for global average
@@ -219,6 +220,10 @@ void add_checkpoint(int nstep){
     if (num_check == MAX_CHECK_M){
         printf("The number of checkpoint exceeds maximum number. Cannot add checkpoint.\n");
         return ;
+    }
+
+    if (nstep == 0){
+        num_check = 0;
     }
 
     add_checkpoint_flct();
