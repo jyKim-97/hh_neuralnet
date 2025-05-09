@@ -199,7 +199,10 @@ def extract_single_result(sample):
                 T = tau_ac_peaks[nid, 1]
                 tau_cc = tau_cc_peaks[nid]
             
-            dphi = 2*np.pi*tau_cc % T
+            if T == 0:
+                dphi = 0
+            else:
+                dphi = 2*np.pi*tau_cc % T
             # print("[%4d] dphi: %.3f, cc_lag: %.3f, T: %.2f"%(data["job_id"], dphi, tau_cc, T))
             exp_sum += np.exp(1j * dphi)
         
@@ -256,7 +259,8 @@ def parrun(func, args, desc=None):
                 outs.append(res)
                 pbar.update()
             
-    id_sort = np.argsort([o[0] for o in outs])
+    id_sort = np.argsort([o[0] for o in outs]).astype(int)
+    # print(id_sort)
     res = [outs[i][1] for i in id_sort]
     p.close()
     p.join()
