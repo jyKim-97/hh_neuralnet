@@ -1,9 +1,12 @@
 import numpy as np
 from numba import njit
-from frites.core.gcmi_nd import cmi_nd_ggg
 from typing import Annotated, Tuple, List
 from numpy.linalg import LinAlgError
 
+try:
+    from frites.core.gcmi_nd import cmi_nd_ggg
+except:
+    print("Frites module is not activated")
 
 def compute_te(v_sample: np.ndarray,
                nmove: int=5,
