@@ -108,6 +108,10 @@ void init_genrand64_by_id(unsigned long long seed, int rng_id)
     
 }
 
+void destroy_rng(void){
+    num_state = 0;
+}
+
 /* initialize by an array with array-length */
 /* init_key is the array for initializing keys */
 /* key_length is its length */

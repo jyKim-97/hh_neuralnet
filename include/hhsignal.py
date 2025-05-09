@@ -95,15 +95,15 @@ def get_correlation(x, y, srate, max_lag=None, norm=True):
 
     if max_lag is None:
         max_lag = len(x)/srate
-    max_pad = max_lag * srate
+    max_pad = int(max_lag * srate)
+    tlag = np.arange(-max_lag, max_lag+1/srate/10, 1/srate)
 
     if (std[0] == 0) or (std[1] == 0):  
-        return np.zeros(2*max_pad+1)
+        return np.zeros(2*max_pad+1), tlag
     
-    pad = np.zeros(int(max_pad))
+    pad = np.zeros(max_pad)
     xn = np.concatenate((pad, xn, pad))
     cc = correlate(xn, yn, mode="valid", method="fft")/std[0]/std[1]
-    tlag = np.arange(-max_lag, max_lag+1/srate/10, 1/srate)
 
     
     num_use = len(yn)

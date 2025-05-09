@@ -507,6 +507,9 @@ void add_spike(int nstep, desyn_t *syn, wbneuron_t *neuron){
             }
 
             if (neuron->spk_buf[nbuf][npre] == 1){
+                // if ((!syn->is_const_delay) && (syn->n_delays[npost][n] > 0)){
+                //     printf("%d>%d (%.2f), computed nbuf: %d / %d(nd: %d)\n", npre, npost, syn->w_list[npost][n], nbuf, neuron->spk_count, syn->n_delays[npost][n]);
+                // }
                 double wA = syn->w_list[npost][n] * syn->A;
                 syn->expr[npost] += wA;
                 syn->expd[npost] += wA;

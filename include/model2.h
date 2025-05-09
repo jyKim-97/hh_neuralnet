@@ -13,7 +13,7 @@
 extern double _dt; // (ms)
 extern int flag_nan;
 
-#define _spk_buf_size 200
+#define _spk_buf_size 4000
 #define KEEP_SIMUL() if (flag_nan == 1) break; // NOTE: change the function name to be more intutive
 
 #define ena 55.

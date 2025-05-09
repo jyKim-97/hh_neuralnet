@@ -75,6 +75,7 @@ void print_mt_state(int rng_id);
 /* generates a random number on [0, 2^64-1]-interval */
 unsigned long long genrand64_int64_by_id(int rng_id);
 unsigned long long genrand64_int64(void);
+void destroy_rng(void);
 
 /* generates a random number on [0, 2^63-1]-interval */
 long long genrand64_int63(void);
