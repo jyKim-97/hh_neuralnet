@@ -6,7 +6,7 @@ import os
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 
-
+cm = 1/2.54 # inches -> centimeters
 fdir_prev = "./prev"
 fdir_cur  = "./figures"
 
@@ -47,25 +47,32 @@ def set_plt():
         fm.fontManager.addfont(font_file)
         
     plt.rcParams["font.family"] = "Arial"
+    # plt.rcParams["font.family"] = "sans-serif"
     plt.rcParams['mathtext.fontset'] = 'dejavusans'
+    # plt.rcParams['mathtext.fontset'] = 'dejavuserif'
+    plt.rcParams['svg.fonttype'] = 'none'
+    plt.rcParams['text.usetex'] = False
 
     # Tick property
     plt.rcParams['xtick.direction'] = 'in'
     plt.rcParams['ytick.direction'] = 'in'
     plt.rcParams["xtick.minor.visible"] = False
     plt.rcParams["ytick.minor.visible"] = False
-    plt.rcParams['xtick.major.width'] = 1
-    plt.rcParams['ytick.major.width'] = 1
-    plt.rcParams['xtick.major.size'] = 5
-    plt.rcParams['ytick.major.size'] = 5
+    plt.rcParams['xtick.major.width'] = 0.5
+    plt.rcParams['ytick.major.width'] = 0.5
+    plt.rcParams['xtick.major.size'] = 3
+    plt.rcParams['ytick.major.size'] = 3
 
     plt.rcParams['axes.spines.top'] = False
     plt.rcParams['axes.spines.right'] = False
     plt.rcParams['axes.spines.bottom'] = True
     plt.rcParams['axes.spines.left'] = True
 
-    plt.rcParams["xtick.labelsize"] = 11
-    plt.rcParams["ytick.labelsize"] = 11
+    plt.rcParams["xtick.labelsize"] = 5.5
+    plt.rcParams["ytick.labelsize"] = 5.5
+    plt.rcParams["axes.labelsize"] = 6
+    plt.rcParams["axes.titlesize"] = 7
+    plt.rcParams["figure.dpi"] = 100
 
     # Line setting
     plt.rcParams["lines.linewidth"] = 1.2
@@ -136,6 +143,21 @@ def get_axlim(ax):
     return ax.get_xlim(), ax.get_ylim()
     
     
+def get_subax_pos(num_row, num_col, space_row=0.12, space_col=0.1):
+    get_w = lambda num, space: (1 - (num+1)*space)/num
+    
+    wr = get_w(num_row, space_row)
+    wc = get_w(num_col, space_col)
+    
+    pos = []
+    for nr in range(num_row):
+        pos.append([])
+        y0 = space_row+(wr+space_row)*nr
+        for nc in range(num_col):
+            x0 = space_col+(wc+space_col)*nc
+            pos[-1].append([x0, y0, wc, wr])
+    return pos
+    
 
 
 # def show_scalebar(ax, size=1, label="1 s", loc="lower right",
@@ -184,8 +206,8 @@ def remove_ticklabels(ax):
     
 def save_fig(fname):
     fname = fname.split(".")[0]
-    plt.savefig(os.path.join(fdir_cur, fname+".png"), dpi=300, bbox_inches="tight")
-    plt.savefig(os.path.join(fdir_cur, fname+".svg"), dpi=300, bbox_inches="tight")
+    plt.savefig(os.path.join(fdir_cur, fname+".png"), dpi=300, bbox_inches="tight", transparent=True)
+    plt.savefig(os.path.join(fdir_cur, fname+".svg"), dpi=1200, bbox_inches="tight", transparent=True)
     print("Saved figure to %s"%(fname))
     
 
@@ -206,3 +228,82 @@ def backup_fig():
     shutil.copytree("./figures", os.path.join(fdir_backup, "figures"))
     
     
+def brighten_hex(hex_color, factor=1.2):
+    import matplotlib.colors as mcolors
+    
+    """
+    Brighten a hex color by scaling its RGB values.
+    
+    Parameters:
+        hex_color (str): A hex color string, e.g., '#1f77b4'
+        factor (float): Brightness scaling factor (>1 to brighten)
+    
+    Returns:
+        str: Brightened hex color
+    """
+    rgb = mcolors.to_rgb(hex_color)  # convert to (r, g, b) in [0, 1]
+    bright_rgb = tuple(min(1, c * factor) for c in rgb)  # scale and clip
+    return mcolors.to_hex(bright_rgb)
+
+
+def read_motif(lb):
+    assert lb[0] == "F"
+
+    mid = np.zeros(4)
+    mid[0] = lb[2] == "f"
+    mid[1] = lb[3] == "s"
+    mid[2] = lb[7] == "f"
+    mid[3] = lb[8] == "s"
+    
+    return mid
+
+
+def draw_motif_pictogram(lb, rcolor="k"):
+    from matplotlib.patches import Circle, FancyBboxPatch
+    
+    c_pict = "#7d0000"
+    mid = read_motif(lb)
+    
+    r = 0.8
+    x0 = 2
+    y0 = 9
+    dy1 = 2
+    dy2 = 3.
+    
+    ax = plt.gca()
+    # add rectangle
+    # wbig = 1.5
+    wbig = 2
+    wb = 0.5
+    w = 2
+    robj_big = FancyBboxPatch((x0-wbig, y0-3*dy1-dy2+wb), 2*wbig, 4*dy1+dy2-2*wb, facecolor=rcolor, edgecolor="none", boxstyle="round, pad=0.5")
+    robj_top = FancyBboxPatch((x0-w/2, y0-dy1/2*3), w, 2*dy1, edgecolor=rcolor, facecolor="w", lw=0.5, boxstyle="round, pad=0.3")
+    robj_bot = FancyBboxPatch((x0-w/2, y0-dy2-dy1/2*5), w, 2*dy1, edgecolor=rcolor, facecolor="w", lw=0.5, boxstyle="round, pad=0.3")
+    ax.add_patch(robj_big)
+    ax.add_patch(robj_top)
+    ax.add_patch(robj_bot)
+    
+    # add indicator
+    
+    
+    y = y0
+    for n in range(4):
+        if mid[n] == 1:
+            cobj = Circle((x0, y), radius=r, facecolor=c_pict)
+            ax.add_patch(cobj)
+        
+        if n == 1:
+            y -= dy2
+        else:
+            y -= dy1
+
+    plt.xlim([-.5, 4.5])
+    plt.ylim([-2, 12])
+    plt.axis("off")
+    plt.axis("equal")
+    
+def get_cid_color(cid, cmap="turbo"):
+    cid_max = 7
+    assert 0 < cid <= cid_max
+    palette = plt.get_cmap(cmap)
+    return palette((cid-1)/(cid_max-1))
