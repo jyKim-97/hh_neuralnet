@@ -12,16 +12,21 @@ import utils_te as ut
 import figure_manager as fm
 import tetools as tt
 
+import hhtools
+
 import utils_fig as uf
 uf.set_plt()
 
-empty_files = True
+empty_files = False
 te_colors = ("#d92a27", "#045894", "#a9a9a9")
 c_circ = "#7d0000"
 c_rect = "#676767"
 te_dir = "../information_routing/data/te_2d_newmotif_newsurr"
+data_dir = "../gen_three_pop_samples_repr/data/"
 
 fm.track_global("te_colors", te_colors)
+fm.track_global("te_dir", te_dir)
+fm.track_global("data_dir", data_dir)
 fm.track_global("c_rect", c_rect)
 
 cw_pairs = [
@@ -109,6 +114,59 @@ def schem_mfop(figsize=(6, 3.3), seed=42):
     show_schem_spec(psd_s, tpsd, fpsd, yl=yl, pop_txt="", cmap="RdBu_r")
     
     return fig
+
+
+def get_psd_set(detail):
+    psd_set = []
+    for i in range(2):
+        psd, fpsd, tpsd = hhsignal.get_stfft(detail["vlfp"][i+1], detail["ts"], 2000,
+                                             frange=(5, 110))
+        psd_set.append(psd)
+    return psd_set, fpsd, tpsd
+
+
+def show_psd(psd, fpsd, tpsd, vmin=0, vmax=1):
+    plt.imshow(psd, aspect="auto", cmap="jet", origin="lower",
+               vmin=vmin, vmax=vmax,
+               extent=(tpsd[0], tpsd[-1], fpsd[0], fpsd[-1]),
+               interpolation="bicubic")
+    plt.ylabel("Frequency (Hz)")
+    
+    
+def set_ticks(tl):
+    plt.xlim(tl)
+    plt.xticks(np.arange(tl[0], tl[1]+1e-3, 0.5))
+    plt.yticks(np.arange(20, 101, 20))
+    plt.ylim([18, 82])
+    plt.gca().set_xticklabels([])
+    
+    
+def set_colorbar(cticks=None):
+    cbar = plt.colorbar()
+    cbar.set_ticks(cticks)
+
+
+@fm.figure_renderer("mfop_example", reset=empty_files)
+def draw_example(figsize=(2, 4), cid=7, nt=93, tl=(2.25, 4.15)):
+    summary_obj = hhtools.SummaryLoader(data_dir)
+    detail = summary_obj.load_detail(cid-1, nt)
+    psd_set, fpsd, tpsd = get_psd_set(detail)
+    
+    fig = uf.get_figure(figsize)
+    plt.subplot(211)
+    show_psd(psd_set[0]-psd_set[0].mean(axis=1, keepdims=True), fpsd, tpsd, vmin=-0.3, vmax=0.3)
+    set_colorbar(cticks=((-0.3, 0., 0.3)))
+    set_ticks(tl)
+
+    
+    plt.subplot(212)
+    show_psd(psd_set[1]-psd_set[1].mean(axis=1, keepdims=True), fpsd, tpsd, vmin=-0.3, vmax=0.3)
+    set_ticks(tl)
+    set_colorbar(cticks=((-0.3, 0., 0.3)))
+    # plt.ylim([15, 85])
+    
+    return fig
+
 
 @fm.figure_renderer("te_example", reset=empty_files)
 def draw_example_te(figsize=(2.8, 11.8), cid=5, wid=10, p_ranges=(5, 95), te_dir=None):
@@ -285,7 +343,7 @@ def draw_entire_irp(figsize=(9.5, 11.5), p_ranges=(5, 95)):
                     
                     xl = plt.xlim()
                     yl = plt.ylim()
-                    plt.text(xl[0]+(xl[1]-xl[0])*0.1, (yl[0]+yl[1])/2, "Landmark #%d"%(cid), fontsize=6, va="center", ha="center", rotation=90)
+                    plt.text(xl[0]+(xl[1]-xl[0])*0.1, (yl[0]+yl[1])/2, "Landmark %d"%(cid), fontsize=6, va="center", ha="center", rotation=90)
                     k+=1
                 else:
                     ax_sub.axis("off")
@@ -383,7 +441,7 @@ def draw_hist(ax, Y_t, Y_s, X_tau):
     # Each point = one occupied bin center; size & alpha ~ count
     sizes =  0.5 + 0.2*cs_norm
     alphas = 0.2 + 0.7 * cs_norm
-    s
+    # s
     # for xi, yi, zi, si, ai in zip(xs, ys, zs, sizes, alphas):
     #     ax.scatter(yi, xi, zi, s=si, alpha=0.7, color='k', rasterized=True, edgecolors="none", zorder=0)
     pts = ax.scatter(
@@ -431,8 +489,8 @@ def irp_4dhist_reduce(figsize=(2, 4)):
         
 
 def main():
-    # p_ranges = (2.5, 97.5)
-    # schem_mfop(figsize=(6, 3.3), seed=42)
+    p_ranges = (2.5, 97.5)
+    schem_mfop(figsize=(6, 3.3), seed=42)
     
     # for nr in range(len(cw_pairs)):
     #     for nc in range(len(cw_pairs[nr])):
@@ -441,9 +499,10 @@ def main():
     #         cid, wid = cw_pairs[nr][nc]
     #         draw_example_te(te_dir=te_dir, cid=cid, wid=wid, p_ranges=p_ranges, _func_label="check_te_%d%02d"%(cid, wid))
             
-    # draw_example_te(te_dir=te_dir, cid=4, wid=10, p_ranges=p_ranges, _func_label="draw_example_te_410")
-    # draw_example_te(te_dir=te_dir, cid=4, wid=15, p_ranges=p_ranges, _func_label="draw_example_te_415")
-    # draw_entire_irp(figsize=(9.5, 11.5), p_ranges=p_ranges)
+    draw_example_te(te_dir=te_dir, cid=4, wid=10, p_ranges=p_ranges, _func_label="draw_example_te_410")
+    draw_example_te(te_dir=te_dir, cid=4, wid=15, p_ranges=p_ranges, _func_label="draw_example_te_415")
+    draw_entire_irp(figsize=(9.5, 11.5), p_ranges=p_ranges)
+    draw_example()
     irp_4dhist_reduce()
 
 

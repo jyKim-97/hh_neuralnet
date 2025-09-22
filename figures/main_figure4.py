@@ -17,7 +17,7 @@ import tetools as tt
 import utils_fig as uf
 uf.set_plt()
 
-empty_files = True
+empty_files = False
 prob_spk_dir = "../transmission_line/simulation_data/postdata"
 kappa_dir = "../transmission_line/simulation_data/postdata/kappa_stat"
 te_dir = "../information_routing/data/te_2d_newmotif_newsurr"
@@ -215,12 +215,26 @@ def draw_entire_tl(figsize=(7.5, 10.5), kappa_dir=None, te_dir=None, err_std=2.5
             plt.sca(ax_te)
             
             box_opt = dict(xmax=max_period, y0=2*box_height, box_height=box_height)
-            visu.draw_te_diagram_reduce(tsig_sets, colors=[c_rect]*2, **box_opt, visu_type="arrow", fontsize=6)
+            visu.draw_te_diagram_reduce(tsig_sets, colors=[c_rect]*2, 
+                                        xmax=max_period,
+                                        y0_set=[box_height/4, 7/4*box_height],
+                                        box_height=box_height/2,
+                                        show_axis=False, visu_type="arrow")
             
             # draw Tline results
             tline_opt = dict(visu_type="box", show_axis=False, alpha=0.5)
-            visu.draw_te_diagram_reduce(tline_sig_pos, colors=[tl_colors[0]]*2, **box_opt, **tline_opt)
-            visu.draw_te_diagram_reduce(tline_sig_neg, colors=[tl_colors[1]]*2, **box_opt, **tline_opt)
+            visu.draw_te_diagram_reduce(tline_sig_pos, colors=[tl_colors[0]]*2, 
+                                        y0_set=[-box_height/4, 9/4*box_height],
+                                        xmax=max_period,
+                                        box_height=box_height/2,
+                                        **tline_opt)
+            visu.draw_te_diagram_reduce(tline_sig_neg, colors=[tl_colors[1]]*2, 
+                                        y0_set=[-box_height/4, 9/4*box_height],
+                                        xmax=max_period,
+                                        box_height=box_height/2,
+                                        **tline_opt)
+            # show axis
+            visu.draw_te_diagram_reduce([[], []], colors=[c_rect]*2, **box_opt, visu_type="box", show_axis=True, fontsize=6)
 
             # draw indicator
             ax_pict = ax.inset_axes([0, 0.1, 0.2, 0.8])
@@ -277,7 +291,7 @@ def draw_entire_tl(figsize=(7.5, 10.5), kappa_dir=None, te_dir=None, err_std=2.5
                     
                     xl = plt.xlim()
                     yl = plt.ylim()
-                    plt.text(xl[0]+(xl[1]-xl[0])*0.1, (yl[0]+yl[1])/2, "Landmark #%d"%(cid), fontsize=6, va="center", ha="center", rotation=90)
+                    plt.text(xl[0]+(xl[1]-xl[0])*0.1, (yl[0]+yl[1])/2, "Landmark %d"%(cid), fontsize=6, va="center", ha="center", rotation=90)
                     k+=1
                 else:
                     ax_sub.axis("off")
@@ -291,6 +305,7 @@ def main():
     show_single_spike_resp(prob_spk_dir=prob_spk_dir, cid=4, wid=15, ntp=0, _func_label="show_single_spike_resp_415")
     show_tline_sample(kappa_dir=kappa_dir, cid=4, wid=10, err_method="std", err_std=1.96, _func_label="show_tline_example_410")
     show_tline_sample(kappa_dir=kappa_dir, cid=4, wid=15, err_method="std", err_std=1.96, _func_label="show_tline_example_415")
+    
     # for nr in range(len(cw_pairs)):
     #     for nc in range(len(cw_pairs[nr])):
     #         if len(cw_pairs[nr][nc]) == 0:

@@ -7,6 +7,7 @@ import sys
 from functools import wraps
 from collections import defaultdict
 import time
+from datetime import datetime
 import matplotlib
 matplotlib.use("Agg")
 
@@ -17,6 +18,7 @@ Use "figure_renderer" decorator for each figure rendering functions
 
 
 ROOT_DIR = Path("./figures/").resolve()
+OLD_ROOT_DIR = Path("./figures/old/").resolve()
 
 
 class ParamTracker:
@@ -122,10 +124,29 @@ def log_params():
     return decorator
 
 
+CHECK_DIR = False
+
+
 def _ensure_dir(p: Path, reset: bool=False):
-    if reset and p.exists():
-        shutil.rmtree(p)
+    global CHECK_DIR
+    if CHECK_DIR:
+        return
+    
+    if p.exists():
+        if reset:
+            shutil.rmtree(p)
+        else:
+            path_yml = list(p.glob("*.yml"))           
+            assert len(path_yml) == 1
+            raw = yaml.safe_load(path_yml[0].read_text())
+            time_str = raw.get("time-kst")
+            dt = datetime.fromisoformat(time_str)
+            new_dir = OLD_ROOT_DIR / f"{p.name}_{dt.strftime('%y%m%d')}"
+            print(f"Move existing directory {p} to {new_dir}")
+            shutil.move(p, new_dir)
+
     p.mkdir(parents=True, exist_ok=True)
+    CHECK_DIR = True
 
     
 def figure_renderer(fig_name=None, reset=False, exts=(".png", ".svg")):
@@ -143,6 +164,8 @@ def figure_renderer(fig_name=None, reset=False, exts=(".png", ".svg")):
         def wrapper(*args, **kwargs):
             
             _out_name = kwargs.get("_func_label", None)
+            _transparent = pop_var(kwargs, "_transparent", False)
+            _dpi = pop_var(kwargs, "_dpi", 300)
             if _out_name is None:
                 _out_name = out_name
             else:
@@ -151,7 +174,8 @@ def figure_renderer(fig_name=None, reset=False, exts=(".png", ".svg")):
 
             print("Figure save into", out_dir / _out_name)
             for ext in exts:
-                fig.savefig(out_dir / _out_name.with_suffix(ext), bbox_inches="tight", transparent=False, dpi=300)
+                fig.savefig(out_dir / _out_name.with_suffix(ext), bbox_inches="tight", 
+                            transparent=_transparent, dpi=_dpi)
             
             # auto-save 
             param_tracker.calls[-1]["figure"] = str(_out_name)
@@ -171,8 +195,11 @@ def save_fig(fig, filename_wo_ext):
     fig.savefig(os.path.join(fdir, f"{filename_wo_ext}.svg"))
     
     
-# def get_figure(figsize):
-#     return plt.figure(figsize=figsize)
+def pop_var(dict_var, key, default_val=None):
+    if key in dict_var:
+        return dict_var.pop(key)
+    else:
+        return default_val
 
 
 if __name__ == "__main__":
