@@ -14,12 +14,16 @@ import utils_fig as uf
 import figure_manager as fm
 import hhclustering as hc
 
+uf.set_plt()
+
 # path_pred_data = "../clustering/data/kmeans_sub.pkl"
 xl = (2, 15)
 nopt = 4
 fm.track_global("nopt", nopt)
 
-@fm.figure_renderer("kmeans_clustering", reset=True, exts=[".png", ".svg"])
+reset = True
+
+@fm.figure_renderer("kmeans_clustering", reset=reset, exts=[".png", ".svg"])
 def show_kmeans_result(figsize=(12, 4), path_pred_data="../dynamics_clustering/data/kmeans_sub.pkl"):
     with open(path_pred_data, "rb") as f:
         pred_data = pkl.load(f)
@@ -57,7 +61,7 @@ def show_kmeans_result(figsize=(12, 4), path_pred_data="../dynamics_clustering/d
     
     return fig
     
-@fm.figure_renderer("consensus_clustering", reset=True, exts=[".png", ".svg"])
+@fm.figure_renderer("consensus_clustering", reset=reset, exts=[".png", ".svg"])
 def show_pac_result(figsize=(12, 4), path_pac_data="../dynamics_clustering/data/consensus_clustering_hists_sub.pkl",
                     nboundary_lines=(2, 18), cmap="jet"):
     with open(path_pac_data, "rb") as f:
@@ -103,7 +107,7 @@ def show_pac_result(figsize=(12, 4), path_pac_data="../dynamics_clustering/data/
 
     return fig
 
-@fm.figure_renderer("silhouette_scores", reset=True, exts=[".png", ".svg"])
+@fm.figure_renderer("silhouette_scores", reset=reset, exts=[".png", ".svg"])
 def show_silhouette_scores(figsize=(6, 4), path_pred_data="../dynamics_clustering/data/kmeans_sub.pkl"):
     with open(path_pred_data, "rb") as f:
         pred_data = pkl.load(f)
@@ -171,7 +175,7 @@ def compute_dend(path_pred_data):
     return model_tree, cmat_opt
 
 
-@fm.figure_renderer("dendrogram", reset=True, exts=[".png", ".svg"])
+@fm.figure_renderer("dendrogram", reset=reset, exts=[".png", ".svg"])
 def show_dendrogram(figsize=(10, 10), path_pred_data="../dynamics_clustering/data/kmeans_sub.pkl"):
     
     model_tree, cmat_opt = compute_dend(path_pred_data)
@@ -186,8 +190,8 @@ def show_dendrogram(figsize=(10, 10), path_pred_data="../dynamics_clustering/dat
     
     return fig
 
-@fm.figure_renderer("cluster_position", reset=True, exts=[".png", ".svg"])
-def show_cluster_position(figsize=(30, 6), path_pred_data="../dynamics_clustering/data/kmeans_sub.pkl"):
+@fm.figure_renderer("cluster_position", reset=reset, exts=[".png", ".svg"])
+def show_cluster_position(figsize=(18, 10), path_pred_data="../dynamics_clustering/data/kmeans_sub.pkl"):
     
     feature_dims = (15, 15, 3, 16)
         
@@ -205,17 +209,65 @@ def show_cluster_position(figsize=(30, 6), path_pred_data="../dynamics_clusterin
             
     sq_cid, id_old2new = hc.reorder_sq_cluster_id(sq_cid, start_id=1)
 
-    fig = uf.get_figure(figsize)
     wsets = [-1, -0.9, -0.7, -0.5, -0.3, -0.1, 0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.85, 0.9, 0.95, 1]
-    hc.show_cluster_summary(sq_cid, wsets=wsets, min_cid=1, max_cid=7, fig=fig)
+    
+    fig = uf.get_figure(figsize)
+    use_row = 2
+    
+    num_w = len(wsets) // use_row
+    num_r = sq_cid.shape[-2] * use_row
+    
+    len_p = 0.95 / num_w
+    len_r = 0.9 / num_r
+    xy = np.arange(15)
+    
+    lb_rank = ("Echelon 0", "Echelon 0.5", "Echelon 1")
+    lb_w = [r"$\omega$=%.2f"%(x) for x in wsets]
+    
+    lines_cluster = []
+    for idp in range(len(wsets)):
+        for idr in range(sq_cid.shape[-2]):
+            lines_cluster.append(hc.get_im_boundary(sq_cid[:, :, idr, idp]))
+    
+    # ax_sets =[]
+    for row in range(use_row):
+        for idp in range(num_w):
+            for idr in range(sq_cid.shape[-2]):
+            # ax_sets.append([])
+                idx_w = idp + row * num_w
+                idx_r = idr
+                
+                y_pos = 0.025 + (2-idx_r) * len_r + (3*len_r+0.05)*(1-row) 
+                x_pos = 0.025 + idp * len_p
+                
+                ax = plt.axes(position=[x_pos, y_pos, len_p, len_r])
+                im = sq_cid[:, :, idx_r, idx_w].astype(float)
+                im[0, 0] = np.nan
+
+                hc.show_sq_cluster(im, x=xy, y=xy, cmap="turbo", cth=2, vmin=1, vmax=7, fontsize=7, aspect="auto")
+                for l in lines_cluster[idx_w * sq_cid.shape[-2] + idx_r]:
+                    plt.plot(l[0], l[1], 'w', lw=1)
+
+                plt.xticks([0, 7, 14], labels=["", "", ""])
+                plt.yticks([0, 7, 14], labels=["", "", ""])
+                plt.xlim([-0, 14]); plt.ylim([0, 14])
+
+                if idp == 0:
+                    plt.ylabel(lb_rank[idr])
+                if idr == 0:
+                    plt.title(lb_w[idx_w])
+
+                for n, k in enumerate(("left", "right", "bottom", "top")):
+                    ax.spines[k].set_color("k")
+                    ax.spines[k].set_linewidth(1.5)
     
     return fig
 
 
 if __name__ == "__main__":
+    show_cluster_position()
     show_kmeans_result()
-    show_pac_result()
+    # show_pac_result()
     show_silhouette_scores()
     show_dendrogram()
-    show_cluster_position()
     

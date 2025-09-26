@@ -10,6 +10,8 @@ uf.set_plt()
 
 import figure_manager as fm
 
+reset = False
+
 file_umap="./postdata/umap_coord.nc"
 file_postdata="../three_pop_mpi/simulation_data/postdata.nc"
 
@@ -32,7 +34,7 @@ def draw_values(value, da, title=None,
     plt.title(title, fontsize=12)
 
 
-@fm.figure_renderer("draw_structure_embed", reset=True, exts=[".png", ".svg"])
+@fm.figure_renderer("draw_structure_embed", reset=reset, exts=[".png", ".svg"])
 def draw_structure_embed(figsize=(10, 3), s=0.5):
     da = xa.load_dataarray(file_umap)
     postdata = xa.load_dataarray(file_postdata)
@@ -57,20 +59,20 @@ def draw_structure_embed(figsize=(10, 3), s=0.5):
     return fig
 
     
-@fm.figure_renderer("draw_dynamic_embed", reset=True, exts=[".png", ".svg"])
-def draw_dynamic_embed(figsize=(10, 3), s=1):
+@fm.figure_renderer("draw_dynamic_embed", reset=reset, exts=[".png", ".svg"])
+def draw_dynamic_embed(figsize=(20, 25), s=1):
     da = xa.load_dataarray(file_umap)
     postdata = xa.load_dataarray(file_postdata)
     
-    fig = uf.get_figure((20, 25))
+    fig = uf.get_figure(figsize)
     axs = [fig.add_subplot(6,4,i+1) for i in range(24)]
     for ax in axs:
         ax.axis("off")
     
     out_tmp = postdata.isel(dict(key=0, type=0, pop=0))
-    alpha_grid, beta_grid, _, w_grid = xa.broadcast(out_tmp["alpha"], out_tmp["beta"], out_tmp["rank"], out_tmp["w"])
-    keys = (r"$\alpha$", r"$\beta$", r"$\omega$")
-    for n, x in enumerate((alpha_grid, beta_grid, w_grid)):
+    alpha_grid, beta_grid, echelon_grid, w_grid = xa.broadcast(out_tmp["alpha"], out_tmp["beta"], out_tmp["rank"], out_tmp["w"])
+    keys = ("Echelon", r"$\alpha$", r"$\beta$", r"$\omega$")
+    for n, x in enumerate((echelon_grid, alpha_grid, beta_grid, w_grid)):
         plt.sca(axs[n])
         draw_values(x.data.flatten(), da, title=keys[n], s=s, vmin=np.min(x), vmax=np.max(x))
         
@@ -103,9 +105,10 @@ def draw_dynamic_embed(figsize=(10, 3), s=1):
                         opt = dict(vmin=0, vmax=0.1, cticks=(0, 0.05, 0.1), cmap="jet")
                 elif "tlag" in k1 and "cc" not in k1:
                     if "large" in k1:
-                        kt = r"$f^{%s}_{M}$"%(k2)
+                        # kt = r"$f^{%s}_{M}$"%(k2)
+                        kt = r"$\tau^{%s}_{M}$"%(k2)
                     else:
-                        kt = r"$f^{%s}_{1}$"%(k2)
+                        kt = r"$\tau^{%s}_{1}$"%(k2)
                     if k3 == "mean":
                         x = 1/x
                         opt = dict(vmin=30, vmax=70, cticks=(30, 50, 70), cmap="jet")
@@ -130,7 +133,10 @@ def draw_dynamic_embed(figsize=(10, 3), s=1):
                     raise ValueError("Unexpected key combination")
 
                 if k3 == "mean":
-                    kt = "E[" + kt + "]"
+                    if "tau" in kt:
+                        kt = "1/E[" + kt + "]"
+                    else:
+                        kt = "E[" + kt + "]"
                 else:
                     kt = r"$\sigma$[" + kt + "]"
                     x[x<0] = 0

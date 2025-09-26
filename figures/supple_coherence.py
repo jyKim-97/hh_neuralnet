@@ -26,7 +26,6 @@ cw_pairs = [
             [(7, 2), (7, 5), (7, 15)]
         ]
 
-
 fm.track_global("fdir_coh", fdir_coh)
 fm.track_global("cw_pairs", cw_pairs)
 
