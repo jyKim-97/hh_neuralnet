@@ -62,20 +62,20 @@ def get_err_range(data, method="percentile", p_ranges=(5, 95), smul=1.96):
     return m, smin, smax   
 
         
-@fm.figure_renderer("tline_results", reset=True, exts=[".png", ".svg"])
+@fm.figure_renderer("tline_results", reset=False, exts=[".png", ".svg"])
 def draw_tline(figsize=(12, 18), ncol=3, err_method="std", err_std=1.96, p_ranges=(5, 95)):
     num_row = int(np.ceil(len(cw_pairs_flat) / ncol))
     lb_set = ("S", "F")
     
     fig = uf.get_figure(figsize)
-    axs = []
     cid_col = 1
     ax_col = []
+    tsig_set = []
     ylim_max = -1
+    lobjs = {"ltrue": [None, None], "lsurr": [None, None], "lsig": [None, None]}
     for n, (cid, wid) in enumerate(cw_pairs_flat, start=1):
         ax = plt.subplot(num_row, ncol, n)
-        axs.append(ax)
-        
+        ax_col.append(ax)
         kappa_set = load_kappa(kappa_dir, cid, wid)
         
         yl_sub = []
@@ -84,46 +84,79 @@ def draw_tline(figsize=(12, 18), ncol=3, err_method="std", err_std=1.96, p_range
             ym_b, ymin_b, ymax_b = get_err_range(kappa_set.kappa_base.isel(dict(ntp=1-nd)).data, method=err_method, smul=err_std, p_ranges=p_ranges)
             ym, ymin, ymax = get_err_range(kappa_set.kappa.isel(dict(ntp=1-nd)).data, method=err_method, smul=err_std, p_ranges=p_ranges)
             
-            plt.plot(t, ym, color=te_colors[nd], lw=1, label=r"$\kappa_%s$"%(lb_set[nd]))
+            l_true, = plt.plot(t, ym, color=te_colors[nd], lw=.5, label=r"$\kappa_%s$"%(lb_set[nd]))
             plt.fill_between(t, ymin, ymax, color=te_colors[nd], alpha=0.3, edgecolor="none")
+            l_base, = plt.plot(t, ym_b, color=te_colors[nd], lw=.5, linestyle="dashed")
             plt.fill_between(t, ymin_b, ymax_b, color="k", alpha=0.5, edgecolor="none", label=r"$\kappa_{base}$")
             
             yl = max(np.abs([ymin.min(), ymax.max()]))
             ylim_cand = np.ceil(yl*10)/10
             yl_sub.append(ylim_cand)
             
+            if lobjs["ltrue"][nd] is None:
+                lobjs["ltrue"][nd] = l_true
+            if lobjs["lsurr"][nd] is None:
+                lobjs["lsurr"][nd] = l_base
+                
+        # significancy
+        id_sig_pos, id_sig_neg, tq = ut.identify_sig_tline(kappa_set, err_method="std", err_std=err_std, p_ranges=p_ranges, num_min=4)
+        tline_sig_pos = ut.convert_sig_boundary(id_sig_pos, tq)
+        tline_sig_neg = ut.convert_sig_boundary(id_sig_neg, tq)
+        tsig_set.append([tline_sig_pos, tline_sig_neg])
+        
         if cid != cid_col or n == len(cw_pairs_flat):
-            # print(cid_col, ax_col, ylim_max)
             if n == len(cw_pairs_flat):
-                ax_col.append(ax)
-            for _ax in ax_col:
-                _ax.set_ylim([-ylim_max, ylim_max])
+                ylim_cand = max(yl_sub)
+                if ylim_cand > ylim_max:
+                    ylim_max = ylim_cand
+                ax_prv = ax_col
+                tsig_set_prv = tsig_set
+            else:
+                ax_prv, tsig_set_prv = [], []
+                for i in range(len(ax_col)-1)[::-1]:
+                    ax_prv.append(ax_col.pop(i))
+                    tsig_set_prv.append(tsig_set.pop(i))
+                    
+            # flush
+            for _ax, _tsig_pn in zip(ax_prv, tsig_set_prv):
+                _ax.set_ylim([-ylim_max-0.02, ylim_max+0.02])
                 _ax.set_yticks(np.arange(-ylim_max, ylim_max+0.01, ylim_max/2), labels=[str("%d %%"%(int(np.round(100*x)))) for x in np.arange(-ylim_max, ylim_max+0.01, ylim_max/2)])
-
-            ax_col = []
+                # tsig_pos, tsig_neg = _tsig_pn
+                for nt, _tsig_sub in enumerate(_tsig_pn):
+                    for nd in range(2):
+                        for _tsig in _tsig_sub[nd]:
+                            y0 = (-1)**nt * ylim_max * (0.9 + 0.05*(-1)**nd)
+                            l_sig, = _ax.plot(_tsig, [y0]*2, ".-", c=te_colors[nd], lw=1, markersize=2)
+                            if lobjs["lsig"][nd] is None:
+                                lobjs["lsig"][nd] = l_sig
+                                
             ylim_max = -1
-            cid_col = cid
+            cid_col  = cid
         
         ylim_cand = max(yl_sub)
         if ylim_cand > ylim_max:
             ylim_max = ylim_cand
-        ax_col.append(ax)
                 
-        # plt.ylim([-0.3, 0.3])
-        plt.xticks(np.arange(0, 31, 10))
-        # plt.yticks(np.arange(-0.3, 0.31, 0.1), labels=[str("%d %%"%(int(np.round(100*x)))) for x in np.arange(-0.3, 0.31, 0.1)])
-        
         plt.xlabel("Delay, d (ms)")
         plt.ylabel(r"$\kappa$")
-                
         plt.xticks(np.arange(0, 31, 10))
         plt.xlim([0, 31])
         # plt.ylim([-0.25, 0.25])
         lb = od.get_motif_labels("ver2")[wid]
         plt.title("#%d, %s"%(cid, lb))
         
-        if n == 1:
-            plt.legend(loc="upper right", edgecolor="none", fontsize=5, ncol=2)
+    plt.subplot(num_row, ncol, num_row*ncol)
+    lobjs_list = []
+    for k in ("ltrue", "lsurr", "lsig"):
+        lobjs_list += lobjs[k]
+    
+    plt.legend(lobjs_list, 
+                [r"$\kappa^S$", r"$\kappa^F$",
+                r"$\kappa_{base}^S$", r"$\kappa_{base}^F$", 
+                r"Significant $\kappa^S$", r"Significant $\kappa^F$"],
+                fontsize=6, ncol=1, edgecolor="none", loc="center")
+    plt.axis("off")
+    
         
     plt.tight_layout()
     

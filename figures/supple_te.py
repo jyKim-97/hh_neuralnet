@@ -17,6 +17,7 @@ import hhtools
 import utils_fig as uf
 uf.set_plt()
 
+reset = False
 te_colors = ("#d92a27", "#045894", "#a9a9a9")
 te_dir = "../information_routing/data/te_2d_newmotif_newsurr"
 cw_pairs = [
@@ -40,7 +41,7 @@ cw_pairs_flat = sorted(cw_pairs_flat, key=lambda x: (x[0], x[1]))
 fm.track_global("te_dir", te_dir)
 fm.track_global("cw_pairs_flat", cw_pairs_flat)
 
-@fm.figure_renderer("te_results", reset=True, exts=[".png", ".svg"])
+@fm.figure_renderer("te_results", reset=reset, exts=[".png", ".svg"])
 def draw_te(figsize=(12, 18), ncol=3, avg_method="median", p_ranges=(5, 95)):
     num_row = int(np.ceil(len(cw_pairs_flat) / ncol))
 
@@ -53,6 +54,7 @@ def draw_te(figsize=(12, 18), ncol=3, avg_method="median", p_ranges=(5, 95)):
     
     fig = uf.get_figure(figsize)
     axs = []
+    lobjs = {"ltrue": [None, None], "lsurr": [None, None], "lsig": [None, None]}
     for n, (cid, wid) in enumerate(cw_pairs_flat, start=1):
         ax = plt.subplot(num_row, ncol, n)
         axs.append(ax)
@@ -79,11 +81,18 @@ def draw_te(figsize=(12, 18), ncol=3, avg_method="median", p_ranges=(5, 95)):
             c = te_colors[nd]
             visu.draw_with_err(tlag, x1, c=c, **opt, **opt_noline) # TE
             visu.draw_with_err(tlag, x2, c=te_colors[2], **opt, **opt_noline) # TE surrogate
-            plt.plot(tlag, np.median(x1, axis=0), c=c, linestyle='-', linewidth=0.5, label=r"$TE_{%s \rightarrow %s}$"%(pop_lbs[nd], pop_lbs[1-nd]))
-            plt.plot(tlag, np.median(x2, axis=0), c=c, linestyle='--', linewidth=0.5, label=r"$TE_{%s \rightarrow %s}^{surr}$"%(pop_lbs[nd], pop_lbs[1-nd]))
+            l_true, = plt.plot(tlag, np.median(x1, axis=0), c=c, linestyle='-', linewidth=0.5, label=r"$TE_{%s \rightarrow %s}$"%(pop_lbs[nd], pop_lbs[1-nd]))
+            l_surr, = plt.plot(tlag, np.median(x2, axis=0), c=c, linestyle='--', linewidth=0.5, label=r"$TE_{%s \rightarrow %s}^{surr}$"%(pop_lbs[nd], pop_lbs[1-nd]))
+            
+            if lobjs["ltrue"][nd] is None:
+                lobjs["ltrue"][nd] = l_true
+            if lobjs["lsurr"][nd] is None:
+                lobjs["lsurr"][nd] = l_surr
 
             for tsig in tsig_sets[nd]:
-                plt.plot(tsig, [yb+dy*nd]*2, c=c, lw=1)
+                l_sig, = plt.plot(tsig, [yb+dy*nd]*2, "*-", c=c, lw=1, markersize=2)
+                if lobjs["lsig"][nd] is None:
+                    lobjs["lsig"][nd] = l_sig
                 
         plt.xticks(np.arange(0, 41, 10))
         plt.xlim([0, tcut])
@@ -92,10 +101,19 @@ def draw_te(figsize=(12, 18), ncol=3, avg_method="median", p_ranges=(5, 95)):
         plt.ylabel("TE (bits)")
         lb = od.get_motif_labels("ver2")[wid]
         plt.title("#%d, %s"%(cid, lb))
-        
-        if n == 1:
-            plt.legend(loc="upper right", edgecolor="none", fontsize=5)
-        
+    
+    # show legend
+    lobjs_list = []
+    for k in ("ltrue", "lsurr", "lsig"):
+        lobjs_list.extend(lobjs[k])
+    
+    ax = plt.subplot(num_row, ncol, num_row*ncol)
+    ax.axis("off")
+    ax.legend(lobjs_list, 
+              [r"$TE^{F \rightarrow S}$", r"$TE^{S \rightarrow F}$", 
+               r"$TE^{F \rightarrow S}_{surr}$", r"$TE^{S \rightarrow F}_{surr}$",
+               r"Significant $TE^{F \rightarrow S}$", r"Significant $TE^{S \rightarrow F}$"],
+              loc="center", edgecolor="none", fontsize=6, ncol=1)
     plt.tight_layout()
     
     return fig
