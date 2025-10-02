@@ -14,11 +14,12 @@ fdir_coburst = "../gen_three_pop_samples_repr/postdata/co_burst"
 fm.track_global("fdir_coburst", fdir_coburst)
 
 
-@fm.figure_renderer("burst_cooccuur_map", reset=True, exts=[".png", ".svg"])
+@fm.figure_renderer("burst_cooccuur_map", reset=False, exts=[".png", ".svg"])
 def burst_cooccuur_map(figsize=(12, 20), vmax_set=(0.04, 0.04, 0.02)):
     
     tp_set = ("ff", "ss", "fs")
-    xylb_set = (("Fast", "Fast"), ("Slow", "Slow"), ("Fast", "Slow"))
+    # xylb_set = (("Fast", "Fast"), ("Slow", "Slow"), ("Fast", "Slow"))
+    xylb_set = (("F", "F"), ("S", "S"), ("F", "S"))
     
     fig = uf.get_figure(figsize)
     for cid in range(1, 8):
@@ -51,10 +52,10 @@ def burst_cooccuur_map(figsize=(12, 20), vmax_set=(0.04, 0.04, 0.02)):
             
             xlb, ylb = xylb_set[ntp]
             if ntp == 0: 
-                plt.ylabel("Landmark %d\n"%(cid)+r"$f_{%s}$ (Hz)"%(xlb))
+                plt.ylabel("Landmark %d\n"%(cid)+r"$f^{%s}$ (Hz)"%(xlb))
             else:
-                plt.ylabel(r"$f_{%s}$ (Hz)"%(xlb))
-            plt.xlabel(r"$f_{%s}$ (Hz)"%(ylb))
+                plt.ylabel(r"$f^{%s}$ (Hz)"%(xlb))
+            plt.xlabel(r"$f^{%s}$ (Hz)"%(ylb))
 
     plt.tight_layout()
     return fig
