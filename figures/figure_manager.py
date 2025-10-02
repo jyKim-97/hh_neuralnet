@@ -19,6 +19,8 @@ Use "figure_renderer" decorator for each figure rendering functions
 
 ROOT_DIR = Path("./figures/").resolve()
 OLD_ROOT_DIR = Path("./figures/old/").resolve()
+CHECK_DIR = False
+SOURCE_COPIED = False
 
 
 class ParamTracker:
@@ -124,9 +126,6 @@ def log_params():
     return decorator
 
 
-CHECK_DIR = False
-
-
 def _ensure_dir(p: Path, reset: bool=False):
     global CHECK_DIR
     if CHECK_DIR:
@@ -139,37 +138,41 @@ def _ensure_dir(p: Path, reset: bool=False):
             path_yml = list(p.glob("*.yml"))
             if len(path_yml) == 0:
                 print("Remove empty directory:", p)
-                os.rmdir(p)
+                shutil.rmtree(p)
             elif len(path_yml) > 1:
                 raise ValueError(f"Multiple yml files found in {p}: {path_yml}")
-            
-            raw = yaml.safe_load(path_yml[0].read_text())
-            time_str = raw.get("time-kst")
-            dt = datetime.fromisoformat(time_str)
-            dt_noew = datetime.now()
-            if dt.strftime("%y%m%d") == dt_noew.strftime("%y%m%d"):
-                # remove the directory if created today
-                print("Remove directory created today:", p)
-                
-                shutil.rmtree(p)
-            else: # keep old directory
-                new_dir = OLD_ROOT_DIR / f"{p.name}_{dt.strftime('%y%m%d')}"
-                print(f"Move existing directory {p} to {new_dir}")
-                shutil.move(p, new_dir)
+            else:
+                raw = yaml.safe_load(path_yml[0].read_text())
+                time_str = raw.get("time-kst")
+                dt = datetime.fromisoformat(time_str)
+                dt_noew = datetime.now()
+                if dt.strftime("%y%m%d") == dt_noew.strftime("%y%m%d"):
+                    # remove the directory if created today
+                    print("Remove directory created today:", p)
+                    shutil.rmtree(p)
+                else: # keep old directory
+                    new_dir = OLD_ROOT_DIR / f"{p.name}_{dt.strftime('%y%m%d')}"
+                    print(f"Move existing directory {p} to {new_dir}")
+                    shutil.move(p, new_dir)
 
     p.mkdir(parents=True, exist_ok=True)
     CHECK_DIR = True
 
     
 def figure_renderer(fig_name=None, reset=False, exts=(".png", ".svg")):
+    """ fn should returns plt.figure object """
     def decorator(fn):
-        # fn should returns "fig"
         module = sys.modules[fn.__module__]
         script_file = Path(module.__file__)
         prefix = Path(script_file.stem)
         out_dir = ROOT_DIR / prefix
         out_name = Path(fig_name)
         _ensure_dir(out_dir, reset)
+        
+        global SOURCE_COPIED
+        if not SOURCE_COPIED:
+            shutil.copyfile(script_file, out_dir / script_file.name)
+            SOURCE_COPIED = True
 
         @log_params()
         @wraps(fn)
