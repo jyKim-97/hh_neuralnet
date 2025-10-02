@@ -171,7 +171,8 @@ def figure_renderer(fig_name=None, reset=False, exts=(".png", ".svg")):
         
         global SOURCE_COPIED
         if not SOURCE_COPIED:
-            shutil.copyfile(script_file, out_dir / script_file.name)
+            new_name = "source_" + str(script_file.name)
+            shutil.copyfile(script_file, out_dir / new_name)
             SOURCE_COPIED = True
 
         @log_params()
