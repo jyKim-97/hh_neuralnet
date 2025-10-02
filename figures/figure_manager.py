@@ -136,14 +136,26 @@ def _ensure_dir(p: Path, reset: bool=False):
         if reset:
             shutil.rmtree(p)
         else:
-            path_yml = list(p.glob("*.yml"))           
-            assert len(path_yml) == 1
+            path_yml = list(p.glob("*.yml"))
+            if len(path_yml) == 0:
+                print("Remove empty directory:", p)
+                os.rmdir(p)
+            elif len(path_yml) > 1:
+                raise ValueError(f"Multiple yml files found in {p}: {path_yml}")
+            
             raw = yaml.safe_load(path_yml[0].read_text())
             time_str = raw.get("time-kst")
             dt = datetime.fromisoformat(time_str)
-            new_dir = OLD_ROOT_DIR / f"{p.name}_{dt.strftime('%y%m%d')}"
-            print(f"Move existing directory {p} to {new_dir}")
-            shutil.move(p, new_dir)
+            dt_noew = datetime.now()
+            if dt.strftime("%y%m%d") == dt_noew.strftime("%y%m%d"):
+                # remove the directory if created today
+                print("Remove directory created today:", p)
+                
+                shutil.rmtree(p)
+            else: # keep old directory
+                new_dir = OLD_ROOT_DIR / f"{p.name}_{dt.strftime('%y%m%d')}"
+                print(f"Move existing directory {p} to {new_dir}")
+                shutil.move(p, new_dir)
 
     p.mkdir(parents=True, exist_ok=True)
     CHECK_DIR = True
