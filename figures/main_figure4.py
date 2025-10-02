@@ -106,7 +106,7 @@ def show_single_spike_resp(figsize=(2.5, 2), prob_spk_dir=None, cid=0, wid=10, n
         plt.fill_between(t, dy-ds, dy+ds, color=cmap(nd/prob_set.ndelay.max()), alpha=0.3, edgecolor="none")
 
     plt.xlabel("Time from" + "\n" + "transmitter firing (ms)")
-    plt.ylabel(r"$P_%s - P_{%s, 0}$"%(lb, lb))
+    plt.ylabel(r"$P^%s - P^%s_{base}$"%(lb, lb))
     plt.ylim([-0.001, 0.02])
 
     return fig
@@ -131,9 +131,9 @@ def show_tline_sample(figsize=(2.5, 8), kappa_dir=None, cid=0, wid=0, err_method
         ym_b, ymin_b, ymax_b = get_err_range(kappa_set.kappa_base.isel(dict(ntp=1-npop)).data, method=err_method, smul=err_std, p_ranges=p_ranges)
         ym, ymin, ymax = get_err_range(kappa_set.kappa.isel(dict(ntp=1-npop)).data, method=err_method, smul=err_std, p_ranges=p_ranges)
 
-        plt.plot(t, ym, color=te_colors[npop], lw=1, label=r"$\kappa_%s$"%(lb_set[npop]))
+        plt.plot(t, ym, color=te_colors[npop], lw=1, label=r"$\kappa^%s$"%(lb_set[npop]))
         plt.fill_between(t, ymin, ymax, color=te_colors[npop], alpha=0.3, edgecolor="none")
-        plt.fill_between(t, ymin_b, ymax_b, color="k", alpha=0.5, edgecolor="none", label=r"$\kappa_{base}$")
+        plt.fill_between(t, ymin_b, ymax_b, color="k", alpha=0.5, edgecolor="none", label=r"$\kappa_{base}^%s$"%(lb_set[npop]))
         plt.xlim([0, tmax])
         plt.legend(loc="lower right", fontsize=4.5, edgecolor="none", facecolor="none", ncol=2)
         
@@ -142,7 +142,7 @@ def show_tline_sample(figsize=(2.5, 8), kappa_dir=None, cid=0, wid=0, err_method
         plt.yticks(np.arange(-0.2, 0.3, 0.1), labels=[str("%d %%"%(int(100*x))) for x in np.arange(-0.2, 0.3, 0.1)])
         
         plt.xlabel("Delay, d (ms)")
-        plt.ylabel(r"$\kappa_%s$"%(lb_set[npop]))
+        plt.ylabel(r"$\kappa^%s$"%(lb_set[npop]))
     
     ax = plt.axes([0.01, 0.05, 0.95, 0.2])
     
@@ -217,21 +217,24 @@ def draw_entire_tl(figsize=(7.5, 10.5), kappa_dir=None, te_dir=None, err_std=2.5
             box_opt = dict(xmax=max_period, y0=2*box_height, box_height=box_height)
             visu.draw_te_diagram_reduce(tsig_sets, colors=[c_rect]*2, 
                                         xmax=max_period,
-                                        y0_set=[box_height/4, 7/4*box_height],
-                                        box_height=box_height/2,
+                                        y0_set=[box_height*5/8, 11/8*box_height],
+                                        # y0_set=[box_height/4, 7/4*box_height],
+                                        box_height=box_height/8,
+                                        arrow_ratio=1.5,
                                         show_axis=False, visu_type="arrow")
             
             # draw Tline results
             tline_opt = dict(visu_type="box", show_axis=False, alpha=0.5)
             visu.draw_te_diagram_reduce(tline_sig_pos, colors=[tl_colors[0]]*2, 
-                                        y0_set=[-box_height/4, 9/4*box_height],
+                                        y0_set=[0, 5-box_height/2],
+                                        # y0_set=[-box_height/4, 9/4*box_height],
                                         xmax=max_period,
-                                        box_height=box_height/2,
+                                        box_height=box_height,
                                         **tline_opt)
             visu.draw_te_diagram_reduce(tline_sig_neg, colors=[tl_colors[1]]*2, 
-                                        y0_set=[-box_height/4, 9/4*box_height],
+                                        y0_set=[0, 5-box_height/2],
                                         xmax=max_period,
-                                        box_height=box_height/2,
+                                        box_height=box_height,
                                         **tline_opt)
             # show axis
             visu.draw_te_diagram_reduce([[], []], colors=[c_rect]*2, **box_opt, visu_type="box", show_axis=True, fontsize=6)
@@ -256,8 +259,8 @@ def draw_entire_tl(figsize=(7.5, 10.5), kappa_dir=None, te_dir=None, err_std=2.5
     if empty_cells:
         rows = sorted({r for r,_ in empty_cells})
         cols = sorted({c for _,c in empty_cells})
-        r0, r1 = min(rows), max(rows)         # 세로로 연속한 빈줄 범위
-        c0, c1 = min(cols), max(cols)         # 가로로 연속한 빈칸 범위
+        r0, r1 = min(rows), max(rows)     
+        c0, c1 = min(cols), max(cols)     
         
         ws_row_e = ws_row*0.6
         ws_col_e = ws_col*0.6
