@@ -14,7 +14,6 @@ import figure_manager as fm
 import tetools as tt
 
 import hhtools
-
 import utils_fig as uf
 uf.set_plt()
 
@@ -154,5 +153,5 @@ if __name__ == "__main__":
     h = 3.
     
     draw_example(figsize=(5, h), data_dir=data_dir, cid=cid, nt=93)
-    draw_comap_sample(figsize=(h, h), cid=cid, fdir_coburst=fdir_coburst, **im_opt)
-    draw_comap_colorbar(figsize=(0.2, h), **im_opt)
+    draw_comap_sample(figsize=(h, h), cid=cid, fdir_coburst=fdir_coburst, **im_opt) #  type: ignore
+    draw_comap_colorbar(figsize=(0.2, h), **im_opt) # type: ignore

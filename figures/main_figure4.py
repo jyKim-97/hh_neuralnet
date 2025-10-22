@@ -198,7 +198,8 @@ def draw_example_te(figsize=(2.8, 11.8), cid=5, wid=10, p_ranges=(5, 95), te_dir
         opt = dict(alpha=0.5, avg_method='median', p_range=p_ranges)
         opt_line = dict(linestyle="-", linewidth=0.5)
         opt_noline = dict(linestyle="none")
-        visu.draw_with_err(tlag, x1, c=te_colors[nd], **opt, **opt_noline) # TE
+        # visu.draw_with_err(tlag, x1, c=te_colors[nd], **opt, **opt_noline) # TE
+        plt.plot(tlag, np.median(x1, axis=0), **opt_line)
         visu.draw_with_err(tlag, x2, c=te_colors[2], **opt, **opt_noline) # TE surrogate
         ax1, = plt.plot(tlag, np.median(x1, axis=0), c=te_colors[nd], **opt_line)
         ax2, = plt.plot(tlag, np.median(x2, axis=0), c=te_colors[2], **opt_line)
@@ -207,7 +208,8 @@ def draw_example_te(figsize=(2.8, 11.8), cid=5, wid=10, p_ranges=(5, 95), te_dir
             plt.plot(tsig, [ybar]*2, c="k", lw=1)
     
         plt.xlim([1, tcut])
-        plt.gca().set_yscale("log")
+        plt.ylim([-0.001, 0.1])
+        # plt.gca().set_yscale("log")
         
         plt.xlabel(r"$\tau$ (ms)")
         plt.ylabel(r"$TE_{%s \rightarrow %s}$ (bits)"%(lb_pop[nd], lb_pop[1-nd]))
