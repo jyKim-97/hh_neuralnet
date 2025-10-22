@@ -55,6 +55,7 @@ static void reorganize_syn_network(const char *prefix);
 // double taud[] = {  1, 2.5,   1, 8};
 
 // mpirun -np 100 --hostfile hostfile ./main.out -t 10500 --fdir_out ./data
+// #define PTYPE "normal"
 double taur[] = {0.3, 0.5, 0.3, 1};
 double taud[] = {  1, 2.5,   1, 8};
 
@@ -70,6 +71,30 @@ int main(int argc, char **argv){
     ignore_exist_file(true);
     read_args(argc, argv);
     read_params(fname_params);
+
+    #ifdef PTYPE
+    if (strcmp(PTYPE, "_normal") == 0) {
+        if (world_rank == 0){
+            printf("Test with normal population\n");
+        }
+    } else if (strcmp(PTYPE, "_mfast") == 0) {
+        if (world_rank == 0) printf("Run with fast-fast population\n");
+        for (int i=0; i<2; i++){
+            taur[i+2] = taur[i];
+            taud[i+2] = taud[i];
+        }
+    } else if (strcmp(PTYPE, "_mslow") == 0) {
+        if (world_rank == 0) printf("Run with slow-slow population\n");
+        for (int i=0; i<2; i++){
+            taur[i] = taur[i+2];
+            taud[i] = taud[i+2];
+        }
+    } else {
+        if (world_rank == 0) printf("Wrong population: %s\n", PTYPE);
+        
+        return 0;
+    }
+    #endif
 
     #ifndef TEST
     mpi_barrier();
@@ -91,7 +116,7 @@ int main(int argc, char **argv){
     tmax = 3000;
     _dt = 0.1;
     // run(123, NULL);
-    for (int n=10500; n<11000; n++){
+    for (int n=23; n<500; n++){
         fprintf(stderr, "========\nsample %d check\n\n=============", n);
         run(n, NULL);
     }
@@ -176,17 +201,17 @@ void run(int job_id, void *nullarg){
     #endif
 
     int flag_eq = 0;
-    int n0 = 0;
-    int nw = 1000 / _dt; // 1 s
-    int nm = 800 / _dt;
-    int nstack = 0;
+    // int n0 = 0;
+    // int nw = 1000 / _dt; // 1 s
+    // int nm = 800 / _dt;
+    // int nstack = 0;
     for (int nstep=0; nstep<nmax; nstep++){
         if ((flag_eq==0) && (nstep == neq)){
             flush_measure();
             flag_eq = 1;
 
             add_checkpoint(nstep);
-            n0 = neq;
+            // n0 = neq;
         }
 
         // if ((flag_eq==1) && (nstep==n0+nm)){
@@ -475,7 +500,7 @@ static void reorganize_syn_network(const char *fname){
             int n0 = ntp*nhalf+n;
             bool is_update = false;
             int nstack = 0;
-            while (nstack < 5){
+            while (nstack < 5){ // select T neurons which has more than 5 post-syn neurons
                 if (is_update){
                     int nmax = 0;
                     for (int i=ntp*num_trans; i<(ntp+1)*num_trans; i++){
@@ -485,9 +510,9 @@ static void reorganize_syn_network(const char *fname){
                     }
                     n0 = nmax+1;
                 }
-                for (int n=0; n<nstack; n++) id_target[n] = -1;
+                for (int n=0; n<Ne; n++) id_target[n] = -1;
+
                 nstack = 0;
-                
                 int ntp_r = 2*(1-ntp);
                 for (int i=cell_range[ntp_r][0]; i<cell_range[ntp_r][1]; i++){
                     if (i < cell_range[ntp_r][0]+num_trans){
@@ -501,6 +526,13 @@ static void reorganize_syn_network(const char *fname){
                     }
                 }
                 id_target[nstack] = -1;
+                
+                for (int i=0; i<ntp*num_trans+n; i++){
+                    if ((n0 == sel_tneuron[i]) || (n0 == sel_rneuron[i])){
+                        nstack = 0;
+                    }
+                }
+
                 sel_tneuron[ntp*num_trans+n] = n0;
                 is_update = true;
             }
@@ -530,14 +562,6 @@ static void reorganize_syn_network(const char *fname){
             }
 
             sel_rneuron[ntp*num_trans+n] = idsel;
-
-            // printf("sel T: %d, sel R: %d\n", sel_tneuron[ntp*num_trans+n], sel_rneuron[ntp*num_trans+n]);
-            
-            // select delay
-            // int td = (int) (genrand64_real2() * (tdelay_max / tdelay_itv+1));
-            // td*=tdelay_itv;
-            // sel_tdelay[ntp*num_trans+n] = td;
-
             free(id_target);            
         }
     }
@@ -610,12 +634,22 @@ static void reorganize_syn_network(const char *fname){
                         syn.indeg_list[npost][i] = -1;
                         syn.w_list[npost][i] = 0;
                     }
-                    break;
+                    break; // originally, break is in here, which would not disconnect the transmitter neuron input to the others
                 }
             }
         }
+
         if (flag == 0){
-            fprintf(stderr, "Transmitter %d has not connected\n", sel_tneuron[n]);
+            fprintf(stderr, "Transmitter %d has not connected (recv: %d)\n", sel_tneuron[n], sel_rneuron[n]);
+            fprintf(stderr, "Trange:\n");
+            for (int i=0; i<2*num_trans; i++){
+                fprintf(stderr, "%d, ", sel_tneuron[i]);
+            }
+            fprintf(stderr, "Rrange:\n");
+            for (int i=0; i<2*num_trans; i++){
+                fprintf(stderr, "%d, ", sel_rneuron[i]);
+            }
+
             REPORT_ERROR("Connection Error\n");
         }
         
